@@ -25,8 +25,14 @@ dist-ssr
 
 # Secrets
 .env
-*.json_key
-vertex_key.json
-new_vertex_key.json
-rag_diary.json
+*.json
+!package.json
+!package-lock.json
+!firebase.json
+!models_list.json
+!rag_diary.json
+!ai_cache.json
+!pattern_insights.json
+*.txt
+"한국투자증권api키.txt"
 
