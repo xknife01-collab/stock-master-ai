@@ -101,7 +101,10 @@ const saveAiCache = (pulseData, hourKey) => {
 };
 
 const fetchNaverNews = async (query = '주식 시장 전망 시황') => {
-    if (!process.env.NAVER_CLIENT_ID || !process.env.NAVER_CLIENT_SECRET) return "네이버 뉴스 키가 등록되지 않았습니다.";
+    const defaultRes = { text: "뉴스 데이터를 불러오지 못했습니다.", sentiment: { bullishPercent: 0, bearishPercent: 0, neutralPercent: 100 } };
+    if (!process.env.NAVER_CLIENT_ID || !process.env.NAVER_CLIENT_SECRET) {
+        return { text: "네이버 뉴스 키가 등록되지 않았습니다.", sentiment: { bullishPercent: 0, bearishPercent: 0, neutralPercent: 100 } };
+    }
     try {
         const response = await axios.get('https://openapi.naver.com/v1/search/news.json', {
             params: { query, display: 30, sort: 'date' },
@@ -110,10 +113,71 @@ const fetchNaverNews = async (query = '주식 시장 전망 시황') => {
                 'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
             }
         });
-        return response.data.items.map(it => it.title.replace(/<[^>]*>?/g, '').replace(/&quot;/g, '"')).join('\n');
+        
+        const items = response.data.items || [];
+        if (items.length === 0) {
+            return { text: "관련 뉴스 없음", sentiment: { bullishPercent: 0, bearishPercent: 0, neutralPercent: 100 } };
+        }
+
+        const titles = items.map(it => it.title.replace(/<[^>]*>?/g, '').replace(/&quot;/g, '"'));
+        const text = titles.join('\n');
+
+        // 감성 사전 정의
+        const bullishKeywords = [
+            '상승', '호재', '돌파', '급등', '흑자', '성장', '계약', '체결', '강세', '최고', '수혜', '신고가', 
+            '상향', '호실적', '대박', '인수', '진입', '독점', '기대', '전망 밝', '주목', '러브콜', '성공', 
+            '순항', '확대', '1위', '급증', '반등', '유입', '상승세', '신제품', '출시', '협력', '파란불', '훈풍',
+            '어닝 서프라이즈', '서프라이즈', '날개', '독주', '러시', '활짝', '껑충', '최대 실적'
+        ];
+
+        const bearishKeywords = [
+            '하락', '악재', '급락', '적자', '감소', '우려', '약세', '최저', '피소', '과징금', '논란', '붕괴', 
+            '부진', '쇼크', '하향', '횡령', '배임', '취소', '경고', '위험', '소송', '분쟁', '축소', '실패', 
+            '지연', '리스크', '둔화', '어닝쇼크', '포기', '급감', '이탈', '하락세', '찬바람', '먹구름', '빨간불',
+            '급락세', '쇼크', '악화', '경고등', '반토막', '쇼크', '과열 우려'
+        ];
+
+        let bullishCount = 0;
+        let bearishCount = 0;
+        let neutralCount = 0;
+
+        titles.forEach(title => {
+            let pScore = 0;
+            let nScore = 0;
+
+            bullishKeywords.forEach(kw => {
+                if (title.includes(kw)) pScore++;
+            });
+
+            bearishKeywords.forEach(kw => {
+                if (title.includes(kw)) nScore++;
+            });
+
+            if (pScore > nScore) {
+                bullishCount++;
+            } else if (nScore > pScore) {
+                bearishCount++;
+            } else {
+                neutralCount++;
+            }
+        });
+
+        const total = titles.length;
+        const bullishPercent = parseFloat(((bullishCount / total) * 100).toFixed(1));
+        const bearishPercent = parseFloat(((bearishCount / total) * 100).toFixed(1));
+        const neutralPercent = parseFloat(((neutralCount / total) * 100).toFixed(1));
+
+        return {
+            text,
+            sentiment: {
+                bullishPercent,
+                bearishPercent,
+                neutralPercent
+            }
+        };
     } catch (e) { 
         console.error('Naver News Fetch Error:', e.message);
-        return "뉴스 데이터를 불러오지 못했습니다."; 
+        return defaultRes; 
     }
 };
 
@@ -501,7 +565,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
     const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
     try {
         console.log(`🤖 [${timeStr}] 1단계: 시장 분석 및 종목 후보 선별 시작...`);
-        const currentNews = await fetchNaverNews();
+        const currentNewsData = await fetchNaverNews();
+        const currentNews = currentNewsData.text;
+        const marketNewsSentiment = currentNewsData.sentiment;
         const macro = await fetchMacroIndicators();
         
         // 매크로 지표에 대한 시장 주류 해석(Sentiment) 힌트 추가
@@ -634,7 +700,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         const topPickCode = topPick?.s;
         
         let stockSpecificNews = "";
+        let stockNewsSentiment = null;
         let themeSpecificNews = ""; // 테마 전용 뉴스 추가
+        let themeNewsSentiment = null;
         let stockSpecificSupply = "";
         let supplyStats = null;
         let topAnalytics = null;
@@ -647,8 +715,10 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 fetchStockInvestorTrend(topPickCode),
                 fetchStockAnalytics(topPickCode)
             ]);
-            stockSpecificNews = newsResult;
-            themeSpecificNews = themeNewsResult;
+            stockSpecificNews = newsResult?.text || "데이터 부족";
+            stockNewsSentiment = newsResult?.sentiment || null;
+            themeSpecificNews = themeNewsResult?.text || "데이터 부족";
+            themeNewsSentiment = themeNewsResult?.sentiment || null;
             stockSpecificSupply = supplyResult?.rawSummary || "정보 없음";
             supplyStats = supplyResult?.stats || null;
             topAnalytics = analyticsResult;
@@ -661,9 +731,11 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         [TOP PICK: ${topPick.n} 전용 심층 데이터]
         1. 종목별 최신 뉴스/공시:
         ${stockSpecificNews || "데이터 부족"}
+        - 종목 뉴스 감성 지수: 호재(Bullish) ${stockNewsSentiment?.bullishPercent || 0}%, 악재(Bearish) ${stockNewsSentiment?.bearishPercent || 0}%, 중립(Neutral) ${stockNewsSentiment?.neutralPercent || 0}%
         
         2. 해당 테마(${mainTheme}) 산업 전망 뉴스:
         ${themeSpecificNews || "데이터 부족"}
+        - 테마 뉴스 감성 지수: 호재(Bullish) ${themeNewsSentiment?.bullishPercent || 0}%, 악재(Bearish) ${themeNewsSentiment?.bearishPercent || 0}%, 중립(Neutral) ${themeNewsSentiment?.neutralPercent || 0}%
 
         3. 외국인/기관 수급 추이 (3일):
         ${stockSpecificSupply}
@@ -709,6 +781,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         [뉴스/매크로 재료]
         ${currentNews}
+        - 시장 종합 뉴스 감성 지수: 호재(Bullish) ${marketNewsSentiment?.bullishPercent || 0}%, 악재(Bearish) ${marketNewsSentiment?.bearishPercent || 0}%, 중립(Neutral) ${marketNewsSentiment?.neutralPercent || 0}%
 
         [장기 기억 (과거 패턴 및 교훈)]
         ${longTermMemory}
@@ -730,7 +803,8 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         11. **이동평균선 배열 가이드:** 이동평균선이 '역배열 (하락 추세 지속)'인 종목은 메인 추천(TOP PICK)에서 가능한 배제하고, '정배열 (강력한 추세 상승)'이거나 막 20일선 골든크로스가 발생한 안정적인 종목 위주로 선정해.
         12. **최근 추천 백테스팅 피드백 학습:** 제공된 [최근 추천 성적 요약] 백테스팅 리포트를 꼼꼼히 확인해. 최근 추천 성공률이 매우 낮거나 마이너스 성적을 낸 특정 테마군(예: 3일/5일 마이너스)이 있다면, 이번 선정 시 유사 테마/유사 지표를 가진 종목에 대한 리스크 판정을 2배 더 응격하게 적용하여 억지 추천을 원천 배제해. 리포트의 feedback이나 reason에서 스스로 과거 성적 피드백 결과(예: '최근 반도체 테마의 성적이 양호하므로 모멘텀 신뢰도가 높음' 또는 '최근 2차전지 테마의 3일 수익률이 마이너스로 부진하므로 이번 2차전지 종목 추천에서는 목표가를 낮춰 보수적으로 접근함')를 인용하며 학습한 흔적을 남겨줘.
         13. **누적 수급 및 연속 순매수 분석 적용:** 제공된 외국인/기관의 5일/20일 누적 순매수 수량 및 연속 순매수 일수를 분석에 반영해. 외인 또는 기관이 3일 이상 연속 순매수 중이거나 5일/20일 누적 순매수 유입이 큰 종목은 상승의 지속성과 세력 수급의 신뢰도가 높은 주도주로 취급하고 매매 전략을 적극적으로 산정해. 반면 5일/20일 누적이 순매도이거나 연속 순매수 일수가 짧다면(0~1일) 일회성 speculative(테마성 일시 반등)일 가능성이 크므로 보수적으로 대응해.
-        14. JSON 형식으로만 응답해.
+        14. **뉴스 감성 스코어(Sentiment Score) 분석 적용:** 제공된 시장/테마/종목별 '뉴스 감성 지수(호재%, 악재%)'를 리스크 판별 및 목표가 설정에 적극적으로 연계해. 만약 특정 종목이나 테마의 호재성 뉴스 비율이 70% 이상이면 시장 관심도가 매우 뜨거운 상태로 보아 'shortTermPicks' 진입 시 가산점을 부여하되, 악재성 뉴스 비율이 30% 이상이거나 갑작스럽게 악재 뉴스가 증가한 경우에는 단기 리스크가 급증한 것으로 판단해 'VETO RULE(추천 배제)' 또는 손절선(sl)을 타이트하게 조절해. 감정적 편향을 억제하고 이 계량 지표를 우선 신뢰해.
+        15. JSON 형식으로만 응답해.
 
         [출력 양식]
         {
