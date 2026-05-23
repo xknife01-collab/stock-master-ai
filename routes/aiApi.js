@@ -636,16 +636,23 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         let stockSpecificNews = "";
         let themeSpecificNews = ""; // 테마 전용 뉴스 추가
         let stockSpecificSupply = "";
+        let supplyStats = null;
         let topAnalytics = null;
 
         if (topPickCode) {
             console.log(`🔍 [Pulse] TOP PICK(${topPick.n}) 및 테마(${mainTheme}) 심층 데이터 수집 중...`);
-            [stockSpecificNews, themeSpecificNews, stockSpecificSupply, topAnalytics] = await Promise.all([
+            const [newsResult, themeNewsResult, supplyResult, analyticsResult] = await Promise.all([
                 fetchNaverNews(`${topPick.n} 주식 전망 공시 뉴스`),
                 fetchNaverNews(`${mainTheme} 산업 전망 시장 분석`), // 테마 전용 뉴스
                 fetchStockInvestorTrend(topPickCode),
                 fetchStockAnalytics(topPickCode)
             ]);
+            stockSpecificNews = newsResult;
+            themeSpecificNews = themeNewsResult;
+            stockSpecificSupply = supplyResult?.rawSummary || "정보 없음";
+            supplyStats = supplyResult?.stats || null;
+            topAnalytics = analyticsResult;
+
             console.log(`📑 [Pulse] 테마 뉴스 수집 결과: ${themeSpecificNews.length > 50 ? '성공' : '실패/부족'}`);
             console.log(`📊 [Pulse] 종목 수급 수집 결과: ${stockSpecificSupply}`);
         }
@@ -660,6 +667,12 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         3. 외국인/기관 수급 추이 (3일):
         ${stockSpecificSupply}
+        - 외국인 5일 누적 순매수 수량: ${supplyStats?.foreign5D !== undefined ? supplyStats.foreign5D.toLocaleString() + '주' : '정보 없음'}
+        - 기관 5일 누적 순매수 수량: ${supplyStats?.organ5D !== undefined ? supplyStats.organ5D.toLocaleString() + '주' : '정보 없음'}
+        - 외국인 20일 누적 순매수 수량: ${supplyStats?.foreign20D !== undefined ? supplyStats.foreign20D.toLocaleString() + '주' : '정보 없음'}
+        - 기관 20일 누적 순매수 수량: ${supplyStats?.organ20D !== undefined ? supplyStats.organ20D.toLocaleString() + '주' : '정보 없음'}
+        - 외국인 연속 순매수 일수: ${supplyStats?.foreignConsecutiveDays !== undefined ? supplyStats.foreignConsecutiveDays + '일 연속' : '정보 없음'}
+        - 기관 연속 순매수 일수: ${supplyStats?.organConsecutiveDays !== undefined ? supplyStats.organConsecutiveDays + '일 연속' : '정보 없음'}
         
         4. 과거 실적 (재무):
         ${topAnalytics?.financeData ? topAnalytics.financeData.map(f => `- ${f.period}: 매출 ${f.revenue}억, 영업이익 ${f.profit}억`).join('\n        ') : "정보 없음"}
@@ -715,8 +728,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         9. 'macro' 필드에는 현재 환율/금리 상황에서 이 테마가 가질 '아킬레스건(치명적 약점)'을 반드시 포함할 것.
         10. **기술적 지표 분석 적용:** 제공된 기술적 분석 지표를 바탕으로 주가 위치를 정밀하게 평가해. 만약 RSI가 70 이상이거나 볼린저 밴드 상한선 부근(positionPercent > 80%)에 도달한 과열 상태라면, 아무리 뉴스가 좋아도 단기 리스크가 큼을 'bearCase' 및 'feedback'에 경고로 지적하고 분할 매수 전략을 추천해. 반대로 RSI가 30 이하이거나 볼린저 밴드 하한선 부근(positionPercent < 20%)에 위치한 과매도 상태라면 낙폭 과대 반등 가치를 분석해 리포트에 반영해.
         11. **이동평균선 배열 가이드:** 이동평균선이 '역배열 (하락 추세 지속)'인 종목은 메인 추천(TOP PICK)에서 가능한 배제하고, '정배열 (강력한 추세 상승)'이거나 막 20일선 골든크로스가 발생한 안정적인 종목 위주로 선정해.
-        12. **최근 추천 백테스팅 피드백 학습:** 제공된 [최근 추천 성적 요약] 백테스팅 리포트를 꼼꼼히 확인해. 최근 추천 성공률이 매우 낮거나 마이너스 성적을 낸 특정 테마군(예: 3일/5일 마이너스)이 있다면, 이번 선정 시 유사 테마/유사 지표를 가진 종목에 대한 리스크 판정을 2배 더 엄격하게 적용하여 억지 추천을 원천 배제해. 리포트의 feedback이나 reason에서 스스로 과거 성적 피드백 결과(예: '최근 반도체 테마의 성적이 양호하므로 모멘텀 신뢰도가 높음' 또는 '최근 2차전지 테마의 3일 수익률이 마이너스로 부진하므로 이번 2차전지 종목 추천에서는 목표가를 낮춰 보수적으로 접근함')를 인용하며 학습한 흔적을 남겨줘.
-        13. JSON 형식으로만 응답해.
+        12. **최근 추천 백테스팅 피드백 학습:** 제공된 [최근 추천 성적 요약] 백테스팅 리포트를 꼼꼼히 확인해. 최근 추천 성공률이 매우 낮거나 마이너스 성적을 낸 특정 테마군(예: 3일/5일 마이너스)이 있다면, 이번 선정 시 유사 테마/유사 지표를 가진 종목에 대한 리스크 판정을 2배 더 응격하게 적용하여 억지 추천을 원천 배제해. 리포트의 feedback이나 reason에서 스스로 과거 성적 피드백 결과(예: '최근 반도체 테마의 성적이 양호하므로 모멘텀 신뢰도가 높음' 또는 '최근 2차전지 테마의 3일 수익률이 마이너스로 부진하므로 이번 2차전지 종목 추천에서는 목표가를 낮춰 보수적으로 접근함')를 인용하며 학습한 흔적을 남겨줘.
+        13. **누적 수급 및 연속 순매수 분석 적용:** 제공된 외국인/기관의 5일/20일 누적 순매수 수량 및 연속 순매수 일수를 분석에 반영해. 외인 또는 기관이 3일 이상 연속 순매수 중이거나 5일/20일 누적 순매수 유입이 큰 종목은 상승의 지속성과 세력 수급의 신뢰도가 높은 주도주로 취급하고 매매 전략을 적극적으로 산정해. 반면 5일/20일 누적이 순매도이거나 연속 순매수 일수가 짧다면(0~1일) 일회성 speculative(테마성 일시 반등)일 가능성이 크므로 보수적으로 대응해.
+        14. JSON 형식으로만 응답해.
 
         [출력 양식]
         {
