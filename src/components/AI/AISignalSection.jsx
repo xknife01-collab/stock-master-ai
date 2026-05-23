@@ -254,6 +254,8 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
               <tbody className="divide-y divide-white/[0.03]">
                 {aiHistory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item, i) => {
                   const prediction = item.prediction || item.signal; // 호환성 유지
+                  const isShortTerm = (item.shortTermPicks || []).some(p => p.n === prediction?.stock);
+                  const isLongTerm = (item.longTermPicks || []).some(p => p.n === prediction?.stock);
                   return (
                     <tr key={i} className="hover:bg-white/[0.03] transition-colors group">
                       <td className="p-4 text-white/40 font-mono text-[10px] whitespace-nowrap">{formatDateTime(item.time)}</td>
@@ -261,14 +263,44 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                       <td className="p-4 whitespace-nowrap">
                         <span 
                           onClick={() => prediction?.stock && onOpenPopup(prediction.stock, prediction.price, prediction.themeProb, prediction.symbol)} 
-                          className="px-2 py-1 rounded bg-blue-600/10 border border-blue-500/20 text-blue-300 font-black text-[10px] cursor-pointer inline-block"
+                          className="px-2 py-1 rounded bg-blue-600/10 border border-blue-500/20 text-blue-300 font-black text-[10px] cursor-pointer inline-flex items-center"
                         >
                           {prediction?.stock || '-'}
+                          {isShortTerm && (
+                            <span className="ml-1.5 px-1 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[8px] font-black leading-none">단기</span>
+                          )}
+                          {isLongTerm && (
+                            <span className="ml-1.5 px-1 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-black leading-none">장기</span>
+                          )}
                         </span>
                       </td>
                       <td className="p-4 text-[#00ffab] font-black whitespace-nowrap">{prediction?.themeProb || '-'}</td>
                       <td className="p-4 text-white/40 text-[11px] leading-relaxed break-all">
-                        {prediction?.reason || '-'}
+                        <div>{prediction?.reason || '-'}</div>
+                        {((item.shortTermPicks && item.shortTermPicks.length > 0) || (item.longTermPicks && item.longTermPicks.length > 0)) && (
+                          <div className="mt-2 pt-2 border-t border-white/[0.03] flex flex-col gap-1 text-[10px]">
+                            {item.shortTermPicks && item.shortTermPicks.length > 0 && (
+                              <div className="flex gap-1.5 items-center">
+                                <span className="text-amber-400/80 font-bold whitespace-nowrap">단기 추천군:</span>
+                                <div className="flex flex-wrap gap-1">
+                                  {item.shortTermPicks.map((p, idx) => (
+                                    <span key={idx} className="text-white/50">{p.n}{idx < item.shortTermPicks.length - 1 ? ',' : ''}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {item.longTermPicks && item.longTermPicks.length > 0 && (
+                              <div className="flex gap-1.5 items-center">
+                                <span className="text-emerald-400/80 font-bold whitespace-nowrap">중장기 추천군:</span>
+                                <div className="flex flex-wrap gap-1">
+                                  {item.longTermPicks.map((p, idx) => (
+                                    <span key={idx} className="text-white/50">{p.n}{idx < item.longTermPicks.length - 1 ? ',' : ''}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -281,6 +313,8 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
           <div className="block md:hidden space-y-4">
             {aiHistory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item, i) => {
               const prediction = item.prediction || item.signal;
+              const isShortTerm = (item.shortTermPicks || []).some(p => p.n === prediction?.stock);
+              const isLongTerm = (item.longTermPicks || []).some(p => p.n === prediction?.stock);
               return (
                 <div key={i} className="p-4 rounded-xl border border-white/5 bg-white/[0.02] flex flex-col gap-3">
                   <div className="flex justify-between items-center pb-2 border-b border-white/[0.03]">
@@ -300,9 +334,15 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                       <span className="text-[10px] text-white/30 uppercase font-black">핵심 종목</span>
                       <span 
                         onClick={() => prediction?.stock && onOpenPopup(prediction.stock, prediction.price, prediction.themeProb, prediction.symbol)} 
-                        className="px-2 py-0.5 rounded bg-blue-600/10 border border-blue-500/20 text-blue-300 font-black text-[10px] cursor-pointer"
+                        className="px-2 py-0.5 rounded bg-blue-600/10 border border-blue-500/20 text-blue-300 font-black text-[10px] cursor-pointer inline-flex items-center"
                       >
                         {prediction?.stock || '-'}
+                        {isShortTerm && (
+                          <span className="ml-1 px-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[8px] font-black leading-none scale-90 origin-right">단기</span>
+                        )}
+                        {isLongTerm && (
+                          <span className="ml-1 px-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-black leading-none scale-90 origin-right">장기</span>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -311,6 +351,32 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                     <p className="text-[11px] text-white/60 leading-relaxed break-all whitespace-pre-line">
                       {prediction?.reason || '-'}
                     </p>
+                    
+                    {/* Other Short/Long term picks list */}
+                    {((item.shortTermPicks && item.shortTermPicks.length > 0) || (item.longTermPicks && item.longTermPicks.length > 0)) && (
+                      <div className="mt-2 pt-2 border-t border-white/[0.03] flex flex-col gap-1 text-[10px]">
+                        {item.shortTermPicks && item.shortTermPicks.length > 0 && (
+                          <div className="flex gap-1.5 items-center">
+                            <span className="text-amber-400/80 font-bold whitespace-nowrap">단기 추천군:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {item.shortTermPicks.map((p, idx) => (
+                                <span key={idx} className="text-white/50">{p.n}{idx < item.shortTermPicks.length - 1 ? ',' : ''}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {item.longTermPicks && item.longTermPicks.length > 0 && (
+                          <div className="flex gap-1.5 items-center">
+                            <span className="text-emerald-400/80 font-bold whitespace-nowrap">중장기 추천군:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {item.longTermPicks.map((p, idx) => (
+                                <span key={idx} className="text-white/50">{p.n}{idx < item.longTermPicks.length - 1 ? ',' : ''}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
