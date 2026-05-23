@@ -298,7 +298,15 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                                 <span className="text-amber-400/80 font-bold whitespace-nowrap">단기 추천군:</span>
                                 <div className="flex flex-wrap gap-1">
                                   {item.shortTermPicks.map((p, idx) => (
-                                    <span key={idx} className="text-white/50">{p.n}{idx < item.shortTermPicks.length - 1 ? ',' : ''}</span>
+                                    <span key={idx} className="text-white/40">
+                                      <span 
+                                        onClick={() => onOpenPopup(p.n, p.p, prediction?.themeProb, p.c)}
+                                        className="text-amber-300/80 hover:text-amber-300 font-bold cursor-pointer hover:underline transition-colors"
+                                      >
+                                        {p.n}
+                                      </span>
+                                      {idx < item.shortTermPicks.length - 1 ? ', ' : ''}
+                                    </span>
                                   ))}
                                 </div>
                               </div>
@@ -308,7 +316,15 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                                 <span className="text-emerald-400/80 font-bold whitespace-nowrap">중장기 추천군:</span>
                                 <div className="flex flex-wrap gap-1">
                                   {item.longTermPicks.map((p, idx) => (
-                                    <span key={idx} className="text-white/50">{p.n}{idx < item.longTermPicks.length - 1 ? ',' : ''}</span>
+                                    <span key={idx} className="text-white/40">
+                                      <span 
+                                        onClick={() => onOpenPopup(p.n, p.p, prediction?.themeProb, p.c)}
+                                        className="text-emerald-300/80 hover:text-emerald-300 font-bold cursor-pointer hover:underline transition-colors"
+                                      >
+                                        {p.n}
+                                      </span>
+                                      {idx < item.longTermPicks.length - 1 ? ', ' : ''}
+                                    </span>
                                   ))}
                                 </div>
                               </div>
@@ -380,7 +396,15 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                             <span className="text-amber-400/80 font-bold whitespace-nowrap">단기 추천군:</span>
                             <div className="flex flex-wrap gap-1">
                               {item.shortTermPicks.map((p, idx) => (
-                                <span key={idx} className="text-white/50">{p.n}{idx < item.shortTermPicks.length - 1 ? ',' : ''}</span>
+                                <span key={idx} className="text-white/40">
+                                  <span 
+                                    onClick={() => onOpenPopup(p.n, p.p, prediction?.themeProb, p.c)}
+                                    className="text-amber-300/80 active:text-amber-300 font-bold cursor-pointer hover:underline transition-colors"
+                                  >
+                                    {p.n}
+                                  </span>
+                                  {idx < item.shortTermPicks.length - 1 ? ', ' : ''}
+                                </span>
                               ))}
                             </div>
                           </div>
@@ -390,7 +414,15 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                             <span className="text-emerald-400/80 font-bold whitespace-nowrap">중장기 추천군:</span>
                             <div className="flex flex-wrap gap-1">
                               {item.longTermPicks.map((p, idx) => (
-                                <span key={idx} className="text-white/50">{p.n}{idx < item.longTermPicks.length - 1 ? ',' : ''}</span>
+                                <span key={idx} className="text-white/40">
+                                  <span 
+                                    onClick={() => onOpenPopup(p.n, p.p, prediction?.themeProb, p.c)}
+                                    className="text-emerald-300/80 active:text-emerald-300 font-bold cursor-pointer hover:underline transition-colors"
+                                  >
+                                    {p.n}
+                                  </span>
+                                  {idx < item.longTermPicks.length - 1 ? ', ' : ''}
+                                </span>
                               ))}
                             </div>
                           </div>
