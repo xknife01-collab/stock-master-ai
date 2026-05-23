@@ -1,7 +1,7 @@
 import React from 'react';
 import { TrendingUp } from 'lucide-react';
 
-const Header = ({ user, onOpenLogin, onLogout }) => {
+const Header = ({ user, onOpenLogin, onLogout, showInstallBtn, onInstallClick }) => {
   return (
     <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
       <div className="flex items-center gap-4">
@@ -17,6 +17,18 @@ const Header = ({ user, onOpenLogin, onLogout }) => {
         </div>
       </div>
       <div className="flex gap-4 items-center">
+        {showInstallBtn && (
+          <button
+            onClick={onInstallClick}
+            className="text-[10px] font-black text-[#00ffcc] hover:text-[#00ffcc]/80 hover:bg-[#00ffcc]/10 uppercase tracking-widest border border-[#00ffcc]/30 bg-[#00ffcc]/5 px-4 py-2.5 rounded-xl transition-all shadow-[0_0_15px_rgba(0,255,204,0.1)] flex items-center gap-1.5"
+          >
+            <svg className="w-3.5 h-3.5 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            앱 설치
+          </button>
+        )}
+        
         {user ? (
           <div className="flex flex-col items-end gap-1">
             <div className="glass-card px-4 py-2 border-white/10 bg-white/5 flex flex-col items-end">

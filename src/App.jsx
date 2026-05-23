@@ -40,8 +40,9 @@ const App = () => {
 
   // PWA Installation States
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
   const [isIOSDevice, setIsIOSDevice] = useState(false);
+  const [showIosGuide, setShowIosGuide] = useState(false);
 
   useEffect(() => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
@@ -49,22 +50,19 @@ const App = () => {
     setIsIOSDevice(ios);
 
     if (isStandalone) {
-      setShowInstallBanner(false);
+      setShowInstallBtn(false);
       return;
     }
+
+    // Always show install button if not running standalone
+    setShowInstallBtn(true);
 
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      setShowInstallBanner(true);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    // If iOS and not standalone, show a guide banner
-    if (ios && !isStandalone) {
-      setShowInstallBanner(true);
-    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -72,12 +70,19 @@ const App = () => {
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`User install choice: ${outcome}`);
-    setDeferredPrompt(null);
-    setShowInstallBanner(false);
+    if (isIOSDevice) {
+      setShowIosGuide(true);
+      return;
+    }
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`User install choice: ${outcome}`);
+      setDeferredPrompt(null);
+      setShowInstallBtn(false);
+    } else {
+      alert("이 브라우저에서는 공유 메뉴를 통해 홈 화면에 추가해주세요.");
+    }
   };
 
   // 1. 포트폴리오 로드 함수
@@ -259,6 +264,8 @@ const App = () => {
           user={user} 
           onOpenLogin={() => setIsAuthOpen(true)} 
           onLogout={handleLogout} 
+          showInstallBtn={showInstallBtn}
+          onInstallClick={handleInstallClick}
         />
 
         {/* 2. Market Overview (Dashboard) */}
@@ -322,45 +329,37 @@ const App = () => {
               onSuccess={(userData) => setUser(userData)} 
             />
           )}
-        </AnimatePresence>
-
-        {showInstallBanner && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[999] w-[calc(100%-2rem)] max-w-md p-4 rounded-2xl glass-card border border-[#00ffcc]/30 bg-[#0d1625]/90 shadow-2xl flex items-center justify-between gap-4 animate-slide-up">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#00ffcc]/10 flex items-center justify-center border border-[#00ffcc]/20 text-[#00ffcc]">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-              </div>
-              <div className="text-left">
-                <h4 className="text-sm font-semibold text-white">Stock AI 홈화면 설치</h4>
-                <p className="text-xs text-slate-400">
-                  {isIOSDevice 
-                    ? '하단 공유 아이콘 클릭 후 [홈 화면에 추가]를 눌러주세요.' 
-                    : '바탕화면에 앱을 추가하여 간편하게 확인해보세요.'}
+          {showIosGuide && (
+            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+              {/* Backdrop */}
+              <div 
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                onClick={() => setShowIosGuide(false)}
+              />
+              
+              {/* Modal Content */}
+              <div className="relative glass-card border border-[#00ffcc]/30 bg-[#0d1625]/95 p-6 max-w-sm w-full text-center shadow-2xl rounded-3xl animate-slide-up z-10">
+                <div className="w-12 h-12 rounded-full bg-[#00ffcc]/10 flex items-center justify-center border border-[#00ffcc]/20 text-[#00ffcc] mx-auto mb-4">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                
+                <h3 className="text-lg font-black text-white mb-2">iOS 홈 화면 추가 안내</h3>
+                <p className="text-sm text-slate-300 leading-relaxed mb-6 text-left">
+                  Safari 브라우저 하단의 <span className="text-[#00ffcc] font-bold">[공유 (Share)]</span> 아이콘을 누른 뒤, 스크롤을 내려 <span className="text-[#00ffcc] font-bold">[홈 화면에 추가]</span> 메뉴를 클릭해주세요.
                 </p>
+                
+                <button
+                  onClick={() => setShowIosGuide(false)}
+                  className="w-full py-3 bg-[#00ffcc] hover:bg-[#00ffcc]/80 text-[#0a0f1a] font-bold text-sm rounded-xl transition-all shadow-md active:scale-95"
+                >
+                  확인 완료
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {!isIOSDevice && (
-                <button 
-                  onClick={handleInstallClick}
-                  className="px-3 py-1.5 bg-[#00ffcc] hover:bg-[#00ffcc]/80 text-[#0a0f1a] font-bold text-xs rounded-lg transition-all shadow-md active:scale-95 whitespace-nowrap"
-                >
-                  설치
-                </button>
-              )}
-              <button 
-                onClick={() => setShowInstallBanner(false)}
-                className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
+          )}
+        </AnimatePresence>
 
         <style dangerouslySetInnerHTML={{ __html: `
           .glass-card {
