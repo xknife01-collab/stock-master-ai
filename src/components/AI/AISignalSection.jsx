@@ -6,6 +6,18 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  const formatDateTime = (timeStr) => {
+    try {
+      const d = new Date(timeStr);
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+      return `${mm}.${dd} ${time}`;
+    } catch (e) {
+      return timeStr;
+    }
+  };
+
   return (
     <section className="mb-12 glass-card border-white/5 bg-gradient-to-b from-[#1a1f2b] to-[#141822] overflow-hidden">
       <div className="p-8 border-b border-white/5 bg-white/[0.01]">
@@ -244,7 +256,7 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                   const prediction = item.prediction || item.signal; // 호환성 유지
                   return (
                     <tr key={i} className="hover:bg-white/[0.03] transition-colors group">
-                      <td className="p-4 text-white/40 font-mono text-[10px] whitespace-nowrap">{new Date(item.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+                      <td className="p-4 text-white/40 font-mono text-[10px] whitespace-nowrap">{formatDateTime(item.time)}</td>
                       <td className="p-4 text-white font-bold whitespace-nowrap">{prediction?.theme?.split('(')[0] || 'N/A'}</td>
                       <td className="p-4 whitespace-nowrap">
                         <span 
@@ -273,7 +285,7 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                 <div key={i} className="p-4 rounded-xl border border-white/5 bg-white/[0.02] flex flex-col gap-3">
                   <div className="flex justify-between items-center pb-2 border-b border-white/[0.03]">
                     <span className="text-[10px] text-white/40 font-mono">
-                      {new Date(item.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                      {formatDateTime(item.time)}
                     </span>
                     <span className="text-xs text-[#00ffab] font-black">
                       {prediction?.themeProb || '-'}
