@@ -36,3 +36,5 @@ dist-ssr
 *.txt
 "한국투자증권api키.txt"
 
+
+.vercel
