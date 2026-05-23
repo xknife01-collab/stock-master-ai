@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stock-ai-v1';
+const CACHE_NAME = 'stock-ai-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -33,7 +33,7 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// Fetch events: cache-first with network fallback for assets, bypass external API calls
+// Fetch events: Network-First for HTML, Cache-First for assets, bypass external APIs
 self.addEventListener('fetch', (e) => {
   // Only handle requests on the same origin (ignore external API requests, Chrome extensions, etc.)
   if (!e.request.url.startsWith(self.location.origin)) {
@@ -45,6 +45,28 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
+  const url = new URL(e.request.url);
+  const isHtml = url.pathname === '/' || url.pathname === '/index.html' || url.pathname.endsWith('.html');
+
+  if (isHtml) {
+    // Network-First strategy for HTML to ensure the latest Vite chunks are loaded
+    e.respondWith(
+      fetch(e.request)
+        .then((response) => {
+          if (response.status === 200) {
+            const cacheCopy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(e.request, cacheCopy);
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Cache-First strategy for other static assets
   e.respondWith(
     caches.match(e.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -53,7 +75,6 @@ self.addEventListener('fetch', (e) => {
       return fetch(e.request).then((response) => {
         // Dynamically cache Vite compiled production assets (JS/CSS)
         if (response.status === 200) {
-          const url = new URL(e.request.url);
           if (url.pathname.includes('/assets/')) {
             const cacheCopy = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
