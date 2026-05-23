@@ -875,9 +875,23 @@ const fetchAiContent = async (p) => {
     }
 };
 
+import { sendStopLossAlert } from '../lib/notifier.js';
+
 // --- History Endpoint ---
 router.get('/history', (req, res) => {
     try { res.json(getRagDiary()); } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+// --- Test SMS Endpoint ---
+router.get('/test-sms', async (req, res) => {
+    const phone = req.query.phone || '010-4885-8575';
+    try {
+        console.log(`📡 [API Test] Sending test SMS to ${phone} from backend...`);
+        const success = await sendStopLossAlert(phone, '삼성전자', 72000, 75000);
+        res.json({ success, message: success ? 'SMS sent successfully' : 'SMS send failed' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 export default router;
