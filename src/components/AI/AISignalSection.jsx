@@ -18,6 +18,12 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
     }
   };
 
+  const formatPrice = (val) => {
+    if (!val) return '';
+    const clean = String(val).replace(/[^0-9]/g, '');
+    return clean ? Number(clean).toLocaleString() + '원' : val;
+  };
+
   return (
     <section className="mb-12 glass-card border-white/5 bg-gradient-to-b from-[#1a1f2b] to-[#141822] overflow-hidden">
       <div className="p-8 border-b border-white/5 bg-white/[0.01]">
@@ -261,18 +267,26 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                       <td className="p-4 text-white/40 font-mono text-[10px] whitespace-nowrap">{formatDateTime(item.time)}</td>
                       <td className="p-4 text-white font-bold whitespace-nowrap">{prediction?.theme?.split('(')[0] || 'N/A'}</td>
                       <td className="p-4 whitespace-nowrap">
-                        <span 
-                          onClick={() => prediction?.stock && onOpenPopup(prediction.stock, prediction.price, prediction.themeProb, prediction.symbol)} 
-                          className="px-2 py-1 rounded bg-blue-600/10 border border-blue-500/20 text-blue-300 font-black text-[10px] cursor-pointer inline-flex items-center"
-                        >
-                          {prediction?.stock || '-'}
-                          {isShortTerm && (
-                            <span className="ml-1.5 px-1 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[8px] font-black leading-none">단기</span>
+                        <div className="flex flex-col gap-1">
+                          <span 
+                            onClick={() => prediction?.stock && onOpenPopup(prediction.stock, prediction.price, prediction.themeProb, prediction.symbol)} 
+                            className="px-2 py-1 rounded bg-blue-600/10 border border-blue-500/20 text-blue-300 font-black text-[10px] cursor-pointer inline-flex items-center w-max"
+                          >
+                            {prediction?.stock || '-'}
+                            {isShortTerm && (
+                              <span className="ml-1.5 px-1 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[8px] font-black leading-none">단기</span>
+                            )}
+                            {isLongTerm && (
+                              <span className="ml-1.5 px-1 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-black leading-none">장기</span>
+                            )}
+                          </span>
+                          {(prediction?.targetPrice || prediction?.stopLoss || prediction?.tp || prediction?.sl) && (
+                            <div className="text-[9px] text-white/40 flex gap-2 font-mono">
+                              {(prediction?.targetPrice || prediction?.tp) && <span>목표 <span className="text-emerald-400/80 font-bold">{formatPrice(prediction.targetPrice || prediction.tp)}</span></span>}
+                              {(prediction?.stopLoss || prediction?.sl) && <span>손절 <span className="text-rose-400/80 font-bold">{formatPrice(prediction.stopLoss || prediction.sl)}</span></span>}
+                            </div>
                           )}
-                          {isLongTerm && (
-                            <span className="ml-1.5 px-1 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-black leading-none">장기</span>
-                          )}
-                        </span>
+                        </div>
                       </td>
                       <td className="p-4 text-[#00ffab] font-black whitespace-nowrap">{prediction?.themeProb || '-'}</td>
                       <td className="p-4 text-white/40 text-[11px] leading-relaxed break-all">
@@ -344,6 +358,12 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                           <span className="ml-1 px-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-black leading-none scale-90 origin-right">장기</span>
                         )}
                       </span>
+                      {(prediction?.targetPrice || prediction?.stopLoss || prediction?.tp || prediction?.sl) && (
+                        <div className="text-[9px] text-white/40 flex gap-1.5 font-mono mt-0.5">
+                          {(prediction?.targetPrice || prediction?.tp) && <span>목표 <span className="text-emerald-400/80 font-bold">{formatPrice(prediction.targetPrice || prediction.tp)}</span></span>}
+                          {(prediction?.stopLoss || prediction?.sl) && <span>손절 <span className="text-rose-400/80 font-bold">{formatPrice(prediction.stopLoss || prediction.sl)}</span></span>}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-col gap-1.5 bg-black/20 p-3 rounded-lg border border-white/[0.02]">
