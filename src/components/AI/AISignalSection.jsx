@@ -226,14 +226,16 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
 
         <div className="mt-4 border-t border-white/5 pt-6">
           <h3 className="text-sm font-black text-white/60 mb-4 flex items-center gap-2 uppercase tracking-widest"><Activity size={14} className="text-blue-500" /> AI 추천 기록 누적</h3>
-          <div className="overflow-x-auto rounded-xl border border-white/5 bg-black/20">
+          
+          {/* Desktop Table Layout */}
+          <div className="hidden md:block overflow-x-auto rounded-xl border border-white/5 bg-black/20">
             <table className="w-full text-xs text-left">
               <thead>
                 <tr className="text-white/30 text-[9px] uppercase tracking-widest bg-white/[0.02] border-b border-white/5">
-                  <th className="p-4">분석 시점</th>
-                  <th className="p-4">추천 테마</th>
-                  <th className="p-4">핵심 종목</th>
-                  <th className="p-4">분석 확률</th>
+                  <th className="p-4 whitespace-nowrap">분석 시점</th>
+                  <th className="p-4 whitespace-nowrap">추천 테마</th>
+                  <th className="p-4 whitespace-nowrap">핵심 종목</th>
+                  <th className="p-4 whitespace-nowrap">분석 확률</th>
                   <th className="p-4">분석 근거</th>
                 </tr>
               </thead>
@@ -242,9 +244,9 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                   const prediction = item.prediction || item.signal; // 호환성 유지
                   return (
                     <tr key={i} className="hover:bg-white/[0.03] transition-colors group">
-                      <td className="p-4 text-white/40 font-mono text-[10px]">{new Date(item.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
-                      <td className="p-4 text-white font-bold">{prediction?.theme?.split('(')[0] || 'N/A'}</td>
-                      <td className="p-4">
+                      <td className="p-4 text-white/40 font-mono text-[10px] whitespace-nowrap">{new Date(item.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+                      <td className="p-4 text-white font-bold whitespace-nowrap">{prediction?.theme?.split('(')[0] || 'N/A'}</td>
+                      <td className="p-4 whitespace-nowrap">
                         <span 
                           onClick={() => prediction?.stock && onOpenPopup(prediction.stock, prediction.price, prediction.themeProb, prediction.symbol)} 
                           className="px-2 py-1 rounded bg-blue-600/10 border border-blue-500/20 text-blue-300 font-black text-[10px] cursor-pointer inline-block"
@@ -252,14 +254,57 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                           {prediction?.stock || '-'}
                         </span>
                       </td>
-                      <td className="p-4 text-[#00ffab] font-black">{prediction?.themeProb || '-'}</td>
-                      <td className="p-4 text-white/40 text-[11px] line-clamp-1">{prediction?.reason || '-'}</td>
+                      <td className="p-4 text-[#00ffab] font-black whitespace-nowrap">{prediction?.themeProb || '-'}</td>
+                      <td className="p-4 text-white/40 text-[11px] leading-relaxed break-all">
+                        {prediction?.reason || '-'}
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card Layout */}
+          <div className="block md:hidden space-y-4">
+            {aiHistory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item, i) => {
+              const prediction = item.prediction || item.signal;
+              return (
+                <div key={i} className="p-4 rounded-xl border border-white/5 bg-white/[0.02] flex flex-col gap-3">
+                  <div className="flex justify-between items-center pb-2 border-b border-white/[0.03]">
+                    <span className="text-[10px] text-white/40 font-mono">
+                      {new Date(item.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                    </span>
+                    <span className="text-xs text-[#00ffab] font-black">
+                      {prediction?.themeProb || '-'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center gap-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-white/30 uppercase font-black">추천 테마</span>
+                      <span className="text-xs text-white font-bold">{prediction?.theme?.split('(')[0] || 'N/A'}</span>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-[10px] text-white/30 uppercase font-black">핵심 종목</span>
+                      <span 
+                        onClick={() => prediction?.stock && onOpenPopup(prediction.stock, prediction.price, prediction.themeProb, prediction.symbol)} 
+                        className="px-2 py-0.5 rounded bg-blue-600/10 border border-blue-500/20 text-blue-300 font-black text-[10px] cursor-pointer"
+                      >
+                        {prediction?.stock || '-'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5 bg-black/20 p-3 rounded-lg border border-white/[0.02]">
+                    <span className="text-[10px] text-white/30 uppercase font-black">분석 근거</span>
+                    <p className="text-[11px] text-white/60 leading-relaxed break-all whitespace-pre-line">
+                      {prediction?.reason || '-'}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           {aiHistory.length > itemsPerPage && (
             <div className="mt-4 flex justify-center items-center gap-2">
               {Array.from({ length: Math.ceil(aiHistory.length / itemsPerPage) }).map((_, i) => (
