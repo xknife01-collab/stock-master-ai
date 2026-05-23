@@ -533,6 +533,18 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         5. 최근 60일(약 3개월) 주가/거래량 추이:
         ${topAnalytics?.priceData ? topAnalytics.priceData.map(p => `- ${p.date}: 종가 ${p.close}원, 거래량 ${p.vol}주`).join('\n        ') : "정보 없음"}
+
+        6. 기술적 분석 지표 (정량 데이터):
+        - RSI (14일 상대강도지수): ${topAnalytics?.technicalIndicators?.rsi || "정보 없음"} (참고: 70 이상 과열, 30 이하 과매도)
+        - 5일 이동평균선: ${topAnalytics?.technicalIndicators?.ma5 || "정보 없음"}원
+        - 20일 이동평균선: ${topAnalytics?.technicalIndicators?.ma20 || "정보 없음"}원
+        - 60일 이동평균선: ${topAnalytics?.technicalIndicators?.ma60 || "정보 없음"}원
+        - 이동평균선 배열 추세: ${topAnalytics?.technicalIndicators?.maAlignment || "정보 없음"}
+        - 볼린저 밴드 상한선(Upper): ${topAnalytics?.technicalIndicators?.bollinger?.upper || "정보 없음"}원
+        - 볼린저 밴드 중심선(SMA20): ${topAnalytics?.technicalIndicators?.bollinger?.middle || "정보 없음"}원
+        - 볼린저 밴드 하한선(Lower): ${topAnalytics?.technicalIndicators?.bollinger?.lower || "정보 없음"}원
+        - 밴드 내 현재 주가 위치: ${topAnalytics?.technicalIndicators?.bollinger?.positionPercent || "정보 없음"}% (0%는 하한선, 100%는 상한선)
+        - 볼린저 밴드 지표 해석: ${topAnalytics?.technicalIndicators?.bollinger?.interpretation || ""}
         `.trim() : "분석 데이터 수집 실패";
 
         const finalPrompt = `너는 퀀트 트레이더이자 리스크 매니저야. 
@@ -568,7 +580,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         7. 'bearCase'에는 [개별 종목 전용 데이터]에서 발견된 구체적인 아킬레스건을 명시할 것.
         8. 'fundamental' 섹션에서 현재 종목이 "낙폭 과대(Undervalued)"인지 "하락 추세(Structural Decline)"인지를 실적 추이와 가격 추이를 비교하여 명확히 판정해.
         9. 'macro' 필드에는 현재 환율/금리 상황에서 이 테마가 가질 '아킬레스건(치명적 약점)'을 반드시 포함할 것.
-        10. JSON 형식으로만 응답해.
+        10. **기술적 지표 분석 적용:** 제공된 기술적 분석 지표를 바탕으로 주가 위치를 정밀하게 평가해. 만약 RSI가 70 이상이거나 볼린저 밴드 상한선 부근(positionPercent > 80%)에 도달한 과열 상태라면, 아무리 뉴스가 좋아도 단기 리스크가 큼을 'bearCase' 및 'feedback'에 경고로 지적하고 분할 매수 전략을 추천해. 반대로 RSI가 30 이하이거나 볼린저 밴드 하한선 부근(positionPercent < 20%)에 위치한 과매도 상태라면 낙폭 과대 반등 가치를 분석해 리포트에 반영해.
+        11. **이동평균선 배열 가이드:** 이동평균선이 '역배열 (하락 추세 지속)'인 종목은 메인 추천(TOP PICK)에서 가능한 배제하고, '정배열 (강력한 추세 상승)'이거나 막 20일선 골든크로스가 발생한 안정적인 종목 위주로 선정해.
+        12. JSON 형식으로만 응답해.
 
         [출력 양식]
         {
