@@ -1,7 +1,7 @@
 import React from 'react';
 import { TrendingUp } from 'lucide-react';
 
-const Header = () => {
+const Header = ({ user, onOpenLogin, onLogout }) => {
   return (
     <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
       <div className="flex items-center gap-4">
@@ -16,11 +16,28 @@ const Header = () => {
           </div>
         </div>
       </div>
-      <div className="flex gap-4">
-        <div className="glass-card px-6 py-3 border-white/10 bg-white/5 flex flex-col items-end">
-          <span className="text-[10px] font-black text-white/30 uppercase mb-1">Portfolio Value</span>
-          <span className="text-xl font-mono font-black text-white">₩1,240.5M</span>
-        </div>
+      <div className="flex gap-4 items-center">
+        {user ? (
+          <div className="flex flex-col items-end gap-1">
+            <div className="glass-card px-4 py-2 border-white/10 bg-white/5 flex flex-col items-end">
+              <span className="text-[9px] font-black text-blue-400 uppercase tracking-wider">Active Agent Session</span>
+              <span className="text-xs font-mono font-bold text-white/80">{user.email}</span>
+            </div>
+            <button 
+              onClick={onLogout} 
+              className="text-[9px] font-black text-red-400 hover:text-red-300 hover:bg-red-500/10 uppercase tracking-widest border border-red-500/20 bg-red-500/5 px-3 py-1 rounded-lg transition-all"
+            >
+              로그아웃
+            </button>
+          </div>
+        ) : (
+          <button 
+            onClick={onOpenLogin} 
+            className="text-[10px] font-black text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 uppercase tracking-widest border border-blue-500/30 bg-blue-500/5 px-5 py-2.5 rounded-xl transition-all shadow-[0_0_15px_rgba(59,130,246,0.1)]"
+          >
+            로그인 / 회원가입
+          </button>
+        )}
       </div>
     </header>
   );

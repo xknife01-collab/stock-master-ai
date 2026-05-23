@@ -84,7 +84,7 @@ const MacroTicker = () => {
         </div>
       </div>
       
-      <style jsx>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes marquee {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
@@ -96,7 +96,7 @@ const MacroTicker = () => {
         .animate-marquee:hover {
           animation-play-state: paused;
         }
-      `}</style>
+      `}} />
     </div>
   );
 };

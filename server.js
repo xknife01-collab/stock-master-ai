@@ -8,8 +8,11 @@ import newsApi from './routes/newsApi.js';
 import dashboardApi, { setupDashboardApi } from './routes/dashboardApi.js';
 import conditionApi, { setupConditionApi } from './routes/conditionApi.js';
 import macroApi from './routes/macroApi.js';
+import authApi from './routes/authApi.js';
+import portfolioApi from './routes/portfolioApi.js';
 import cron from 'node-cron';
 import { executeHourlyPulse } from './routes/aiApi.js';
+import { runStopLossMonitor } from './lib/marketMonitor.js';
 
 dotenv.config();
 
@@ -17,14 +20,14 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // --- Cron Jobs ---
-// 1. 매 정각(00분)마다 Hourly Pulse 실행 (AI 시장 분석)
-cron.schedule('0 * * * *', async () => {
-    console.log('⏰ [Cron] 정각 - Hourly Pulse 자동 실행 시작...');
+// 1. 매 30분(00분, 30분)마다 Pulse 실행 (AI 시장 분석)
+cron.schedule('*/30 * * * *', async () => {
+    console.log('⏰ [Cron] 30분 주기 - Pulse 자동 실행 시작...');
     try {
         await executeHourlyPulse();
-        console.log('✅ [Cron] Hourly Pulse 자동 실행 완료.');
+        console.log('✅ [Cron] Pulse 자동 실행 완료.');
     } catch (e) {
-        console.error('❌ [Cron] Hourly Pulse 자동 실행 실패:', e.message);
+        console.error('❌ [Cron] Pulse 자동 실행 실패:', e.message);
     }
 });
 
@@ -69,6 +72,15 @@ app.use('/api/dashboard', setupDashboardApi());
 // 5. Condition Search (HTS)
 // App.jsx calls: /api/condition-list, /api/condition-search/:seq, /api/condition-alerts
 app.use('/api', setupConditionApi(aiModel));
+
+// 6. User Authentication & Portfolios
+app.use('/api/auth', authApi);
+app.use('/api/portfolio', portfolioApi);
+
+// 7. 실시간 손절 감시 타이머 시작 (30초 간격)
+setInterval(runStopLossMonitor, 30000);
+// 서버 시작 후 5초 뒤 최초 1회 실행
+setTimeout(runStopLossMonitor, 5000);
 
 // Server Start
 app.listen(PORT, () => {

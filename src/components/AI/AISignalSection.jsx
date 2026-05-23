@@ -57,31 +57,41 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
           </div>
         </div>
 
-        {aiSignal ? (
-          <>
+        {aiSignal && (aiSignal.data || aiSignal.pulse || aiSignal.prediction) ? (
+          (() => {
+            // Flexible data mapping to handle different backend nestings
+            const sig = aiSignal.data?.pulse?.data || aiSignal.pulse?.data || aiSignal.data || aiSignal.prediction || aiSignal;
+            if (!sig || typeof sig !== 'object') {
+               return <div className="py-12 text-center text-white/40 text-sm font-bold animate-pulse">데이터를 유효한 형식으로 조립 중입니다...</div>;
+            }
+            
+            const hasNoRecommendation = !sig.stock || sig.stock === 'null' || sig.stock === 'None';
+
+            return (
+              <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-white/5 rounded-xl border border-white/10 p-4">
                 <div className="text-[#a4b1cd] text-[9px] font-black mb-2 uppercase tracking-widest opacity-50">📊 테마 예측</div>
                 <div className="text-white font-black text-base flex justify-between items-end">
-                  <span>{aiSignal.data?.theme || '분석 중...'}</span>
-                  <span className="text-[#00ffab] text-sm font-black">{aiSignal.data?.themeProb || '??%'}</span>
+                  <span>{sig.theme || '분석 중...'}</span>
+                  <span className="text-[#00ffab] text-sm font-black">{sig.themeProb || '??%'}</span>
                 </div>
               </div>
               <div className="bg-white/5 rounded-xl border border-white/10 p-4 col-span-2">
                 <div className="text-[#a4b1cd] text-[9px] font-black mb-2 uppercase tracking-widest opacity-50">✨ Top Pick & Targets</div>
                 <div className="flex items-center justify-between">
                   <span 
-                    onClick={() => aiSignal.data?.stock && onOpenPopup(aiSignal.data.stock, aiSignal.data.price, aiSignal.data.themeProb, aiSignal.data.symbol)} 
-                    className="text-blue-300 font-black text-lg underline underline-offset-4 decoration-blue-500/50 cursor-pointer"
+                    onClick={() => !hasNoRecommendation && onOpenPopup(sig.stock, sig.price, sig.themeProb, sig.symbol)} 
+                    className={`font-black text-lg ${hasNoRecommendation ? 'text-white/20 italic' : 'text-blue-300 underline underline-offset-4 decoration-blue-500/50 cursor-pointer'}`}
                   >
-                    {aiSignal.data?.stock || 'AI 연산 중'}
+                    {hasNoRecommendation ? '⚠️ 분석 정합성 부족으로 추천 보류' : sig.stock}
                   </span>
                   <div className="flex gap-2">
                     <div className="px-2 py-1 bg-green-500/10 border border-green-500/20 rounded text-[10px] font-black text-green-400">
-                      TARGET ₩{aiSignal.data?.tp ? parseInt(aiSignal.data.tp).toLocaleString() : '---'}
+                      TARGET {sig.tp && !isNaN(parseInt(sig.tp)) ? '₩' + parseInt(sig.tp).toLocaleString() : '---'}
                     </div>
                     <div className="px-2 py-1 bg-red-500/10 border border-red-500/20 rounded text-[10px] font-black text-red-400">
-                      STOP ₩{aiSignal.data?.sl ? parseInt(aiSignal.data.sl).toLocaleString() : '---'}
+                      STOP {sig.sl && !isNaN(parseInt(sig.sl)) ? '₩' + parseInt(sig.sl).toLocaleString() : '---'}
                     </div>
                   </div>
                 </div>
@@ -94,17 +104,25 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                   <div className="space-y-2">
                     <div className="flex items-start gap-2">
                       <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold">기능</span>
-                      <p className="text-white/70 text-xs leading-tight">{aiSignal.data?.fundamental || '데이터 수집 중...'}</p>
+                      <p className="text-white/70 text-xs leading-tight">{sig.fundamental || '데이터 수집 중...'}</p>
                     </div>
                     <div className="flex items-start gap-2">
                       <span className="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-bold">시황</span>
-                      <p className="text-white/70 text-xs leading-tight">{aiSignal.data?.macro || '매크로 분석 중...'}</p>
+                      <p className="text-white/70 text-xs leading-tight">
+                        {sig.macro && typeof sig.macro === 'object' 
+                          ? (sig.macro.achillesHeel?.join(' ') || sig.macro.sentiment)
+                          : (sig.macro || '매크로 분석 중...')}
+                      </p>
                     </div>
                   </div>
                </div>
                <div className="bg-white/[0.02] rounded-xl border border-white/5 p-4">
                   <div className="text-red-400 text-[9px] font-black mb-2 uppercase tracking-widest">⚠️ Risk Management (Bear Case)</div>
-                  <p className="text-white/70 text-xs leading-relaxed italic">"{aiSignal.data?.bearCase || '하락 시나리오를 계산 중입니다...'}"</p>
+                  <div className="text-white/70 text-xs leading-relaxed italic">
+                    {sig.bearCase && typeof sig.bearCase === 'object'
+                      ? (sig.bearCase.exitSignal?.map((s, i) => <div key={i} className="mb-1">• {s}</div>) || sig.bearCase.scenario)
+                      : (sig.bearCase || '하락 시나리오를 계산 중입니다...')}
+                  </div>
                </div>
             </div>
 
@@ -112,12 +130,12 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
               <div className="bg-[#151c2c] rounded-xl border border-gray-700/50 p-4 relative overflow-hidden group h-full">
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#ff3d68]"></div>
                 <div className="text-gray-400 text-[10px] font-black mb-2 uppercase italic">■ 실시간 AI 분석 근거</div>
-                <p className="text-gray-200 text-sm leading-relaxed">{aiSignal.data?.reason || '시장 데이터를 분석 중입니다...'}</p>
+                <p className="text-gray-200 text-sm leading-relaxed">{sig.reason || '시장 데이터를 분석 중입니다...'}</p>
               </div>
               <div className="bg-[#151c2c]/80 rounded-xl border border-gray-700/50 p-4 relative overflow-hidden group h-full">
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#0a6fe8]"></div>
-                <div className="text-[#8e9ab2] text-[10px] font-black mb-2 uppercase italic">■ In-Context Learning 전략 로그</div>
-                <p className="text-[#a4b1cd] text-[12px]">{aiSignal.data?.feedback || '분석 중입니다...'}</p>
+                <div className="text-[#8e9ab2] text-[10px] font-black mb-2 uppercase italic">■ 전략 로그</div>
+                <p className="text-[#a4b1cd] text-[12px]">{sig.feedback || '분석 중입니다...'}</p>
               </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -139,7 +157,7 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.02]">
-                      {(aiSignal.data?.shortTermPicks || []).map((it, i) => (
+                      {(sig.shortTermPicks || []).map((it, i) => (
                         <tr key={i} className="hover:bg-white/[0.02] cursor-pointer group" onClick={() => onOpenPopup(it.n, it.p, (it.tp ? `TARGET ${it.tp}` : '15%'), it.c)}>
                           <td className="px-4 py-3">
                             <div className="flex flex-col">
@@ -178,7 +196,7 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.02]">
-                      {(aiSignal.data?.longTermPicks || []).map((it, i) => (
+                      {(sig.longTermPicks || []).map((it, i) => (
                         <tr key={i} className="hover:bg-white/[0.02] cursor-pointer group" onClick={() => onOpenPopup(it.n, it.p, '실시간 분석', it.c)}>
                           <td className="px-4 py-3">
                             <div className="flex flex-col">
@@ -199,7 +217,9 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                 </div>
               </div>
             </div>
-          </>
+            </>
+            );
+          })()
         ) : (
           <div className="py-12 text-center text-white/40 text-sm font-bold animate-pulse">AI 분석 데이터를 생성하는 중입니다...</div>
         )}

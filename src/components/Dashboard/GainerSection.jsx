@@ -26,38 +26,46 @@ const GainerSection = ({ dashboardData, onOpenPopup }) => {
         <table className="w-full text-xs">
           <thead className="text-white/30 text-[9px] uppercase tracking-widest sticky top-0 bg-[#1a1f2b] z-10">
             <tr className="border-b border-white/5">
-              <th className="pb-3 text-left">종목명</th>
-              <th className="pb-3 text-right">현재가</th>
-              <th className="pb-3 text-right">등락률</th>
+              <th className="pb-3 text-left">Ticker/Name</th>
+              <th className="pb-3 text-right">Current Price</th>
+              <th className="pb-3 text-right">Fluctuation</th>
+              <th className="pb-3 text-right pr-2">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/[0.03]">
             {gainers.map((it, i) => (
               <tr 
                 key={i} 
-                onClick={() => onOpenPopup(it.n, it.p, it.pct, it.s)} 
                 className="hover:bg-white/[0.03] transition-all cursor-pointer group"
               >
-                <td className="py-3 pr-2">
+                <td className="py-3 pr-2" onClick={() => onOpenPopup(it.n, it.p, it.pct, it.s)}>
                   <div className="flex flex-col">
                     <span className="text-white font-bold group-hover:text-red-400 transition-colors truncate max-w-[120px]">{it.n}</span>
                     <span className="text-[10px] text-white/30 font-mono">{it.s}</span>
                   </div>
                 </td>
-                <td className="py-3 text-right font-black text-white font-mono">
-                  {parseInt(it.p).toLocaleString()}원
+                <td className="py-3 text-right font-black text-white font-mono" onClick={() => onOpenPopup(it.n, it.p, it.pct, it.s)}>
+                  ₩{parseInt(it.p).toLocaleString()}
                 </td>
-                <td className={`py-3 text-right font-black ${parseFloat(it.pct) >= 0 ? 'text-[#00ffab]' : 'text-[#ff3d68]'}`}>
+                <td className={`py-3 text-right font-black ${parseFloat(it.pct) >= 0 ? 'text-[#00ffab]' : 'text-[#ff3d68]'}`} onClick={() => onOpenPopup(it.n, it.p, it.pct, it.s)}>
                   <div className="flex items-center justify-end gap-1">
                     {parseFloat(it.pct) >= 0 ? '▲' : '▼'}
                     {it.pct}
                   </div>
                 </td>
+                <td className="py-3 text-right pr-2">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onOpenPopup(it.n, it.p, it.pct, it.s); }}
+                    className="text-[9px] font-black bg-red-400/10 text-red-400 border border-red-400/20 px-2 py-1 rounded hover:bg-red-400 hover:text-white transition-all uppercase tracking-tighter"
+                  >
+                    AI ANALYSIS
+                  </button>
+                </td>
               </tr>
             ))}
             {gainers.length === 0 && (
               <tr>
-                <td colSpan="3" className="py-10 text-center text-white/20 italic font-black">데이터 수신 중...</td>
+                <td colSpan="4" className="py-10 text-center text-white/20 italic font-black">데이터 수신 중...</td>
               </tr>
             )}
           </tbody>

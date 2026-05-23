@@ -4,7 +4,9 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { aiModel, vertexModel } from '../lib/ai.js';
-import { getAccessToken, KIS_BASE_URL, getKisHeaders } from '../lib/kisCore.js';
+import { getAccessToken, KIS_BASE_URL, getKisHeaders, fetchStockPrice, fetchStockAnalytics, fetchStockInvestorTrend, fetchMarketRankings, fetchConditionResult } from '../lib/kisCore.js';
+import { fetchMacroIndicators } from './macroApi.js';
+import { getSupplyCache, saveSupplyCache } from '../lib/supplyCache.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,8 +41,25 @@ const getRagDiary = () => {
 
 const saveRagDiary = (news, signal) => {
     const diary = getRagDiary();
+    
+    // Deduplication check: 30 min cooldown OR same hour
+    const now = new Date();
+    if (diary.length > 0) {
+        const lastTime = new Date(diary[0].time).getTime();
+        const lastHour = new Date(diary[0].time).getHours();
+        const currentHour = now.getHours();
+        const timeDiff = now.getTime() - lastTime;
+        
+        // If it's the same hour AND less than 30 mins, skip. 
+        // If hour is different, it's a new scheduled pulse, so allow it.
+        if (currentHour === lastHour && timeDiff < 30 * 60 * 1000) {
+            console.log(`⏭️ [Diary] ${currentHour}시 분석이 이미 존재하며 시간 간격이 짧아 저장을 건너뜁니다.`);
+            return;
+        }
+    }
+
     diary.unshift({ 
-        time: new Date().toISOString(), 
+        time: now.toISOString(), 
         news_summary: news.substring(0, 120) + '...', 
         prediction: {
             theme: signal.theme,
@@ -66,22 +85,6 @@ const saveRagDiary = (news, signal) => {
     fs.writeFileSync(ragDiaryPath, JSON.stringify(diary, null, 2), 'utf8');
 };
 
-const fetchStockPrice = async (symbol) => {
-    try {
-        const token = await getAccessToken();
-        const response = await axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price`, {
-            params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol },
-            headers: {
-                ...getKisHeaders('FHKST01010100'),
-                'authorization': `Bearer ${token}`
-            }
-        });
-        return parseInt(response.data.output.stck_prpr);
-    } catch (e) {
-        console.error(`Price fetch failed for ${symbol}:`, e.message);
-        return null;
-    }
-};
 
 const getAiCache = () => {
     if (!fs.existsSync(aiCachePath)) return { signal: null, hourKey: null };
@@ -97,11 +100,11 @@ const saveAiCache = (pulseData, hourKey) => {
     fs.writeFileSync(aiCachePath, JSON.stringify({ pulse: dataToSave, hourKey }, null, 2), 'utf8');
 };
 
-const fetchNaverNews = async () => {
+const fetchNaverNews = async (query = '주식 시장 전망 시황') => {
     if (!process.env.NAVER_CLIENT_ID || !process.env.NAVER_CLIENT_SECRET) return "네이버 뉴스 키가 등록되지 않았습니다.";
     try {
         const response = await axios.get('https://openapi.naver.com/v1/search/news.json', {
-            params: { query: '주식 시장 환율 USD/KRW 미국 금리 10년물 국채 시황 분석', display: 30, sort: 'date' },
+            params: { query, display: 30, sort: 'date' },
             headers: {
                 'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
                 'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
@@ -122,16 +125,16 @@ const refreshRecommendedPrices = async (signal) => {
     
     // 1. 메인 픽 가격 갱신 (symbol 필드가 있는 경우)
     if (signal.symbol) {
-        const freshPrice = await fetchStockPrice(signal.symbol);
-        if (freshPrice) signal.price = freshPrice.toString();
+        const fresh = await fetchStockPrice(signal.symbol);
+        if (fresh) signal.price = fresh.price.toString();
     }
 
     // 2. 단기/장기 추천주 리스트 갱신
     const updatePicks = async (picks) => {
         if(!picks || !Array.isArray(picks)) return;
         await Promise.all(picks.map(async (item) => {
-            const freshPrice = await fetchStockPrice(item.c);
-            if (freshPrice) item.p = freshPrice.toString();
+            const fresh = await fetchStockPrice(item.c);
+            if (fresh) item.p = fresh.price.toString();
         }));
     };
 
@@ -161,6 +164,45 @@ const cleanSignal = (s) => {
 };
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * 외국인/기관 매매 상위 종목 가집계 (FHPTJ04400)
+ */
+const fetchSupplyRank = async () => {
+    try {
+        const token = await getAccessToken();
+        const res = await axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/foreign-institution-total`, {
+            params: {
+                FID_COND_MRKT_DIV_CODE: 'V', // 가집계
+                FID_COND_SCR_DIV_CODE: '1644',
+                FID_INPUT_ISCD: '0000', // 전체
+                FID_DIV_CLS_CODE: '0', // 수량
+                FID_RANK_SORT_CLS_CODE: '0', // 순매수합계순
+                FID_ETC_CLS_CODE: '0'
+            },
+            headers: { ...getKisHeaders('FHPTJ04400000'), 'authorization': `Bearer ${token}` }
+        });
+        if (res.data.output && res.data.output.length > 0) {
+            const mapped = res.data.output.slice(0, 10).map(it => `${it.hts_kor_isnm}(${it.mksc_shrn_iscd}) [외국인:${it.frgn_ntby_qty}, 기관:${it.orgn_ntby_qty}]`).join(', ');
+            saveSupplyCache('ai_supply', mapped);
+            return mapped;
+        }
+        
+        // Fallback to cache if empty
+        const cached = getSupplyCache('ai_supply');
+        if (cached) {
+            console.log('📡 [Pulse] 장 마감/주말 데이터 공백으로 이전 거래일 수급 캐시 사용');
+            return cached;
+        }
+        return "데이터 없음";
+    } catch (e) {
+        console.warn('Supply rank fetch fail:', e.message);
+        // Fallback on error
+        const cached = getSupplyCache('ai_supply');
+        if (cached) return cached;
+        return "데이터 불러오기 실패";
+    }
+};
 
 const fetchMarketSnapshot = async () => {
     try {
@@ -201,67 +243,21 @@ let fetchingAiSignalPromise = null;
 // --- Routes ---
 
 router.get('/pulse', async (req, res) => {
-    const now = new Date();
-    const currentHourKey = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}-${now.getHours()}`;
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    // 캐시 확인 (Pulse와 공유)
-    const cache = getAiCache();
-    let pulseData = cache.pulse;
-    // 중첩 구조 대응
-    if (pulseData?.pulse) pulseData = pulseData.pulse;
-    if (pulseData?.data) pulseData = pulseData.data;
-
-    if (pulseData && cache.hourKey === currentHourKey) {
-        // 캐시된 데이터라도 가격은 실시간으로 갱신하여 반환
-        await refreshRecommendedPrices(pulseData);
-        cleanSignal(pulseData);
-        return res.json({ time: timeStr, data: pulseData });
-    }
-
-    if (fetchingAiSignalPromise) {
-        try {
-            const data = await fetchingAiSignalPromise;
-            let finalData = data.data || data;
-            if (finalData.data) finalData = finalData.data;
-            return res.json({ time: timeStr, data: finalData });
-        } catch (e) { 
-            const cache = getAiCache();
-            let pulseData = cache.pulse;
-            if (pulseData?.pulse) pulseData = pulseData.pulse;
-            if (pulseData?.data) pulseData = pulseData.data;
-
-            if (pulseData) {
-                // 폴백 데이터라도 주가는 실시간으로 갱신
-                await refreshRecommendedPrices(pulseData);
-                return res.json({ time: "Last Sync (Fallback)", data: pulseData, error: e.message });
-            }
-            return res.status(500).json({ error: 'AI processing failed' }); 
-        }
-    }
-
-    fetchingAiSignalPromise = (async () => {
-        try {
-            return await executeHourlyPulse();
-        } finally {
-            fetchingAiSignalPromise = null;
-        }
-    })();
+    const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const timeStr = nowKst.getUTCHours().toString().padStart(2, '0') + ':' + nowKst.getUTCMinutes().toString().padStart(2, '0');
 
     try {
-        const result = await fetchingAiSignalPromise;
+        const force = req.query.force === 'true';
+        const result = await executeHourlyPulse(force);
         const outData = result.data || result;
         res.json({ time: timeStr, data: outData });
     } catch (error) {
         console.error('Pulse logic failed, falling back to cache:', error.message);
         const cache = getAiCache();
-        // 다양한 중첩 구조 대응
         let pulseData = cache.pulse;
-        if (pulseData?.pulse) pulseData = pulseData.pulse;
         if (pulseData?.data) pulseData = pulseData.data;
 
         if (pulseData) {
-            // 폴백 데이터라도 주가는 실시간으로 갱신
             await refreshRecommendedPrices(pulseData);
             return res.json({ time: "Last Sync (Fallback)", data: pulseData, error: error.message });
         }
@@ -269,15 +265,128 @@ router.get('/pulse', async (req, res) => {
     }
 });
 
-// --- Pulse Logic (Extracted for Cron) ---
-export const executeHourlyPulse = async () => {
-    const now = new Date();
-    const currentHourKey = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}-${now.getHours()}`;
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+// --- Market Hours Detection Helper ---
+export const isMarketOpen = () => {
+    // 한국 시간(KST) 강제 보정 (UTC+9)
+    const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const day = nowKst.getUTCDay(); // 0: 일, 1: 월, ..., 6: 토
+    
+    // 주말 제외
+    if (day === 0 || day === 6) return false;
+    
+    const hours = nowKst.getUTCHours();
+    const minutes = nowKst.getUTCMinutes();
+    const timeVal = hours * 100 + minutes; // 예: 09:30 -> 930
+    
+    // 분석 활성 시간: 장 시작 전(08:30)부터 장 마감(15:30)까지
+    return timeVal >= 830 && timeVal <= 1530;
+};
 
+// --- Pulse Logic (Extracted for Cron) ---
+export const executeHourlyPulse = async (force = false) => {
+    // 한국 시간(KST) 강제 보정
+    const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const currentHalfHour = now.getUTCMinutes() < 30 ? '00' : '30';
+    const currentHourKey = `${now.getUTCFullYear()}-${now.getUTCMonth()+1}-${now.getUTCDate()}-${now.getUTCHours()}-${currentHalfHour}`;
+    const timeStr = now.getUTCHours().toString().padStart(2, '0') + ':' + now.getUTCMinutes().toString().padStart(2, '0');
+
+    // 1. 이미 진행 중인 작업이 있으면 해당 약속 반환
+    if (fetchingAiSignalPromise) {
+        console.log(`⏳ [Pulse] 다른 작업이 진행 중입니다. 완료될 때까지 기다립니다...`);
+        return await fetchingAiSignalPromise;
+    }
+
+    const cache = getAiCache();
+    const marketOpen = isMarketOpen();
+
+    // 2. 장외 시간 및 캐시 확인 (장외 시간이고 캐시가 있으면 Gemini 호출 없이 캐시 즉각 반환)
+    if (!force && !marketOpen && cache && cache.pulse) {
+        console.log(`💤 [Pulse] 장 마감 상태 (이전 분석 결과 캐시 고정 제공)`);
+        let pulseData = cache.pulse.data || cache.pulse;
+        await refreshRecommendedPrices(pulseData);
+        cleanSignal(pulseData);
+        return { data: pulseData, time: timeStr };
+    }
+
+    // 3. 캐시 확인 (해당 시간에 이미 완료된 결과가 있는지 - 30분 단위)
+    if (!force && cache && cache.hourKey === currentHourKey && cache.pulse) {
+        console.log(`✅ [Pulse] 이번 30분 주기(${currentHourKey})의 분석 결과가 이미 존재하여 캐시를 사용합니다.`);
+        let pulseData = cache.pulse.data || cache.pulse;
+        await refreshRecommendedPrices(pulseData);
+        cleanSignal(pulseData);
+        return { data: pulseData, time: timeStr };
+    }
+
+    // 4. 실행 프로세스 (잠금 설정)
+    fetchingAiSignalPromise = (async () => {
+        try {
+            return await _executeHourlyPulseInternal(currentHourKey, timeStr);
+        } finally {
+            fetchingAiSignalPromise = null;
+        }
+    })();
+
+    return await fetchingAiSignalPromise;
+};
+
+const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
+    const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
     try {
         console.log(`🤖 [${timeStr}] 1단계: 시장 분석 및 종목 후보 선별 시작...`);
         const currentNews = await fetchNaverNews();
+        const macro = await fetchMacroIndicators();
+        
+        // 매크로 지표에 대한 시장 주류 해석(Sentiment) 힌트 추가
+        const interpretMacro = (m) => {
+            const val = parseFloat(m.value?.replace(/,/g, ''));
+            const chg = parseFloat(m.change);
+            if (m.label.includes('환율')) {
+                if (chg > 0) return "수출주 채산성 개선 기대 및 외인 수급 하방 압력";
+                return "원화 강세, 내수주 및 외인 유동성 공급에 긍정적";
+            }
+            if (m.label.includes('코스피') || m.label.includes('코스닥')) {
+                if (chg > 0) return "시장 심리 회복 및 매수세 강화";
+                return "과매도 구간 진입 여부 및 기술적 반등 확인 필요";
+            }
+            return "추세 확인 중";
+        };
+
+        const macroCtx = macro.map(m => `- ${m.label}: ${m.value} (${m.change}) [해석: ${interpretMacro(m)}]`).join('\n');
+
+        // --- 다각화된 데이터 수집 (Discovery Funnel) ---
+        console.log(`📡 [Pulse] 다각화된 시장 데이터 수집 중 (상승률/거래대금/HTS)...`);
+        const [gainers, values, supplyList, htsGolden, htsVolume] = await Promise.all([
+            fetchMarketRankings('GAIN'),    // 상승률 상위
+            fetchMarketRankings('VALUE'),   // 거래대금 상위
+            fetchSupplyRank(),              // 외인/기관 순매수 (기존)
+            fetchConditionResult('0'),      // HTS: 골든크로스 (임의 seq)
+            fetchConditionResult('1')       // HTS: 거래량 급증 (임의 seq)
+        ]);
+
+        // 데이터 레이블링 및 통합
+        const discoveryMap = new Map(); // code -> info string
+
+        const addToDiscovery = (list, tag) => {
+            if (!Array.isArray(list)) return;
+            list.forEach(it => {
+                const existing = discoveryMap.get(it.code) || "";
+                discoveryMap.set(it.code, `${existing}${tag} `);
+            });
+        };
+
+        // 레이블링 규칙 적용
+        addToDiscovery(gainers, "[🔥급등]");
+        addToDiscovery(values, "[💰거래폭발]");
+        addToDiscovery(htsGolden, "[📈골든크로스]");
+        addToDiscovery(htsVolume, "[📊수급포착]");
+
+        // 통합 리스트 생성 (순매수 상위는 별도로 pass)
+        const discoveryCtx = Array.from(discoveryMap.entries())
+            .map(([code, tags]) => {
+                const name = [...gainers, ...values, ...htsGolden, ...htsVolume].find(x => x.code === code)?.name || "종목";
+                return `${tags} ${name}(${code})`;
+            }).join(', ');
+
         const diary = getRagDiary();
         const patterns = getPatternInsights();
         const lastAnalysis = diary[0];
@@ -298,7 +407,8 @@ export const executeHourlyPulse = async () => {
                 let hitCount = 0;
                 
                 const performanceResults = await Promise.all(allPicks.map(async (p) => {
-                    const currentP = await fetchStockPrice(p.c);
+                    const fresh = await fetchStockPrice(p.c);
+                    const currentP = fresh ? fresh.price : null;
                     const lastPVal = parseInt(p.p?.replace(/[^0-9]/g, '')) || 0;
                     if (currentP && lastPVal > 0) {
                         const yieldRate = parseFloat(((currentP - lastPVal) / lastPVal * 100).toFixed(2));
@@ -326,14 +436,48 @@ export const executeHourlyPulse = async () => {
         const longTermMemory = patterns.length > 0 ? patterns.map(p => `- ${p.insight}`).join('\n') : '장기 교훈 없음.';
 
         // --- Pass 1: Selection Prompt ---
-        const selectionPrompt = `너는 뉴스 분석 전문가야. 아래 뉴스를 토대로 현재 가장 유망한 '투자 테마'를 정하고, 그 테마와 연계된 상장 종목 5~8개를 선정해서 상장 코드로 알려줘.
-        [뉴스 데이터]
+        const selectionPrompt = `너는 글로벌 매크로 분석가이자 퀀트 전문가야. 
+        오늘은 ${krNow.getUTCFullYear()}년 ${krNow.getUTCMonth()+1}월 ${krNow.getUTCDate()}일 ${timeStr}야. 
+        아래 [현재 매크로 상황], [외인/기관 수급 가집계], [최신 뉴스], [장기 기억]를 종합하여 
+        지금 가장 강력한 '상승 모멘텀'을 가진 주도 테마 1개를 선정하고, 이에 포함되거나 연관된 유망 종목 '총 25개'를 선정해.
+
+        **분석 가이드라인**
+        1. [최신 뉴스]를 분석할 때, 발행 시각이 분석일(${krNow.getUTCFullYear()}-${krNow.getUTCMonth()+1}-${krNow.getUTCDate()})로부터 '24시간 이내'인 뉴스를 최우선 가중치(35%)로 반영해.
+        2. 오래된 뉴스는 시장의 기대를 이미 선반영한 결과로 간주하고, '새로운 모멘텀'으로서의 가치를 낮게 평가해.
+        3. 매크로 지표: 10%, 외인/기관 수급: 30%, 장기 기억(과거 패턴 및 최근 실적): 25%
+
+        [현재 매크로 상황]
+        ${macroCtx}
+
+        [실시간 시장 포착 종목 (다각화된 신호)]
+        * 레이블 안내: [🔥급등] 상승률 상위, [💰거래폭발] 거래대금 상위, [📈골든크로스] 기술적 지표 개선, [📊수급포착] 거래량 급계
+        ${discoveryCtx}
+
+        [외인/기관 수급 (장중 가집계 상위)]
+        ${supplyList}
+
+        [최신 뉴스 데이터]
         ${currentNews}
+        
+        [장기 기억 (과거 패턴 및 최근 실적)]
+        ${longTermMemory}
+        
+        [최근 추천 성적 요약]
+        ${performanceReport}
+
+        [지시사항]
+        1. 위의 가중치를 엄격히 준수하여 테마 및 종목을 선정해.
+        2. 환율(USD/KRW)과 미국채 금리가 현재 섹션(수출주/금융주/성장주 등)에 미치는 영향을 매크로 비중(10%) 내에서 중요하게 고려해.
+        3. 외인이나 기관의 수급이 실제로 들어오고 있는 종목을 'candidates'에 우선 포함시켜(30%).
+        4. 과거에 반복되었던 패턴이나 최근의 성적(장기 기억)이 현재 상황과 일치하거나 긍정적인 경우 높은 점수(25%)를 부여해.
+        5. **필터링 룰 (핵심):** 단순히 오늘 하루 3~5% 올랐다거나 외인 매수가 찍혔다고 해서 무조건 추천하면 안 돼. 네가 알고 있는 해당 종목/섹터의 '장기(구조적) 추세'를 반드시 판단해. 만약 근 1~2년간 전기차 캐즘, 공급 과잉 등으로 장기 우하향 중이던 섹터라면, 오늘의 반등이 '진짜 바닥 탈출(추세 전환)'을 증명할 만한 강력한 뉴스나 매크로 변화가 동반되지 않은 한 데드캣 바운스(Dead Cat Bounce)로 간주하고 강력히 배제해!
+        6. **정직한 보류 권한:** 만약 너의 분석 결과, 현재 시장 상황이나 수급, 매크로 지표 상 '진짜 주도주'가 될 만한 종목이 단 하나도 발견되지 않는다면, 억지로 종목을 채우지 말고 candidates 리스트를 **빈 배열([])**로 반환해. 'Structural Decline'인 종목을 추천하는 것은 투자자에게 치명적인 손실을 입히는 행위임을 명심해.
         
         [출력 양식 (JSON)]
         { "theme": "주도 테마명", "candidates": [{"n": "종목명", "s": "상장코드"}] }`;
 
         const selectionRaw = await fetchAiContent(selectionPrompt);
+        console.log('Selection Raw Output:', JSON.stringify(selectionRaw, null, 2));
         const candidates = selectionRaw?.candidates || [];
         const mainTheme = selectionRaw?.theme || "분석중";
 
@@ -341,34 +485,90 @@ export const executeHourlyPulse = async () => {
         console.log(`📊 [${timeStr}] 2단계: 후보 종목(${candidates.length}개) 실시간 가격 동기화 중...`);
         const syncedPrices = [];
         for (const c of candidates) {
-            const price = await fetchStockPrice(c.s);
-            if (price) {
-                syncedPrices.push(`${c.n}(${c.s}): ${price}원`);
+            const fresh = await fetchStockPrice(c.s);
+            if (fresh) {
+                syncedPrices.push(`${c.n}(${c.s}): ${fresh.price}원`);
                 await sleep(150); // 한투 API 부하 관리
             }
         }
         const priceCtx = syncedPrices.length > 0 ? syncedPrices.join(', ') : "가격 정보 없음";
 
         // --- Pass 2: Final Analysis Prompt ---
-        console.log(`🧠 [${timeStr}] 3단계: 정확한 실시간 가격을 기반으로 최종 리포트 생성 중...`);
-        const finalPrompt = `너는 퀀트 트레이더야. [테마: ${mainTheme}]와 아래 [실시간 가격]을 바탕으로 최종 리포트를 작성해.
+        console.log(`🧠 [${timeStr}] 3단계: 주가 리스크 분석 및 최종 리포트 생성 중...`);
+        
+        // 대표 종목에 대해 심층 분석 데이터 수집 (리스크 체크용)
+        const topPick = candidates[0];
+        const topPickCode = topPick?.s;
+        
+        let stockSpecificNews = "";
+        let themeSpecificNews = ""; // 테마 전용 뉴스 추가
+        let stockSpecificSupply = "";
+        let topAnalytics = null;
+
+        if (topPickCode) {
+            console.log(`🔍 [Pulse] TOP PICK(${topPick.n}) 및 테마(${mainTheme}) 심층 데이터 수집 중...`);
+            [stockSpecificNews, themeSpecificNews, stockSpecificSupply, topAnalytics] = await Promise.all([
+                fetchNaverNews(`${topPick.n} 주식 전망 공시 뉴스`),
+                fetchNaverNews(`${mainTheme} 산업 전망 시장 분석`), // 테마 전용 뉴스
+                fetchStockInvestorTrend(topPickCode),
+                fetchStockAnalytics(topPickCode)
+            ]);
+            console.log(`📑 [Pulse] 테마 뉴스 수집 결과: ${themeSpecificNews.length > 50 ? '성공' : '실패/부족'}`);
+            console.log(`📊 [Pulse] 종목 수급 수집 결과: ${stockSpecificSupply}`);
+        }
+
+        const analyticsCtx = topPickCode ? `
+        [TOP PICK: ${topPick.n} 전용 심층 데이터]
+        1. 종목별 최신 뉴스/공시:
+        ${stockSpecificNews || "데이터 부족"}
+        
+        2. 해당 테마(${mainTheme}) 산업 전망 뉴스:
+        ${themeSpecificNews || "데이터 부족"}
+
+        3. 외국인/기관 수급 추이 (3일):
+        ${stockSpecificSupply}
+        
+        4. 과거 실적 (재무):
+        ${topAnalytics?.financeData ? topAnalytics.financeData.map(f => `- ${f.period}: 매출 ${f.revenue}억, 영업이익 ${f.profit}억`).join('\n        ') : "정보 없음"}
+
+        5. 최근 60일(약 3개월) 주가/거래량 추이:
+        ${topAnalytics?.priceData ? topAnalytics.priceData.map(p => `- ${p.date}: 종가 ${p.close}원, 거래량 ${p.vol}주`).join('\n        ') : "정보 없음"}
+        `.trim() : "분석 데이터 수집 실패";
+
+        const finalPrompt = `너는 퀀트 트레이더이자 리스크 매니저야. 
+        [테마: ${mainTheme}]와 아래 [데이터]를 바탕으로 최종 리포트를 작성해.
+        
+        **최종 분석 가중치 (TOP PICK에 대해서는 아래 데이터를 100% 활용할 것)**
+        - 매크로 지표: 10%
+        - 외인/기관 수급 (전체 및 개별 종목): 30%
+        - 최신 뉴스 (전체 및 개별 종목): 35%
+        - 장기 기억(과거 패턴 및 최근 실적): 25%
+
+        ${analyticsCtx}
+
         [실시간 가격 (Snapshot)]
         ${priceCtx}
 
         [뉴스/매크로 재료]
         ${currentNews}
 
-        [장기 교훈]
+        [장기 기억 (과거 패턴 및 교훈)]
         ${longTermMemory}
 
-        [지시사항]
-        1. 반드시 [실시간 가격] 리스트에 있는 종목 중에서 TOP PICK을 선정해.
-        2. 리스트에 적힌 가격을 'price' 필드에 정확히 입력해. (예: 189,000원 -> "189000")
-        3. 단순한 뉴스를 넘어 해당 기업의 시가총액과 재무 건전성(우량주/잡주)을 테마와 연결하여 철저히 검증할 것.
-        4. 현재 환율과 금리가 해당 종목에 미치는 구체적인 취약점이나 수혜 여부를 반드시 'macro' 필드에 포함할 것.
-        5. 하락 시나리오(Bear Case) 작성 시, 투자자가 즉시 포지션을 탈출해야 할 '구체적인 위험 징후'를 명시할 것.
-        6. 목표가(tp)는 무조건 현재가보다 높게, 손절가(sl)는 낮게 설정해.
-        7. JSON 형식으로만 응답해.
+        [최근 추천 성적 요약]
+        ${performanceReport}
+
+        [지시사항 - 리스크 관리 및 최종 추천]
+        1. 오늘은 ${krNow.getUTCFullYear()}년 ${krNow.getUTCMonth()+1}월 ${krNow.getUTCDate()}일이므로, 과거 실적 데이터가 아닌 미래 지향적(2026-2027) 시각에서 분석해.
+        2. [산업 테마 뉴스]와 [개별 종목 뉴스]가 일치하고, [외인/기관 수급]이 동반되는 '강력한 합치(Concurrence)'가 발견된다면 리스트를 비우지 말고 적극적으로 종목을 추천해.
+        3. 'shortTermPicks'는 뉴스 재료가 신선하고 거래량이 폭발한 종목 위주로 선정해.
+        4. 'longTermPicks'는 재무 건전성이 확보되고 매크로 상황(환율/금리)이 우호적인 종목 위주로 선정해.
+        5. **필터링 대원칙(VETO RULE):** 분석 결과 펀더멘털이 "하락 추세(Structural Decline)"로 판명된 종목은 수급이 아무리 좋아도 절대 TOP PICK(메인 추천)으로 선정하지 마. 억지로 추천할 필요가 없으며, 정합성이 맞지 않으면 모든 추천 종목 필드를 비워둬도 좋아. 
+        6. **정직성 원칙 (Sincerity):** 데이터가 불충분하거나 모든 후보가 장기 하락 추세(Structural Decline)라면, TOP PICK(stock 필드)을 null로 설정하고, feedback에 그 이유(추천 보류 근거)를 솔직하고 냉정하게 기술해. "억지 추천"은 금기 사항이야.
+        7. 'bearCase'에는 [개별 종목 전용 데이터]에서 발견된 구체적인 아킬레스건을 명시할 것.
+        8. 'fundamental' 섹션에서 현재 종목이 "낙폭 과대(Undervalued)"인지 "하락 추세(Structural Decline)"인지를 실적 추이와 가격 추이를 비교하여 명확히 판정해.
+        9. 'macro' 필드에는 현재 환율/금리 상황에서 이 테마가 가질 '아킬레스건(치명적 약점)'을 반드시 포함할 것.
+        10. JSON 형식으로만 응답해.
 
         [출력 양식]
         {
@@ -385,8 +585,8 @@ export const executeHourlyPulse = async () => {
             "bearCase": "리스크 케이스",
             "reason": "선정 이유",
             "feedback": "투자 조언",
-            "shortTermPicks": [{"n": "명", "c": "코드", "p": "현재가", "tp": "목", "sl": "손", "r": "이유"}],
-            "longTermPicks": [{"n": "명", "c": "코드", "p": "현재가", "tp": "목", "sl": "손", "r": "이유"}],
+            "shortTermPicks": [{"n": "종목명", "c": "코드", "p": "현재가", "tp": "목표가", "sl": "손절가", "t": "수익전략(예: +15% 스윙)"}],
+            "longTermPicks": [{"n": "종목명", "c": "코드", "p": "현재가", "tp": "목표가", "sl": "손절가", "r": "투자포인트(한두문장)"}],
             "newInsight": "새로운 교훈"
           }
         }`;

@@ -1,6 +1,7 @@
 import express from 'express';
 import axios from 'axios';
 import { KIS_BASE_URL, ensureToken, getKisHeaders, getCurrentToken, getAccessToken } from '../lib/kisCore.js';
+import { getSupplyCache, saveSupplyCache } from '../lib/supplyCache.js';
 
 const router = express.Router();
  
@@ -73,6 +74,7 @@ export const setupDashboardApi = () => {
             }
 
             const fetchRankings = async (investor, type) => {
+                const cacheKey = `dashboard_${investor}_${type}`;
                 try {
                     await sleep(150); // 충분한 간격
                     const response = await axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/foreign-institution-total`, {
@@ -84,12 +86,27 @@ export const setupDashboardApi = () => {
                         },
                         headers: getKisHeaders('FHPTJ04400000')
                     });
-                    return response.data.output.slice(0, 10).map((it, idx) => ({
-                        num: idx + 1, name: it.hts_kor_isnm, symbol: it.mksc_shrn_iscd,
-                        price: (parseFloat(it.stck_prpr)).toLocaleString() + '원',
-                        diff: (parseInt(it.frgn_ntby_qty || it.orgn_ntby_qty || 0)).toLocaleString() + '주', isUp: type === 'buy'
-                    }));
-                } catch (e) { return []; }
+                    if (response.data.output && response.data.output.length > 0) {
+                        const mapped = response.data.output.slice(0, 10).map((it, idx) => ({
+                            num: idx + 1, name: it.hts_kor_isnm, symbol: it.mksc_shrn_iscd,
+                            price: (parseFloat(it.stck_prpr)).toLocaleString() + '원',
+                            diff: (parseInt(it.frgn_ntby_qty || it.orgn_ntby_qty || 0)).toLocaleString() + '주', isUp: type === 'buy'
+                        }));
+                        saveSupplyCache(cacheKey, mapped);
+                        return mapped;
+                    }
+                    
+                    // Fallback to cache if empty
+                    const cached = getSupplyCache(cacheKey);
+                    if (cached && cached.length > 0) {
+                        return cached;
+                    }
+                    return [];
+                } catch (e) { 
+                    const cached = getSupplyCache(cacheKey);
+                    if (cached && cached.length > 0) return cached;
+                    return []; 
+                }
             };
 
             const [fBuy, fSell, iBuy, iSell] = await Promise.all([

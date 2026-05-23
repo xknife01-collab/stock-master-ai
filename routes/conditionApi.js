@@ -1,6 +1,6 @@
 import express from 'express';
 import axios from 'axios';
-import { KIS_BASE_URL, getCurrentToken, getKisHeaders, ensureToken } from '../lib/kisCore.js';
+import { KIS_BASE_URL, getCurrentToken, getKisHeaders, ensureToken, fetchStockPrice } from '../lib/kisCore.js';
 
 const router = express.Router();
 let lastConditionResults = new Map(); // seq -> Set(symbols)
@@ -65,21 +65,32 @@ router.get('/condition-search/:seq', ensureToken, async (req, res) => {
         // 테스트용 더미 데이터 반환 (실제 API 미연동 대비)
         const dummyData = {
             '0': [
-                { code: '005930', name: '삼성전자', price: '72,500', change: '1.2%' },
-                { code: '000660', name: 'SK하이닉스', price: '141,200', change: '2.5%' }
+                { code: '005930', name: '삼성전자' },
+                { code: '000660', name: 'SK하이닉스' }
             ],
             '1': [
-                { code: '035720', name: '카카오', price: '54,100', change: '5.1%' },
-                { code: '035420', name: 'NAVER', price: '215,000', change: '3.8%' }
+                { code: '035720', name: '카카오' },
+                { code: '035420', name: 'NAVER' }
             ],
             '2': [
-                { code: '005490', name: 'POSCO홀딩스', price: '452,000', change: '0.8%' },
-                { code: '051910', name: 'LG화학', price: '488,500', change: '1.5%' },
-                { code: '000270', name: '기아', price: '92,100', change: '2.3%' }
+                { code: '005490', name: 'POSCO홀딩스' },
+                { code: '051910', name: 'LG화학' },
+                { code: '000270', name: '기아' }
             ]
         };
         
-        res.json(dummyData[seq] || []);
+        const list = dummyData[seq] || [];
+        
+        // 더미 데이터라도 주가는 실시간으로 갱신하여 반환 (사용자 신뢰도 향상)
+        const updatedList = await Promise.all(list.map(async (s) => {
+            const fresh = await fetchStockPrice(s.code);
+            if (fresh) {
+                return { ...s, price: fresh.price.toLocaleString(), change: fresh.change + '%' };
+            }
+            return { ...s, price: '-', change: '0%' };
+        }));
+        
+        res.json(updatedList);
     }
 });
 

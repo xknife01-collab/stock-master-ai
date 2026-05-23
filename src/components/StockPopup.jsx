@@ -114,19 +114,23 @@ const StockPopup = ({ item, onClose }) => {
             </div>
           </div>
           
-          <div className="h-[300px] w-full">
-            {!loadingPopup && popupHistory.length > 0 ? (
+          <div className="w-full font-sans" style={{ minHeight: '320px', height: '320px', position: 'relative' }}>
+            {!loadingPopup && popupHistory && popupHistory.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={popupHistory}>
+                <AreaChart data={popupHistory} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
                   <defs><linearGradient id="colorPopup" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ed3738" stopOpacity={0.2}/><stop offset="95%" stopColor="#ed3738" stopOpacity={0}/></linearGradient></defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                  <XAxis dataKey="date" stroke="#888" fontSize={11} tickLine={false} axisLine={{stroke: '#e5e7eb'}} minTickGap={10} dy={10} />
+                  <XAxis dataKey="date" stroke="#888" fontSize={11} tickLine={false} axisLine={{stroke: '#e5e7eb'}} minTickGap={20} tickMargin={10} />
                   <YAxis domain={['dataMin - (dataMin*0.01)', 'dataMax + (dataMax*0.01)']} fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => Math.round(v).toLocaleString()} orientation="right" width={60} />
                   <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} itemStyle={{ color: '#ed3738', fontWeight: 'bold' }} />
-                  <Area type="monotone" dataKey="price" stroke="#ed3738" strokeWidth={2} fill="url(#colorPopup)" animationDuration={1000} />
+                  <Area type="monotone" dataKey="price" stroke="#ed3738" strokeWidth={2} fill="url(#colorPopup)" animationDuration={1000} isAnimationActive={true} />
                 </AreaChart>
               </ResponsiveContainer>
-            ) : <div className="h-full flex items-center justify-center text-gray-400 font-bold text-sm"><div className="animate-pulse">데이터를 불러오는 중...</div></div>}
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400 font-bold text-sm">
+                <div className="animate-pulse">{loadingPopup ? '차트 데이터를 불러오는 중...' : '데이터가 없습니다.'}</div>
+              </div>
+            )}
           </div>
 
           {stockDetail && (
@@ -147,8 +151,8 @@ const StockPopup = ({ item, onClose }) => {
                 {[
                   { label: '주가수익비율', value: stockDetail.per, sub: 'PER' },
                   { label: '주가순자산비율', value: stockDetail.pbr, sub: 'PBR' },
-                  { label: '자기자본이익률', value: stockDetail.roe + '%', sub: 'ROE' },
-                  { label: '배당수익률', value: stockDetail.yield + '%', sub: 'Yield' }
+                  { label: '자기자본이익률', value: (stockDetail.roe !== '-' ? stockDetail.roe + '%' : '-'), sub: 'ROE' },
+                  { label: '배당수익률', value: (stockDetail.yield !== '-' ? stockDetail.yield + '%' : '-'), sub: 'Yield' }
                 ].map((stat, i) => (
                   <div key={i} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
                     <div className="text-[10px] text-gray-400 font-bold mb-1 uppercase">{stat.label}</div>
@@ -196,11 +200,11 @@ const StockPopup = ({ item, onClose }) => {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
                     <span className="text-[10px] font-black text-gray-500 uppercase">이격도 (5일)</span>
-                    <div className="text-xl font-black text-gray-900 font-mono mt-1">{stockDetail.advanced?.disparity5}%</div>
+                    <div className="text-xl font-black text-gray-900 font-mono mt-1">{stockDetail.advanced?.disparity5}{stockDetail.advanced?.disparity5 !== '-' ? '%' : ''}</div>
                   </div>
                   <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
                     <span className="text-[10px] font-black text-gray-500 uppercase">공매도 비중</span>
-                    <div className="text-xl font-black text-red-500 font-mono mt-1">{stockDetail.advanced?.shortRatio}%</div>
+                    <div className="text-xl font-black text-red-500 font-mono mt-1">{stockDetail.advanced?.shortRatio}{stockDetail.advanced?.shortRatio !== '-' ? '%' : ''}</div>
                   </div>
                 </div>
               </div>
@@ -210,17 +214,22 @@ const StockPopup = ({ item, onClose }) => {
                   <div className="w-1 h-3 bg-[#7000ff] rounded-full"></div>
                   최근 실적 추이 <span className="text-[9px] text-gray-400 font-normal">(억 원)</span>
                 </div>
-                <div className="h-[140px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stockDetail.finance} margin={{top: 10, right: 10, left: -20, bottom: 0}}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="year" fontSize={10} tickLine={false} axisLine={false} />
-                      <YAxis fontSize={10} tickLine={false} axisLine={false} />
-                      <Tooltip />
-                      <Bar dataKey="revenue" name="매출" fill="#7000ff" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="profit" name="익" fill="#00ffab" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="w-full bg-gray-50/30 rounded-xl p-2 mt-2" style={{ height: '160px', position: 'relative' }}>
+                  {stockDetail.finance && stockDetail.finance.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={stockDetail.finance} margin={{top: 10, right: 10, left: 10, bottom: 5}}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis dataKey="year" fontSize={9} tickLine={false} axisLine={false} tick={{fill: '#94a3b8'}} />
+                        <YAxis hide />
+                        <Tooltip 
+                          contentStyle={{fontSize: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
+                          formatter={(val) => [`₩${Math.round(val/1000).toLocaleString()}k`, '']}
+                        />
+                        <Bar name="매출" dataKey="revenue" fill="#7000ff" radius={[2, 2, 0, 0]} barSize={20} />
+                        <Bar name="영익" dataKey="profit" fill="#00ffab" radius={[2, 2, 0, 0]} barSize={20} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : <div className="h-full flex items-center justify-center text-gray-400 text-[10px]">재무 차트 데이터 없음</div>}
                 </div>
               </div>
             </div>

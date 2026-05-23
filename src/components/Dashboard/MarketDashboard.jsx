@@ -95,19 +95,23 @@ const MarketDashboard = () => {
             ))}
           </div>
         </div>
-        <div className="h-[320px] w-full">
-          {!loadingHistory ? (
+        <div className="w-full flex-1" style={{ minHeight: '320px', height: '320px', position: 'relative', overflow: 'hidden', minWidth: 0 }}>
+          {!loadingHistory && history && history.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={history}>
+              <AreaChart data={history} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                 <defs><linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#00ffab" stopOpacity={0.3}/><stop offset="95%" stopColor="#00ffab" stopOpacity={0}/></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                 <XAxis dataKey="date" stroke="rgba(255,255,255,0.2)" fontSize={10} tickLine={false} axisLine={false} dy={10} />
                 <YAxis domain={['dataMin', 'dataMax']} hide />
                 <Tooltip contentStyle={{backgroundColor: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px'}} />
-                <Area type="monotone" dataKey="price" stroke="#00ffab" strokeWidth={3} fill="url(#colorPrice)" animationDuration={300} />
+                <Area type="monotone" dataKey="price" stroke="#00ffab" strokeWidth={3} fill="url(#colorPrice)" animationDuration={300} isAnimationActive={true} />
               </AreaChart>
             </ResponsiveContainer>
-          ) : <div className="h-full flex items-center justify-center text-white/20 font-black italic animate-pulse">퀀트 엔진 가동 중...</div>}
+          ) : (
+            <div className="h-full flex items-center justify-center text-white/20 font-black italic">
+              {loadingHistory ? "데이터 동기화 중..." : "차트 데이터 대기 중..."}
+            </div>
+          )}
         </div>
       </div>
 
