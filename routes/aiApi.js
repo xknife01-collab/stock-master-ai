@@ -166,6 +166,174 @@ const cleanSignal = (s) => {
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
+ * 과거 AI 추천 종목들의 1일, 3일, 5일 뒤 가격 추적 및 백테스트 데이터 업데이트
+ */
+const updateBacktestData = async (diary) => {
+    // 최근 20개 기록에 대해서만 백테스팅 업데이트 수행 (API 호출 방지 및 속도 향상)
+    const targets = diary.slice(0, 20);
+    
+    for (const entry of targets) {
+        // 이미 5일 차까지 최종 완료(finalized)된 건은 패스
+        if (entry.backtest && entry.backtest.finalized) {
+            continue;
+        }
+
+        const symbol = entry.symbol;
+        const recommendedPrice = parseFloat(entry.price);
+        if (!symbol || isNaN(recommendedPrice) || recommendedPrice <= 0) {
+            continue;
+        }
+
+        try {
+            console.log(`🔍 [Backtest] 종목 추적 중: ${entry.prediction?.stock || symbol} (추천일시: ${entry.time})`);
+            const analytics = await fetchStockAnalytics(symbol);
+            if (!analytics || !analytics.priceData || analytics.priceData.length === 0) {
+                console.log(`⚠️ [Backtest] ${symbol} 일봉 데이터 없음`);
+                continue;
+            }
+
+            // KIS API 일자별 시세(신규->과거)를 시간순(과거->신규)으로 정렬
+            const prices = [...analytics.priceData].reverse();
+            
+            // 추천 일시를 한국 표준시(KST) YYYYMMDD 포맷으로 변환
+            const recKst = new Date(new Date(entry.time).getTime() + 9 * 60 * 60 * 1000);
+            const recDateStr = recKst.toISOString().slice(0, 10).replace(/-/g, '');
+
+            // 추천일 당일 또는 바로 다음 영업일 찾기
+            let recIdx = prices.findIndex(p => p.date >= recDateStr);
+            if (recIdx === -1) {
+                console.log(`⚠️ [Backtest] 추천일(${recDateStr}) 이후의 일봉 매칭 실패`);
+                continue;
+            }
+
+            const basePrice = recommendedPrice; // 추천 시점 실시간 가격 기준
+
+            let day1Price = null, day1Yield = null;
+            let day3Price = null, day3Yield = null;
+            let day5Price = null, day5Yield = null;
+
+            // 1 영업일 뒤 (recIdx + 1)
+            if (recIdx + 1 < prices.length) {
+                day1Price = parseFloat(prices[recIdx + 1].close);
+                day1Yield = parseFloat(((day1Price - basePrice) / basePrice * 100).toFixed(2));
+            }
+            // 3 영업일 뒤 (recIdx + 3)
+            if (recIdx + 3 < prices.length) {
+                day3Price = parseFloat(prices[recIdx + 3].close);
+                day3Yield = parseFloat(((day3Price - basePrice) / basePrice * 100).toFixed(2));
+            }
+            // 5 영업일 뒤 (recIdx + 5)
+            if (recIdx + 5 < prices.length) {
+                day5Price = parseFloat(prices[recIdx + 5].close);
+                day5Yield = parseFloat(((day5Price - basePrice) / basePrice * 100).toFixed(2));
+            }
+
+            entry.backtest = {
+                day1Price,
+                day1Yield,
+                day3Price,
+                day3Yield,
+                day5Price,
+                day5Yield,
+                finalized: day5Price !== null
+            };
+
+            console.log(`✅ [Backtest] 업데이트 완료: ${entry.prediction?.stock} [1D: ${day1Yield || '-'}%, 3D: ${day3Yield || '-'}%, 5D: ${day5Yield || '-'}%]`);
+            await sleep(150); // API 레이트 리밋 제어
+        } catch (e) {
+            console.error(`❌ [Backtest Error] ${symbol} 추적 실패:`, e.message);
+        }
+    }
+};
+
+/**
+ * 다이어리 전체 데이터를 요약하여 AI 프롬프트에 주입할 백테스팅 리포트 문자열 생성
+ */
+const compilePerformanceReport = (diary) => {
+    const validEntries = diary.filter(entry => entry.backtest && (entry.backtest.day1Yield !== null || entry.backtest.day3Yield !== null || entry.backtest.day5Yield !== null));
+    
+    if (validEntries.length === 0) {
+        return "과거 추천 종목 백테스팅 데이터 없음 (첫 가동 중)";
+    }
+
+    let d1Total = 0, d1Count = 0, d1Hits = 0;
+    let d3Total = 0, d3Count = 0, d3Hits = 0;
+    let d5Total = 0, d5Count = 0, d5Hits = 0;
+
+    let bestPick = null;
+    let worstPick = null;
+    const detailLines = [];
+
+    validEntries.forEach(entry => {
+        const b = entry.backtest;
+        const stockName = entry.prediction?.stock || entry.symbol;
+        const themeName = entry.prediction?.theme || "미지정";
+        const dateStr = entry.time.slice(5, 10).replace('-', '/'); // "MM/DD"
+
+        if (b.day1Yield !== null) {
+            d1Total += b.day1Yield;
+            d1Count++;
+            if (b.day1Yield > 0) d1Hits++;
+        }
+        if (b.day3Yield !== null) {
+            d3Total += b.day3Yield;
+            d3Count++;
+            if (b.day3Yield > 0) d3Hits++;
+        }
+        if (b.day5Yield !== null) {
+            d5Total += b.day5Yield;
+            d5Count++;
+            if (b.day5Yield > 0) d5Hits++;
+        }
+
+        // 베스트/워스트 판별 (3일 또는 5일 수익률 기준)
+        const maxYield = Math.max(b.day1Yield || -999, b.day3Yield || -999, b.day5Yield || -999);
+        const minYield = Math.min(b.day1Yield || 999, b.day3Yield || 999, b.day5Yield || 999);
+
+        if (maxYield !== -999) {
+            if (!bestPick || maxYield > bestPick.yield) {
+                bestPick = { name: stockName, theme: themeName, yield: maxYield, date: dateStr };
+            }
+        }
+        if (minYield !== 999) {
+            if (!worstPick || minYield < worstPick.yield) {
+                worstPick = { name: stockName, theme: themeName, yield: minYield, date: dateStr };
+            }
+        }
+
+        detailLines.push(`* [${dateStr}] 테마: ${themeName} | 종목: ${stockName} (추천가: ${entry.price}원) -> 1일후: ${b.day1Yield !== null ? b.day1Yield + '%' : '대기'}, 3일후: ${b.day3Yield !== null ? b.day3Yield + '%' : '대기'}, 5일후: ${b.day5Yield !== null ? b.day5Yield + '%' : '대기'}`);
+    });
+
+    const d1Avg = d1Count > 0 ? (d1Total / d1Count).toFixed(2) : '0';
+    const d1Rate = d1Count > 0 ? ((d1Hits / d1Count) * 100).toFixed(1) : '0';
+
+    const d3Avg = d3Count > 0 ? (d3Total / d3Count).toFixed(2) : '0';
+    const d3Rate = d3Count > 0 ? ((d3Hits / d3Count) * 100).toFixed(1) : '0';
+
+    const d5Avg = d5Count > 0 ? (d5Total / d5Count).toFixed(2) : '0';
+    const d5Rate = d5Count > 0 ? ((d5Hits / d5Count) * 100).toFixed(1) : '0';
+
+    let report = `
+[최근 추천 종목 백테스팅 성과 리포트]
+- 분석 대상 과거 추천 건수: 총 ${validEntries.length}건
+- 1 영업일 뒤 평균 수익률: ${d1Avg}% (적중 상승 성공률: ${d1Rate}%)
+- 3 영업일 뒤 평균 수익률: ${d3Avg}% (적중 상승 성공률: ${d3Rate}%)
+- 5 영업일 뒤 평균 수익률: ${d5Avg}% (적중 상승 성공률: ${d5Rate}%)
+`;
+
+    if (bestPick) {
+        report += `- 가장 성공적이었던 추천: ${bestPick.name} (${bestPick.yield}%, 테마: ${bestPick.theme}, 추천일: ${bestPick.date})\n`;
+    }
+    if (worstPick) {
+        report += `- 가장 성적이 부진했던 추천: ${worstPick.name} (${worstPick.yield}%, 테마: ${worstPick.theme}, 추천일: ${worstPick.date})\n`;
+    }
+
+    report += `\n- 과거 추천 상세 피드백 로그:\n${detailLines.slice(0, 10).join('\n')}`;
+
+    return report;
+};
+
+/**
  * 외국인/기관 매매 상위 종목 가집계 (FHPTJ04400)
  */
 const fetchSupplyRank = async () => {
@@ -389,49 +557,14 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         const diary = getRagDiary();
         const patterns = getPatternInsights();
-        const lastAnalysis = diary[0];
-        
-        let performanceReport = "과거 데이터 없음";
-        if (lastAnalysis) {
-            const lastP = lastAnalysis.prediction || lastAnalysis.signal || {};
-            const mainTheme = lastP.theme || "알 수 없음";
-            
-            const allPicks = [
-                ...(lastAnalysis.shortTermPicks || []),
-                ...(lastAnalysis.longTermPicks || [])
-            ];
-            
-            if (allPicks.length > 0) {
-                console.log(`📊 [Pulse] 직전 분석('${mainTheme}') 실적 추적 중...`);
-                let totalYield = 0;
-                let hitCount = 0;
-                
-                const performanceResults = await Promise.all(allPicks.map(async (p) => {
-                    const fresh = await fetchStockPrice(p.c);
-                    const currentP = fresh ? fresh.price : null;
-                    const lastPVal = parseInt(p.p?.replace(/[^0-9]/g, '')) || 0;
-                    if (currentP && lastPVal > 0) {
-                        const yieldRate = parseFloat(((currentP - lastPVal) / lastPVal * 100).toFixed(2));
-                        totalYield += yieldRate;
-                        if (yieldRate > 0) hitCount++;
-                        return `[${p.n}] ${yieldRate}%`;
-                    }
-                    return null;
-                }));
-                
-                const validResults = performanceResults.filter(r => r !== null);
-                const avgYield = validResults.length > 0 ? (totalYield / validResults.length).toFixed(2) : 0;
-                const hitRate = validResults.length > 0 ? (hitCount / validResults.length * 100).toFixed(1) : 0;
-                
-                performanceReport = `
-                주요 성적 요약:
-                - 직전 주도 테마: '${mainTheme}'
-                - 전체 추천 대비 상승 적중률: ${hitRate}%
-                - 전체 추천 평균 수익률: ${avgYield}%
-                - 세부 종목별 결과: ${validResults.join(', ')}
-                `.trim();
-            }
-        }
+
+        // 1. 과거 추천 종목 백테스팅 데이터 실시간 업데이트 및 파일 저장
+        console.log(`📊 [Pulse] 과거 추천 종목 백테스팅 업데이트 및 성과 분석 중...`);
+        await updateBacktestData(diary);
+        fs.writeFileSync(ragDiaryPath, JSON.stringify(diary, null, 2), 'utf8');
+
+        // 2. 성과 분석 리포트 컴파일
+        const performanceReport = compilePerformanceReport(diary);
 
         const longTermMemory = patterns.length > 0 ? patterns.map(p => `- ${p.insight}`).join('\n') : '장기 교훈 없음.';
 
@@ -582,7 +715,8 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         9. 'macro' 필드에는 현재 환율/금리 상황에서 이 테마가 가질 '아킬레스건(치명적 약점)'을 반드시 포함할 것.
         10. **기술적 지표 분석 적용:** 제공된 기술적 분석 지표를 바탕으로 주가 위치를 정밀하게 평가해. 만약 RSI가 70 이상이거나 볼린저 밴드 상한선 부근(positionPercent > 80%)에 도달한 과열 상태라면, 아무리 뉴스가 좋아도 단기 리스크가 큼을 'bearCase' 및 'feedback'에 경고로 지적하고 분할 매수 전략을 추천해. 반대로 RSI가 30 이하이거나 볼린저 밴드 하한선 부근(positionPercent < 20%)에 위치한 과매도 상태라면 낙폭 과대 반등 가치를 분석해 리포트에 반영해.
         11. **이동평균선 배열 가이드:** 이동평균선이 '역배열 (하락 추세 지속)'인 종목은 메인 추천(TOP PICK)에서 가능한 배제하고, '정배열 (강력한 추세 상승)'이거나 막 20일선 골든크로스가 발생한 안정적인 종목 위주로 선정해.
-        12. JSON 형식으로만 응답해.
+        12. **최근 추천 백테스팅 피드백 학습:** 제공된 [최근 추천 성적 요약] 백테스팅 리포트를 꼼꼼히 확인해. 최근 추천 성공률이 매우 낮거나 마이너스 성적을 낸 특정 테마군(예: 3일/5일 마이너스)이 있다면, 이번 선정 시 유사 테마/유사 지표를 가진 종목에 대한 리스크 판정을 2배 더 엄격하게 적용하여 억지 추천을 원천 배제해. 리포트의 feedback이나 reason에서 스스로 과거 성적 피드백 결과(예: '최근 반도체 테마의 성적이 양호하므로 모멘텀 신뢰도가 높음' 또는 '최근 2차전지 테마의 3일 수익률이 마이너스로 부진하므로 이번 2차전지 종목 추천에서는 목표가를 낮춰 보수적으로 접근함')를 인용하며 학습한 흔적을 남겨줘.
+        13. JSON 형식으로만 응답해.
 
         [출력 양식]
         {
