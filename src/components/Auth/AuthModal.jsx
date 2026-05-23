@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Lock, Mail, Phone, AlertTriangle } from 'lucide-react';
+import { API_URL } from '../../config.js';
 
 const AuthModal = ({ isOpen, onClose, onSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -18,8 +19,8 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
     setLoading(true);
 
     const url = isLogin 
-      ? 'http://localhost:5000/api/auth/login' 
-      : 'http://localhost:5000/api/auth/register';
+      ? `${API_URL}/api/auth/login` 
+      : `${API_URL}/api/auth/register`;
 
     const payload = isLogin 
       ? { email, password } 

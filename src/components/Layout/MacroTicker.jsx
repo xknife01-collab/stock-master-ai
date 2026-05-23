@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Globe, TrendingUp, TrendingDown, Activity, Fuel, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_URL } from '../../config.js';
 
 const MacroTicker = () => {
   const [macroData, setMacroData] = useState([]);
@@ -9,7 +10,7 @@ const MacroTicker = () => {
   useEffect(() => {
     const fetchMacro = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/macro');
+        const response = await fetch(`${API_URL}/api/macro`);
         const data = await response.json();
         if (Array.isArray(data)) {
           setMacroData(data);

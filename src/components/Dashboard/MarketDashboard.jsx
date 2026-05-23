@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChartLine, Activity } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { API_URL } from '../../config.js';
 
 const MarketDashboard = () => {
   const [chartIndex, setChartIndex] = useState(0);
@@ -17,7 +18,7 @@ const MarketDashboard = () => {
     const symbol = chartSymbols[chartIndex];
     const fetchHistory = (isInitial = false) => {
       if (isInitial) setLoadingHistory(true);
-      fetch(`http://localhost:5000/api/stock/history/${symbol}?range=${timeRange}`)
+      fetch(`${API_URL}/api/stock/history/${symbol}?range=${timeRange}`)
         .then(res => res.json())
         .then(data => {
           setHistory(data);
@@ -48,7 +49,7 @@ const MarketDashboard = () => {
   useEffect(() => {
     const fetchAllPrices = () => {
       chartSymbols.forEach(symbol => {
-        fetch(`http://localhost:5000/api/stock/history/${symbol}?range=1D`)
+        fetch(`${API_URL}/api/stock/history/${symbol}?range=1D`)
           .then(res => res.json())
           .then(data => {
             if (data.length > 0) {

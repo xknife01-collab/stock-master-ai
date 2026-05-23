@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
+import { API_URL } from './config.js';
 
 // Layout Components
 import Header from './components/Layout/Header';
@@ -44,13 +45,13 @@ const App = () => {
       return;
     }
     try {
-      const res = await fetch(`http://localhost:5000/api/portfolio?userId=${user.email}`);
+      const res = await fetch(`${API_URL}/api/portfolio?userId=${user.email}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         // 각 종목별 실시간 현재가 병합 조회
         const withPrices = await Promise.all(data.map(async (stock) => {
           try {
-            const priceRes = await fetch(`http://localhost:5000/api/stock/${stock.symbol}`);
+            const priceRes = await fetch(`${API_URL}/api/stock/${stock.symbol}`);
             const priceData = await priceRes.json();
             return {
               ...stock,
@@ -76,23 +77,23 @@ const App = () => {
   // Global Data Fetching (Synced)
   useEffect(() => {
     const fetchData = () => {
-      fetch('http://localhost:5000/api/dashboard')
+      fetch(`${API_URL}/api/dashboard`)
         .then(res => res.json())
         .then(data => setDashboardData(data))
         .catch(e => console.error('Dashboard load fail', e));
         
-      fetch('http://localhost:5000/api/ai/history')
+      fetch(`${API_URL}/api/ai/history`)
         .then(res => res.json())
         .then(data => setAiHistory(Array.isArray(data) ? data : []))
         .catch(e => console.error('AI history load fail', e));
 
-      fetch('http://localhost:5000/api/news')
+      fetch(`${API_URL}/api/news`)
         .then(res => res.json())
         .then(data => setNews(Array.isArray(data) ? data : []))
         .catch(e => console.error('News load fail', e));
 
       // AI Pulse (Hourly Analysis or Cache)
-      fetch('http://localhost:5000/api/ai/pulse')
+      fetch(`${API_URL}/api/ai/pulse`)
         .then(res => res.json())
         .then(data => {
           if (data && (data.data || data.signal)) {
@@ -115,7 +116,7 @@ const App = () => {
         const updatedStocks = await Promise.all(stocks.map(async (stock) => {
           if (!stock.symbol) return stock;
           try {
-            const res = await fetch(`http://localhost:5000/api/stock/${stock.symbol}`);
+            const res = await fetch(`${API_URL}/api/stock/${stock.symbol}`);
             const data = await res.json();
             if (data && data.price) {
               return { ...stock, price: data.price };
@@ -147,7 +148,7 @@ const App = () => {
   const handleAddStock = async (stockData) => {
     if (!user) return;
     try {
-      const res = await fetch('http://localhost:5000/api/portfolio', {
+      const res = await fetch(`${API_URL}/api/portfolio`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -171,7 +172,7 @@ const App = () => {
 
   const handleDeleteStock = async (id) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/portfolio/${id}`, {
+      const res = await fetch(`${API_URL}/api/portfolio/${id}`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -186,7 +187,7 @@ const App = () => {
 
   const handleUpdateStopLoss = async (id, stopLossPrice) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/portfolio/${id}`, {
+      const res = await fetch(`${API_URL}/api/portfolio/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stopLossPrice })

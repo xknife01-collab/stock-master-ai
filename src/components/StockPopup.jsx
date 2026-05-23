@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
+import { API_URL } from '../config.js';
 
 const StockPopup = ({ item, onClose }) => {
   const [popupHistory, setPopupHistory] = useState([]);
@@ -22,7 +23,7 @@ const StockPopup = ({ item, onClose }) => {
     // Fetch history (initial = show loader, refresh = silent)
     const fetchHistory = (isInitial = false) => {
       if (isInitial) setLoadingPopup(true);
-      fetch(`http://localhost:5000/api/stock/history/${item.symbol || '005930'}?range=${popupRange}&price=${item.price}`)
+      fetch(`${API_URL}/api/stock/history/${item.symbol || '005930'}?range=${popupRange}&price=${item.price}`)
         .then(res => res.json())
         .then(data => setPopupHistory(data))
         .catch(e => console.error('History load fail', e))
@@ -40,7 +41,7 @@ const StockPopup = ({ item, onClose }) => {
     // Fetch real-time price if it's a stock
     if (item.symbol && /^\d{6}$/.test(item.symbol)) {
       setLoadingRealTime(true);
-      fetch(`http://localhost:5000/api/stock/${item.symbol}`)
+      fetch(`${API_URL}/api/stock/${item.symbol}`)
         .then(res => res.json())
         .then(data => {
           if (data && data.price) {
@@ -59,7 +60,7 @@ const StockPopup = ({ item, onClose }) => {
     // Fetch fundamental details if it's a KR stock code (6 digits)
     if (item.symbol && /^\d{6}$/.test(item.symbol)) {
       setLoadingDetail(true);
-      fetch(`http://localhost:5000/api/stock-detail/detail/${item.symbol}`)
+      fetch(`${API_URL}/api/stock-detail/detail/${item.symbol}`)
         .then(res => res.json())
         .then(data => {
           if (data.fundamental) setStockDetail(data.fundamental);

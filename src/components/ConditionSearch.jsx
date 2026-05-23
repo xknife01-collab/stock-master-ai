@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_URL } from '../config.js';
 
 const ConditionSearch = ({ onOpenPopup, conditionAlerts }) => {
   const [conditionList, setConditionList] = useState([]);
@@ -9,7 +10,7 @@ const ConditionSearch = ({ onOpenPopup, conditionAlerts }) => {
   const [loadingCondition, setLoadingCondition] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/condition-list')
+    fetch(`${API_URL}/api/condition-list`)
       .then(res => res.json())
       .then(data => {
         setConditionList(data);
@@ -21,7 +22,7 @@ const ConditionSearch = ({ onOpenPopup, conditionAlerts }) => {
   useEffect(() => {
     if (selectedCondSeq === null) return;
     setLoadingCondition(true);
-    fetch(`http://localhost:5000/api/condition-search/${selectedCondSeq}`)
+    fetch(`${API_URL}/api/condition-search/${selectedCondSeq}`)
       .then(res => res.json())
       .then(data => setConditionStocks(data))
       .catch(e => console.error('Condition search fail', e))
