@@ -187,11 +187,11 @@ router.get('/history/:symbol', ensureToken, async (req, res) => {
             if (range === '1W') finalData = finalHistory.slice(-7);
             else if (range === '1M') finalData = finalHistory.slice(-30);
 
-            // [최종 방어 로직] 1D 요청 시 현재 시각 이후의 데이터는 무조건 제거 (3시 데이터 방지)
+            // [최종 방어 로직] 1D 요청 시 현재 시각 이후의 데이터는 무조건 제거 (3시 데이터 방지) - KST 기준
             if (range === '1D') {
-                const now = new Date();
-                const curHH = now.getHours().toString().padStart(2, '0');
-                const curMM = now.getMinutes().toString().padStart(2, '0');
+                const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+                const curHH = krNow.getUTCHours().toString().padStart(2, '0');
+                const curMM = krNow.getUTCMinutes().toString().padStart(2, '0');
                 const curHHMM = `${curHH}:${curMM}`;
                 finalData = finalData.filter(p => p.date <= curHHMM);
             }
