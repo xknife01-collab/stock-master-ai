@@ -7,10 +7,43 @@ const PortfolioSection = ({ user, portfolio, onOpenLogin, onAddStock, onDeleteSt
   const [symbol, setSymbol] = useState('');
   const [purchasePrice, setPurchasePrice] = useState('');
   const [stopLossPrice, setStopLossPrice] = useState('');
+  const [lossPercent, setLossPercent] = useState(5);
   
   // Edit states
   const [editingId, setEditingId] = useState(null);
   const [editSlValue, setEditSlValue] = useState('');
+
+  const handlePurchasePriceChange = (value) => {
+    setPurchasePrice(value);
+    const priceNum = Number(value);
+    if (priceNum > 0) {
+      const calculatedSl = Math.round(priceNum * (1 - lossPercent / 100));
+      setStopLossPrice(calculatedSl);
+    } else {
+      setStopLossPrice('');
+    }
+  };
+
+  const handlePercentChange = (pct) => {
+    setLossPercent(pct);
+    const priceNum = Number(purchasePrice);
+    if (priceNum > 0) {
+      const calculatedSl = Math.round(priceNum * (1 - pct / 100));
+      setStopLossPrice(calculatedSl);
+    }
+  };
+
+  const handleStopLossPriceChange = (value) => {
+    setStopLossPrice(value);
+    const slNum = Number(value);
+    const priceNum = Number(purchasePrice);
+    if (priceNum > 0 && slNum > 0 && slNum < priceNum) {
+      const calculatedPct = Math.round(((priceNum - slNum) / priceNum) * 100);
+      if (calculatedPct >= 1 && calculatedPct <= 50) {
+        setLossPercent(calculatedPct);
+      }
+    }
+  };
 
   const handleAddSubmit = (e) => {
     e.preventDefault();
@@ -29,6 +62,7 @@ const PortfolioSection = ({ user, portfolio, onOpenLogin, onAddStock, onDeleteSt
     setSymbol('');
     setPurchasePrice('');
     setStopLossPrice('');
+    setLossPercent(5);
   };
 
   const startEdit = (stock) => {
@@ -116,7 +150,7 @@ const PortfolioSection = ({ user, portfolio, onOpenLogin, onAddStock, onDeleteSt
                   type="number" 
                   placeholder="₩"
                   value={purchasePrice}
-                  onChange={(e) => setPurchasePrice(e.target.value)}
+                  onChange={(e) => handlePurchasePriceChange(e.target.value)}
                   required
                   className="w-full bg-white/[0.02] border border-white/10 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-white/20 focus:outline-none focus:border-blue-500/40 font-mono"
                 />
@@ -127,12 +161,63 @@ const PortfolioSection = ({ user, portfolio, onOpenLogin, onAddStock, onDeleteSt
                   type="number" 
                   placeholder="₩"
                   value={stopLossPrice}
-                  onChange={(e) => setStopLossPrice(e.target.value)}
+                  onChange={(e) => handleStopLossPriceChange(e.target.value)}
                   required
                   className="w-full bg-white/[0.02] border border-white/10 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-white/20 focus:outline-none focus:border-red-500/40 font-mono"
                 />
               </div>
             </div>
+
+            {/* % 기반 손절가 퀵 계산기 슬라이더 & 프리셋 */}
+            {Number(purchasePrice) > 0 && (
+              <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-3 transition-all duration-300">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black text-white/50 uppercase tracking-widest">
+                    손절 기준율 설정
+                  </span>
+                  <span className="text-xs font-black text-red-400 font-mono bg-red-400/10 px-2 py-0.5 rounded border border-red-500/10">
+                    -{lossPercent}%
+                  </span>
+                </div>
+                
+                {/* 슬라이더 바 */}
+                <div className="space-y-1">
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max="30" 
+                    step="1"
+                    value={lossPercent}
+                    onChange={(e) => handlePercentChange(Number(e.target.value))}
+                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-red-500 focus:outline-none"
+                  />
+                  <div className="flex justify-between text-[8px] text-white/20 font-bold uppercase tracking-wider">
+                    <span>-1%</span>
+                    <span>-15%</span>
+                    <span>-30%</span>
+                  </div>
+                </div>
+                
+                {/* 프리셋 버튼 */}
+                <div className="grid grid-cols-6 gap-1.5 pt-1">
+                  {[3, 5, 7, 10, 15, 20].map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => handlePercentChange(pct)}
+                      className={`py-1.5 rounded-lg text-[10px] font-mono font-black transition-all border ${
+                        lossPercent === pct 
+                          ? 'bg-red-500/20 text-red-400 border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.15)]' 
+                          : 'bg-white/[0.01] text-white/30 border-white/5 hover:bg-white/[0.05] hover:text-white'
+                      }`}
+                    >
+                      -{pct}%
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <button 
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-500 border border-blue-500/20 text-white py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all mt-2"
