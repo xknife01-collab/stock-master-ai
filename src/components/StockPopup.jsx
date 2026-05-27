@@ -192,28 +192,56 @@ const StockPopup = ({ item, onClose }) => {
                     </span>
                   </div>
                   <div className="text-3xl font-black text-gray-900 font-mono mb-2">{stockDetail.advanced?.strength}<span className="text-base text-gray-400 font-bold">%</span></div>
-                  <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden mb-3">
                     <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-300 z-10" />
                     <div className="h-full bg-emerald-400 rounded-full" style={{width: `${Math.min(parseFloat(stockDetail.advanced?.strength) || 0, 200)/2}%`}} />
+                  </div>
+                  <div className="pt-2.5 border-t border-gray-50 flex items-start gap-1">
+                    <span className="text-xs text-emerald-500 font-bold">💡</span>
+                    <p className="text-[10px] text-gray-500 leading-normal">
+                      <strong>체결강도:</strong> 매수 체결량 대비 매도 체결량 비율(100% 기준). <strong>90% 이상</strong>일 때 대기 매수세가 살아있는 안전한 진입선으로 판단합니다.
+                    </p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                    <span className="text-[10px] font-black text-gray-500 uppercase">이격도 (5일)</span>
-                    <div className="text-xl font-black text-gray-900 font-mono mt-1">{stockDetail.advanced?.disparity5}{stockDetail.advanced?.disparity5 !== '-' ? '%' : ''}</div>
+                  <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-black text-gray-500 uppercase">이격도 (5일)</span>
+                      <div className="text-xl font-black text-gray-900 font-mono mt-1">{stockDetail.advanced?.disparity5}{stockDetail.advanced?.disparity5 !== '-' ? '%' : ''}</div>
+                    </div>
+                    <p className="text-[9px] text-gray-400 leading-normal mt-2 pt-2 border-t border-gray-50">
+                      5일 이동평균선과 현재가의 괴리율(100% 기준). <strong>107% 이상</strong>은 단기 과열 구간이므로 추격 매수에 주의해야 합니다.
+                    </p>
                   </div>
-                  <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                    <span className="text-[10px] font-black text-gray-500 uppercase">공매도 비중</span>
-                    <div className="text-xl font-black text-red-500 font-mono mt-1">{stockDetail.advanced?.shortRatio}{stockDetail.advanced?.shortRatio !== '-' ? '%' : ''}</div>
+                  <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-black text-gray-500 uppercase">공매도 비중</span>
+                      <div className="text-xl font-black text-red-500 font-mono mt-1">{stockDetail.advanced?.shortRatio}{stockDetail.advanced?.shortRatio !== '-' ? '%' : ''}</div>
+                    </div>
+                    <p className="text-[9px] text-gray-400 leading-normal mt-2 pt-2 border-t border-gray-50">
+                      최근 거래대금 대비 공매도 비중. <strong>10% 미만</strong>이 안전구간이며, 10% 초과 시 하방 압력이 커집니다.
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-6 border-t border-gray-100 pt-6">
-                <div className="text-[11px] font-bold text-gray-500 mb-3 flex items-center gap-2">
-                  <div className="w-1 h-3 bg-[#7000ff] rounded-full"></div>
-                  최근 실적 추이 <span className="text-[9px] text-gray-400 font-normal">(억 원)</span>
+               <div className="mt-6 border-t border-gray-100 pt-6">
+                <div className="text-[11px] font-bold text-gray-500 mb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-3 bg-[#7000ff] rounded-full"></div>
+                    최근 실적 추이 <span className="text-[9px] text-gray-400 font-normal">(억 원)</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[9px] font-bold">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-[#7000ff] inline-block"></span>
+                      <span className="text-gray-600">매출액</span>
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-[#00ffab] inline-block"></span>
+                      <span className="text-gray-600">영업이익</span>
+                    </span>
+                  </div>
                 </div>
                 <div className="w-full bg-gray-50/30 rounded-xl p-2 mt-2" style={{ height: '160px', position: 'relative' }}>
                   {stockDetail.finance && stockDetail.finance.length > 0 ? (

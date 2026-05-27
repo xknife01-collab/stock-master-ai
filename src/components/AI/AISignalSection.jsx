@@ -4,7 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
+
+  const sig = aiSignal?.data?.pulse?.data || aiSignal?.pulse?.data || aiSignal?.data || aiSignal?.prediction || aiSignal;
 
   const formatDateTime = (timeStr) => {
     try {
@@ -37,9 +39,22 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
               <div className="text-[10px] text-white/30 font-black uppercase tracking-widest">Real-time Quant Analysis Engine</div>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-[10px] font-black text-white/30 uppercase mb-1">Last Update</div>
-            <div className="text-xs font-mono font-black text-blue-400">{aiSignal?.time || '--:--'}</div>
+          <div className="flex gap-4 items-center">
+            {sig?.marketStress && (
+              <div className={`px-3 py-1 bg-white/[0.02] rounded-xl border flex flex-col items-end ${sig.marketStress.safeMode ? 'border-red-500/30 bg-red-500/5' : 'border-green-500/20 bg-green-500/5'}`}>
+                <div className="text-[9px] font-black uppercase tracking-wider opacity-60 flex items-center gap-1.5 text-white/70">
+                  <span className={`w-1.5 h-1.5 rounded-full ${sig.marketStress.safeMode ? 'bg-red-500 animate-ping' : 'bg-green-400'}`}></span>
+                  시장 매크로 스트레스
+                </div>
+                <div className={`text-xs font-black ${sig.marketStress.safeMode ? 'text-red-400' : 'text-green-400'}`}>
+                  {sig.marketStress.score}점 ({sig.marketStress.safeMode ? '🚨 SAFE MODE' : '안정'})
+                </div>
+              </div>
+            )}
+            <div className="text-right">
+              <div className="text-[10px] font-black text-white/30 uppercase mb-1">Last Update</div>
+              <div className="text-xs font-mono font-black text-blue-400">{aiSignal?.time || '--:--'}</div>
+            </div>
           </div>
         </div>
         
@@ -51,20 +66,20 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
             <div className="flex flex-col gap-2 p-3 bg-white/5 rounded-xl border border-white/5 relative z-10">
-              <div className="text-[10px] font-black text-blue-400 uppercase tracking-tighter">01. Data Ingestion</div>
-              <p className="text-[11px] text-white/50 leading-tight">실시간 뉴스, 환율, 국채 금리 등 30+개 매크로 지표 수집</p>
+              <div className="text-[10px] font-black text-blue-400 uppercase tracking-tighter">01. Market Screening & Quant Engine</div>
+              <p className="text-[11px] text-white/50 leading-tight">급등/거래/수급 종목 발굴 및 3대 핵심 퀀트 지표 계량 점수화 (상위 30개)</p>
             </div>
             <div className="flex flex-col gap-2 p-3 bg-white/5 rounded-xl border border-white/5 relative z-10">
-              <div className="text-[10px] font-black text-purple-400 uppercase tracking-tighter">02. Context Alignment (RAG)</div>
-              <p className="text-[11px] text-white/50 leading-tight">과거 추천 성적표(오답노트)를 참조하여 '자가 수정' 수행</p>
+              <div className="text-[10px] font-black text-purple-400 uppercase tracking-tighter">02. RAG Backtest Feedback</div>
+              <p className="text-[11px] text-white/50 leading-tight">과거 추천 성적 백테스팅 리포트(오답노트) 동기화를 통한 AI 자가 보정</p>
             </div>
             <div className="flex flex-col gap-2 p-3 bg-white/5 rounded-xl border border-white/5 relative z-10">
-              <div className="text-[10px] font-black text-green-400 uppercase tracking-tighter">03. Strategic Filtering</div>
-              <p className="text-[11px] text-white/50 leading-tight">손절가 산출, 재무 건전성 필터링, 하락 시나리오 시뮬레이션</p>
+              <div className="text-[10px] font-black text-green-400 uppercase tracking-tighter">03. Dual-Stage AI Veto Filter</div>
+              <p className="text-[11px] text-white/50 leading-tight">1차 30개 후보 분석 및 VETO 룰 적용 후 2차 TOP PICK 심층 리스크 검증</p>
             </div>
             <div className="flex flex-col gap-2 p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 relative z-10 shadow-[0_0_20px_rgba(59,130,246,0.1)]">
-              <div className="text-[10px] font-black text-blue-300 uppercase tracking-tighter">04. Portfolio Signal</div>
-              <p className="text-[11px] text-white/80 leading-tight font-medium">퀀트 논리 기반의 최종 주도 테마 및 종목 시그널 확정</p>
+              <div className="text-[10px] font-black text-blue-300 uppercase tracking-tighter">04. Risk-Adjusted Execution</div>
+              <p className="text-[11px] text-white/80 leading-tight font-medium">기술적 과열도와 숏 압박을 반영한 최적 목표가/손절가 및 투자 전략 제시</p>
             </div>
             
             {/* Connection Lines (Desktop Only) */}
@@ -235,6 +250,152 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                 </div>
               </div>
             </div>
+
+            {sig.marketStress && (
+              <div className="mt-2 mb-8 bg-[#1a1f2c]/50 rounded-2xl border border-white/5 p-6 backdrop-blur-xl bg-gradient-to-b from-[#1a1f2b] to-[#141822] shadow-[0_8px_32px_rgba(0,0,0,0.37)]">
+                {/* 1. Header Section */}
+                <div className="flex justify-between items-center mb-5 pb-4 border-b border-white/5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-1.5 h-4 bg-gradient-to-b from-blue-400 to-indigo-500 rounded-full animate-pulse"></div>
+                    <h4 className="text-xs font-black text-white/95 uppercase tracking-wider">
+                      💡 시장 스트레스 지표별 투자 행동 지침 (Risk Guidelines)
+                    </h4>
+                  </div>
+                  <div className="px-3 py-0.5 rounded-full bg-white/[0.04] border border-white/5 text-[9px] font-black uppercase text-white/40 tracking-widest flex items-center gap-1.5">
+                    Total Score: 
+                    <span className={`font-mono text-xs font-bold ${
+                      sig.marketStress.score >= 60 
+                        ? 'text-red-400 animate-pulse' 
+                        : sig.marketStress.score >= 50 
+                          ? 'text-amber-400' 
+                          : 'text-green-400'
+                    }`}>
+                      {sig.marketStress.score}점
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. Guidelines (3 Columns) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  {/* 1. 안정 구간 */}
+                  <div className={`p-4 rounded-xl border text-[11px] leading-relaxed transition-all duration-300 ${
+                    sig.marketStress.score < 50 
+                      ? 'border-green-500/30 bg-green-500/5 text-white/90 font-medium shadow-[0_0_15px_rgba(16,185,129,0.05)]' 
+                      : 'border-white/5 bg-transparent text-white/40'
+                  }`}>
+                    <div className={`text-xs font-black mb-1.5 ${sig.marketStress.score < 50 ? 'text-green-400' : 'text-white/40'}`}>
+                      🟢 안정 국면 (0 ~ 49점) {sig.marketStress.score < 50 && `[현재: ${sig.marketStress.score}점]`}
+                    </div>
+                    시장 변동성이 낮은 안정적인 상태입니다. 우량 펀더멘털 종목 중심의 정석적인 포트폴리오 운용 및 모멘텀 돌파 전략이 유효합니다.
+                  </div>
+
+                  {/* 2. 경계 구간 */}
+                  <div className={`p-4 rounded-xl border text-[11px] leading-relaxed transition-all duration-300 ${
+                    (sig.marketStress.score >= 50 && sig.marketStress.score < 60)
+                      ? 'border-amber-500/30 bg-amber-500/5 text-white/90 font-medium shadow-[0_0_15px_rgba(245,158,11,0.05)]' 
+                      : 'border-white/5 bg-transparent text-white/40'
+                  }`}>
+                    <div className={`text-xs font-black mb-1.5 ${(sig.marketStress.score >= 50 && sig.marketStress.score < 60) ? 'text-amber-400' : 'text-white/40'}`}>
+                      🟡 경계 국면 (50 ~ 59점) {(sig.marketStress.score >= 50 && sig.marketStress.score < 60) && `[현재: ${sig.marketStress.score}점]`}
+                    </div>
+                    환율 상승 및 지표 불균형이 감지되는 시점입니다. 분할 매수 비중을 평소보다 20% 축소하고 손절가를 타이트하게 조절할 것을 경고합니다.
+                  </div>
+
+                  {/* 3. 폭락 위험 구간 */}
+                  <div className={`p-4 rounded-xl border text-[11px] leading-relaxed transition-all duration-300 ${
+                    sig.marketStress.score >= 60 
+                      ? 'border-red-500/40 bg-red-500/10 text-white font-semibold shadow-[0_0_15px_rgba(239,68,68,0.1)]' 
+                      : 'border-white/5 bg-transparent text-white/40'
+                  }`}>
+                    <div className={`text-xs font-black mb-1.5 ${sig.marketStress.score >= 60 ? 'text-red-400' : 'text-white/40'} flex items-center gap-1`}>
+                      🚨 위험/폭락 국면 (60점 이상) {sig.marketStress.score >= 60 && `[현재: ${sig.marketStress.score}점]`}
+                    </div>
+                    코스피/코스닥 지수 패닉셀 및 환율 급등 국면입니다. <span className={`${sig.marketStress.score >= 60 ? 'text-red-300 font-black underline' : 'text-white/40'}`}>신규 매수를 원천적으로 금지하고 현금 보유 비중을 대폭 확대하여 자산을 안전하게 보존하세요!</span>
+                  </div>
+                </div>
+
+                {/* 3. Sub-title / Divider */}
+                <div className="flex items-center gap-2 mb-4 pt-2 border-t border-white/[0.03]">
+                  <div className="w-1 h-3 bg-white/20 rounded-full"></div>
+                  <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">■ 실시간 계량 리스크 지표 (4대 지표)</span>
+                </div>
+
+                {/* 4. Indicators Grid (4 Columns) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* 🔵 KOSPI */}
+                  <div className="bg-white/[0.01] rounded-xl border border-white/5 p-4 flex flex-col justify-between hover:bg-white/[0.02] transition-colors duration-200">
+                    <div>
+                      <div className="text-white/40 text-[9px] font-black mb-1 uppercase tracking-widest">🔵 KOSPI STRESS (Z-Score)</div>
+                      <div className="text-white font-black text-sm flex justify-between items-center mb-2">
+                        <span>{sig.marketStress.kospi.current?.toLocaleString()}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-black ${sig.marketStress.kospi.score > 15 ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`}>
+                          {sig.marketStress.kospi.score}점
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-white/50 space-y-1 mt-2">
+                      <div className="flex justify-between"><span>20일선 평균:</span> <span className="font-mono text-white/80">{sig.marketStress.kospi.sma20?.toLocaleString()}</span></div>
+                      <div className="flex justify-between"><span>변동성 표준편차 배수:</span> <span className="font-mono text-white/80">{sig.marketStress.kospi.zScore}σ</span></div>
+                      <div className="flex justify-between"><span>20일선 기울기 (5D):</span> <span className={`font-mono ${sig.marketStress.kospi.slope >= 0 ? 'text-green-400' : 'text-red-400'}`}>{sig.marketStress.kospi.slope >= 0 ? '+' : ''}{sig.marketStress.kospi.slope}%</span></div>
+                    </div>
+                  </div>
+                  
+                  {/* 🟢 KOSDAQ */}
+                  <div className="bg-white/[0.01] rounded-xl border border-white/5 p-4 flex flex-col justify-between hover:bg-white/[0.02] transition-colors duration-200">
+                    <div>
+                      <div className="text-white/40 text-[9px] font-black mb-1 uppercase tracking-widest">🟢 KOSDAQ STRESS (Z-Score)</div>
+                      <div className="text-white font-black text-sm flex justify-between items-center mb-2">
+                        <span>{sig.marketStress.kosdaq.current?.toLocaleString()}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-black ${sig.marketStress.kosdaq.score > 15 ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`}>
+                          {sig.marketStress.kosdaq.score}점
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-white/50 space-y-1 mt-2">
+                      <div className="flex justify-between"><span>20일선 평균:</span> <span className="font-mono text-white/80">{sig.marketStress.kosdaq.sma20?.toLocaleString()}</span></div>
+                      <div className="flex justify-between"><span>변동성 표준편차 배수:</span> <span className="font-mono text-white/80">{sig.marketStress.kosdaq.zScore}σ</span></div>
+                      <div className="flex justify-between"><span>20일선 기울기 (5D):</span> <span className={`font-mono ${sig.marketStress.kosdaq.slope >= 0 ? 'text-green-400' : 'text-red-400'}`}>{sig.marketStress.kosdaq.slope >= 0 ? '+' : ''}{sig.marketStress.kosdaq.slope}%</span></div>
+                    </div>
+                  </div>
+
+                  {/* 💵 USD/KRW */}
+                  <div className="bg-white/[0.01] rounded-xl border border-white/5 p-4 flex flex-col justify-between hover:bg-white/[0.02] transition-colors duration-200">
+                    <div>
+                      <div className="text-white/40 text-[9px] font-black mb-1 uppercase tracking-widest">💵 USD/KRW FX STRESS</div>
+                      <div className="text-white font-black text-sm flex justify-between items-center mb-2">
+                        <span>{sig.marketStress.usd.rate?.toLocaleString()}원</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-black ${sig.marketStress.usd.score > 10 ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`}>
+                          {sig.marketStress.usd.score}점
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-white/50 space-y-1 mt-2">
+                      <div className="flex justify-between"><span>일일 변동률:</span> <span className={`font-mono ${sig.marketStress.usd.changePercent >= 0 ? 'text-red-400' : 'text-green-400'}`}>{sig.marketStress.usd.changePercent >= 0 ? '+' : ''}{sig.marketStress.usd.changePercent}%</span></div>
+                      <div className="flex justify-between"><span>FX 임계 경계치:</span> <span className="font-mono text-white/80">1,520원</span></div>
+                      <div className="flex justify-between"><span>전일 대비 방향:</span> <span className={`font-bold ${sig.marketStress.usd.score >= 5 ? 'text-red-400' : 'text-green-400'}`}>{sig.marketStress.usd.score >= 5 ? '상승 (주의)' : '안정'}</span></div>
+                    </div>
+                  </div>
+
+                  {/* 🇺🇸 US 10Y BOND */}
+                  <div className="bg-white/[0.01] rounded-xl border border-white/5 p-4 flex flex-col justify-between hover:bg-white/[0.02] transition-colors duration-200">
+                    <div>
+                      <div className="text-white/40 text-[9px] font-black mb-1 uppercase tracking-widest">🇺🇸 US 10Y BOND STRESS</div>
+                      <div className="text-white font-black text-sm flex justify-between items-center mb-2">
+                        <span>{sig.marketStress.us10y ? sig.marketStress.us10y.yield.toFixed(3) : '--'}%</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-black ${sig.marketStress.us10y?.score > 5 ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`}>
+                          {sig.marketStress.us10y ? sig.marketStress.us10y.score : 0}점
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-white/50 space-y-1 mt-2">
+                      <div className="flex justify-between"><span>일일 변동률:</span> <span className={`font-mono ${sig.marketStress.us10y?.changePercent >= 0 ? 'text-red-400' : 'text-green-400'}`}>{sig.marketStress.us10y?.changePercent >= 0 ? '+' : ''}{sig.marketStress.us10y ? sig.marketStress.us10y.changePercent.toFixed(3) : '--'}%</span></div>
+                      <div className="flex justify-between"><span>최고 임계 경계치:</span> <span className="font-mono text-white/80">4.50%</span></div>
+                      <div className="flex justify-between"><span>금리 추세 지표:</span> <span className={`font-bold ${sig.marketStress.us10y?.score >= 3 ? 'text-red-400' : 'text-green-400'}`}>{sig.marketStress.us10y?.score >= 3 ? '상승 압박 (경계)' : '안정 국면'}</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             </>
             );
           })()

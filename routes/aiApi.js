@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { aiModel, vertexModel } from '../lib/ai.js';
-import { getAccessToken, KIS_BASE_URL, getKisHeaders, fetchStockPrice, fetchStockAnalytics, fetchStockInvestorTrend, fetchMarketRankings, fetchConditionResult } from '../lib/kisCore.js';
+import { getAccessToken, KIS_BASE_URL, getKisHeaders, fetchStockPrice, fetchStockAnalytics, fetchStockInvestorTrend, fetchMarketRankings, fetchConditionResult, fetchMultipleStockQuantMetrics, fetchStockFinancialsForVeto, fetchIndexDailyHistory } from '../lib/kisCore.js';
 import { fetchMacroIndicators } from './macroApi.js';
 import { getSupplyCache, saveSupplyCache } from '../lib/supplyCache.js';
 
@@ -184,21 +184,80 @@ const fetchNaverNews = async (query = '주식 시장 전망 시황') => {
 /**
  * 실시간 가격 갱신 헬퍼
  */
-const refreshRecommendedPrices = async (signal) => {
+const refreshRecommendedPrices = async (signal, candidatePriceMap = {}) => {
     if (!signal) return;
     
     // 1. 메인 픽 가격 갱신 (symbol 필드가 있는 경우)
     if (signal.symbol) {
-        const fresh = await fetchStockPrice(signal.symbol);
-        if (fresh) signal.price = fresh.price.toString();
+        let realPrice = candidatePriceMap[signal.symbol];
+        if (!realPrice) {
+            const fresh = await fetchStockPrice(signal.symbol);
+            if (fresh) realPrice = fresh.price;
+        }
+        
+        if (realPrice) {
+            signal.price = realPrice.toString();
+            
+            // AI가 간혹 0을 하나 더 붙이거나 빼먹어서 10배 차이로 tp/sl을 출력하는 오류 자동 보정
+            const parsedTp = parseInt(signal.tp);
+            const parsedSl = parseInt(signal.sl);
+            
+            if (parsedTp) {
+                if (Math.abs(parsedTp / realPrice - 10) < 3.5) {
+                    signal.tp = Math.round(parsedTp / 10).toString();
+                    console.log(`🔧 [Fix] Target Price (TP) 10배 과대 평가 오류 조정: ${parsedTp} -> ${signal.tp}`);
+                } else if (Math.abs(realPrice / parsedTp - 10) < 3.5) {
+                    signal.tp = Math.round(parsedTp * 10).toString();
+                    console.log(`🔧 [Fix] Target Price (TP) 10배 과소 평가 오류 조정: ${parsedTp} -> ${signal.tp}`);
+                }
+            }
+            if (parsedSl) {
+                if (Math.abs(parsedSl / realPrice - 10) < 3.5) {
+                    signal.sl = Math.round(parsedSl / 10).toString();
+                    console.log(`🔧 [Fix] Stop Loss (SL) 10배 과대 평가 오류 조정: ${parsedSl} -> ${signal.sl}`);
+                } else if (Math.abs(realPrice / parsedSl - 10) < 3.5) {
+                    signal.sl = Math.round(parsedSl * 10).toString();
+                    console.log(`🔧 [Fix] Stop Loss (SL) 10배 과소 평가 오류 조정: ${parsedSl} -> ${signal.sl}`);
+                }
+            }
+        }
     }
 
-    // 2. 단기/장기 추천주 리스트 갱신
+    // 2. 단기/장기 추천주 리스트 갱신 (캐시 맵 및 10배 스케일 보정 추가)
     const updatePicks = async (picks) => {
         if(!picks || !Array.isArray(picks)) return;
         await Promise.all(picks.map(async (item) => {
-            const fresh = await fetchStockPrice(item.c);
-            if (fresh) item.p = fresh.price.toString();
+            let realPrice = candidatePriceMap[item.c];
+            if (!realPrice) {
+                const fresh = await fetchStockPrice(item.c);
+                if (fresh) realPrice = fresh.price;
+            }
+            
+            if (realPrice) {
+                item.p = realPrice.toString();
+                
+                const parsedTp = parseInt(item.tp);
+                const parsedSl = parseInt(item.sl);
+                
+                if (parsedTp) {
+                    if (Math.abs(parsedTp / realPrice - 10) < 3.5) {
+                        item.tp = Math.round(parsedTp / 10).toString();
+                        console.log(`🔧 [Fix-Pick] ${item.n} Target Price 10배 과대 평가 조정: ${parsedTp} -> ${item.tp}`);
+                    } else if (Math.abs(realPrice / parsedTp - 10) < 3.5) {
+                        item.tp = Math.round(parsedTp * 10).toString();
+                        console.log(`🔧 [Fix-Pick] ${item.n} Target Price 10배 과소 평가 조정: ${parsedTp} -> ${item.tp}`);
+                    }
+                }
+                if (parsedSl) {
+                    if (Math.abs(parsedSl / realPrice - 10) < 3.5) {
+                        item.sl = Math.round(parsedSl / 10).toString();
+                        console.log(`🔧 [Fix-Pick] ${item.n} Stop Loss 10배 과대 평가 조정: ${parsedSl} -> ${item.sl}`);
+                    } else if (Math.abs(realPrice / parsedSl - 10) < 3.5) {
+                        item.sl = Math.round(parsedSl * 10).toString();
+                        console.log(`🔧 [Fix-Pick] ${item.n} Stop Loss 10배 과소 평가 조정: ${parsedSl} -> ${item.sl}`);
+                    }
+                }
+            }
         }));
     };
 
@@ -561,6 +620,149 @@ export const executeHourlyPulse = async (force = false) => {
     return await fetchingAiSignalPromise;
 };
 
+// Z-Score 및 이평선 기울기 계산 헬퍼 (최대 30점)
+const calculateIndexStress = (history) => {
+    if (!Array.isArray(history) || history.length < 20) {
+        return { score: 0, slope: 0, zScore: 0, current: 0, sma20: 0 };
+    }
+
+    const prices = history.map(h => h.price);
+    const current = prices[prices.length - 1];
+
+    // 1. SMA20 계산
+    const last20 = prices.slice(-20);
+    const sma20 = last20.reduce((a, b) => a + b, 0) / 20;
+
+    // 2. 표준편차 계산
+    const variance = last20.reduce((sum, val) => sum + Math.pow(val - sma20, 2), 0) / 20;
+    const stdDev = Math.sqrt(variance);
+
+    // 3. Z-Score 계산
+    const zScore = stdDev > 0 ? (current - sma20) / stdDev : 0;
+
+    // 4. 기울기 계산 (5거래일 전 SMA20 대비 최근 20일선 기울기)
+    let slope = 0;
+    if (prices.length >= 25) {
+        const prev20 = prices.slice(-25, -5);
+        const sma20Prev = prev20.reduce((a, b) => a + b, 0) / 20;
+        slope = sma20Prev > 0 ? ((sma20 - sma20Prev) / sma20Prev) * 100 : 0;
+    }
+
+    // 5. 스트레스 점수 판정 (Z < -2.0 시 25점)
+    let score = 0;
+    if (zScore >= 0) {
+        score = 0;
+    } else if (zScore >= -1.0) {
+        score = 10;
+    } else if (zScore >= -2.0) {
+        score = 20;
+    } else {
+        score = 25; // 패닉셀 / 폭락
+    }
+
+    // 20일선 기울기 보정 (우상향 시 -5, 우하향 시 +5, 최종 최대 30점)
+    if (slope >= 0) {
+        score = Math.max(0, score - 5);
+    } else {
+        score = Math.min(30, score + 5);
+    }
+
+    return { score, slope, zScore, current, sma20 };
+};
+
+// 원달러 환율 스트레스 계산 헬퍼 (최대 25점)
+const calculateExchangeStress = (macro) => {
+    const usdIndicator = macro.find(m => m.label === 'USD/KRW');
+    if (!usdIndicator) {
+        return { score: 0, rate: 0, changePercent: 0 };
+    }
+
+    const rate = parseFloat(usdIndicator.value);
+    const changeVal = parseFloat(usdIndicator.change || '0');
+    
+    const prevRate = rate - changeVal;
+    const changePercent = prevRate > 0 ? (changeVal / prevRate) * 100 : 0;
+
+    let score = 0;
+    
+    // 1. 변동성 점수 (최대 15점)
+    if (changePercent > 1.0) {
+        score += 15;
+    } else if (changePercent > 0.5) {
+        score += 7;
+    }
+
+    // 2. 임계 수치 경고 (최대 5점)
+    if (rate >= 1520) {
+        score += 5;
+    }
+
+    // 3. 상승 방향 추가 가중치 (최대 5점)
+    if (usdIndicator.isUp) {
+        score += 5;
+    }
+
+    score = Math.min(25, score);
+
+    return { score, rate, changePercent };
+};
+
+// 미국 국채 10년물 금리(US10Y) 수집 헬퍼
+const fetchUs10yYield = async () => {
+    try {
+        const response = await axios.get('https://query1.finance.yahoo.com/v8/finance/chart/%5ETNX', {
+            headers: { 
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            },
+            timeout: 5000
+        });
+        const result = response.data?.chart?.result?.[0];
+        if (!result) return null;
+        
+        const currentYield = result.meta?.regularMarketPrice;
+        const prevClose = result.meta?.previousClose;
+        if (currentYield === undefined || prevClose === undefined) return null;
+
+        return { currentYield, prevClose };
+    } catch (e) {
+        console.warn(`⚠️ [US10Y fetch failed]: ${e.message}`);
+        return null;
+    }
+};
+
+// 미국 국채 10년물 금리 스트레스 계산 헬퍼 (최대 15점)
+const calculateBondStress = (us10yData) => {
+    if (!us10yData) {
+        return { score: 0, yield: 0, changePercent: 0 };
+    }
+    const current = us10yData.currentYield;
+    const prev = us10yData.prevClose;
+    const change = current - prev;
+    const changePercent = prev > 0 ? (change / prev) * 100 : 0;
+
+    let score = 0;
+
+    // 1. 일일 변동성 (최대 10점)
+    if (changePercent >= 1.5) {
+        score += 10;
+    } else if (changePercent >= 1.0) {
+        score += 5;
+    }
+
+    // 2. 절대 금리 수준 (최대 5점)
+    if (current >= 4.5) {
+        score += 5;
+    } else if (current >= 4.2) {
+        score += 3;
+    }
+
+    return {
+        score: Math.min(15, score),
+        yield: current,
+        changePercent
+    };
+};
+
 const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
     const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
     try {
@@ -568,7 +770,82 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         const currentNewsData = await fetchNaverNews();
         const currentNews = currentNewsData.text;
         const marketNewsSentiment = currentNewsData.sentiment;
-        const macro = await fetchMacroIndicators();
+        
+        // 지수 및 매크로 정보 병렬 조회 (미국채 10년물 금리 추가)
+        const [macro, kospiHistory, kosdaqHistory, us10yData] = await Promise.all([
+            fetchMacroIndicators(),
+            fetchIndexDailyHistory('0001'),
+            fetchIndexDailyHistory('1001'),
+            fetchUs10yYield()
+        ]);
+
+        const kospiStress = calculateIndexStress(kospiHistory);
+        const kosdaqStress = calculateIndexStress(kosdaqHistory);
+        const usdStress = calculateExchangeStress(macro);
+        const bondStress = calculateBondStress(us10yData);
+        const totalStressScore = kospiStress.score + kosdaqStress.score + usdStress.score + bondStress.score;
+
+        const marketStress = {
+            score: totalStressScore,
+            safeMode: totalStressScore >= 50,
+            kospi: {
+                current: kospiStress.current,
+                sma20: parseFloat(kospiStress.sma20.toFixed(2)),
+                zScore: parseFloat(kospiStress.zScore.toFixed(2)),
+                slope: parseFloat(kospiStress.slope.toFixed(3)),
+                score: kospiStress.score
+            },
+            kosdaq: {
+                current: kosdaqStress.current,
+                sma20: parseFloat(kosdaqStress.sma20.toFixed(2)),
+                zScore: parseFloat(kosdaqStress.zScore.toFixed(2)),
+                slope: parseFloat(kosdaqStress.slope.toFixed(3)),
+                score: kosdaqStress.score
+            },
+            usd: {
+                rate: usdStress.rate,
+                changePercent: parseFloat(usdStress.changePercent.toFixed(3)),
+                score: usdStress.score
+            },
+            us10y: {
+                yield: parseFloat(bondStress.yield.toFixed(3)),
+                changePercent: parseFloat(bondStress.changePercent.toFixed(3)),
+                score: bondStress.score
+            }
+        };
+
+        console.log(`📡 [Pulse] 시장 매크로 스트레스 지수 계산 완료: ${totalStressScore}점 (Safe Mode: ${marketStress.safeMode})`);
+
+        // 초고위험 관망 (80점 이상) 킬스위치 가동
+        if (totalStressScore >= 80) {
+            console.log(`🚨 [Market Panic Detected] 스트레스 지수 극도 임계치(${totalStressScore}점) 초과로 신규 매수를 원천 보류하고 홀드 신호로 대체합니다.`);
+            const panicSignal = {
+                theme: "시장 급락 및 패닉 관망 (Safe Mode)",
+                themeProb: "100%",
+                stock: "현금 비중 확대 (추천 없음)",
+                symbol: "000000",
+                price: "0",
+                tp: "0",
+                sl: "0",
+                fundamental: "시장 매크로 리스크 극대화로 인한 기업 가치 평가 일시 신뢰 상실.",
+                macro: `코스피 Z-Score ${kospiStress.zScore.toFixed(2)}, 코스닥 Z-Score ${kosdaqStress.zScore.toFixed(2)}, 환율 ${usdStress.rate}원, 미국채 금리 ${bondStress.yield}%. 시장 스트레스 지수가 ${totalStressScore}점으로 80점 임계치를 초과했습니다.`,
+                bearCase: "전체 시장의 체계적 위험(Systemic Risk)으로 인해 모든 개별 종목의 하방 압력이 무차별적으로 발생할 수 있는 구간입니다.",
+                reason: `시장 매크로 스트레스 점수 ${totalStressScore}점 돌파 (코스피 20일선 이탈 변동성 Z-Score ${kospiStress.zScore.toFixed(2)}, 코스닥 ${kosdaqStress.zScore.toFixed(2)}, 환율 ${usdStress.rate}원, 미국채 10년 금리 ${bondStress.yield}%). 시스템 규정에 따라 신규 주식 매수 추천을 원천 보류하고 현금 비중 80% 이상 확보를 지시합니다.`,
+                feedback: "모든 신규 진입을 즉각 중단하고, 기존 보유 주식의 리스크 관리 및 안전 자산/현금 확보에 역량을 집중해야 합니다.",
+                shortTermPicks: [],
+                longTermPicks: [],
+                newInsight: "시장 전체의 체계적 위험이 지배적인 구간에서는 개별 퀀트/재무 지표가 무력화됩니다. 이러한 폭락장 진입 시 추천을 강제로 중단하고 현금을 확보하게 하는 자동 차단 제어기(Kill Switch)의 정상 작동을 확인했습니다.",
+                marketStress
+            };
+
+            const fullCache = {
+                pulse: panicSignal,
+                hourKey: currentHourKey
+            };
+            fs.writeFileSync(aiCachePath, JSON.stringify(fullCache, null, 2), 'utf8');
+            return { data: panicSignal, time: timeStr };
+        }
+
         
         // 매크로 지표에 대한 시장 주류 해석(Sentiment) 힌트 추가
         const interpretMacro = (m) => {
@@ -585,7 +862,8 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             return "추세 확인 중";
         };
 
-        const macroCtx = macro.map(m => `- ${m.label}: ${m.value} (${m.change}) [해석: ${interpretMacro(m)}]`).join('\n');
+        const macroCtx = macro.map(m => `- ${m.label}: ${m.value} (${m.change}) [해석: ${interpretMacro(m)}]`).join('\n') + 
+            `\n- 미국 국채 10년물 금리: ${bondStress.yield}% (${bondStress.changePercent >= 0 ? '+' : ''}${bondStress.changePercent.toFixed(3)}%) [해석: 글로벌 할인율 및 국내 외인 수급 선행 지표]`;
 
         // --- 다각화된 데이터 수집 (Discovery Funnel) ---
         console.log(`📡 [Pulse] 다각화된 시장 데이터 수집 중 (상승률/거래대금/HTS)...`);
@@ -597,29 +875,256 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             fetchConditionResult('1')       // HTS: 거래량 급증 (임의 seq)
         ]);
 
-        // 데이터 레이블링 및 통합
-        const discoveryMap = new Map(); // code -> info string
+        const isEtfOrIndex = (name) => {
+            const keywords = ["KODEX", "TIGER", "SOL", "RISE", "KBSTAR", "ACE", "HANARO", "KOSEF", "ARIRANG", "ETN", "인버스", "레버리지", "선물", "국채", "달러", "고배당", "MSCI", "ESG", "active", "액티브", "로우볼", "밸류", "모멘텀"];
+            return keywords.some(k => name.toUpperCase().includes(k.toUpperCase()));
+        };
 
-        const addToDiscovery = (list, tag) => {
+        const parseSupplyStocks = (str) => {
+            const stocks = [];
+            if (typeof str !== 'string') return stocks;
+            const regex = /([가-힣A-Za-z0-9\s&\.\-\+]+)\((\d{6})\)/g;
+            let match;
+            while ((match = regex.exec(str)) !== null) {
+                stocks.push({
+                    name: match[1].trim(),
+                    code: match[2],
+                    price: '0',
+                    change: '0'
+                });
+            }
+            return stocks;
+        };
+
+        // 5개 수집 리스트 통합하여 고유 종목화 및 중요도 산정
+        const candidateOccurrence = new Map(); // code -> { name, code, count, price, change, volume, value, tags: [] }
+        
+        const processList = (list, tag) => {
             if (!Array.isArray(list)) return;
             list.forEach(it => {
-                const existing = discoveryMap.get(it.code) || "";
-                discoveryMap.set(it.code, `${existing}${tag} `);
+                if (!it.code) return;
+                const existing = candidateOccurrence.get(it.code) || {
+                    name: it.name,
+                    code: it.code,
+                    price: parseInt(it.price || '0'),
+                    change: parseFloat(it.change || '0'),
+                    volume: parseInt(it.volume || '0'),
+                    value: parseInt(it.value || '0'),
+                    count: 0,
+                    tags: []
+                };
+                existing.count += 1;
+                if (!existing.tags.includes(tag)) {
+                    existing.tags.push(tag);
+                }
+                candidateOccurrence.set(it.code, existing);
             });
         };
 
-        // 레이블링 규칙 적용
-        addToDiscovery(gainers, "[🔥급등]");
-        addToDiscovery(values, "[💰거래폭발]");
-        addToDiscovery(htsGolden, "[📈골든크로스]");
-        addToDiscovery(htsVolume, "[📊수급포착]");
+        processList(gainers, "급등");
+        processList(values, "거래폭발");
+        processList(htsGolden, "골든크로스");
+        processList(htsVolume, "수급포착");
+        processList(parseSupplyStocks(supplyList), "수급우수");
 
-        // 통합 리스트 생성 (순매수 상위는 별도로 pass)
-        const discoveryCtx = Array.from(discoveryMap.entries())
-            .map(([code, tags]) => {
-                const name = [...gainers, ...values, ...htsGolden, ...htsVolume].find(x => x.code === code)?.name || "종목";
-                return `${tags} ${name}(${code})`;
-            }).join(', ');
+        // 상위 30개 종목 압축 선정 (ETF 및 인덱스 펀드류 제거)
+        // 정렬 기준: 1. 포착 횟수 내림차순, 2. 거래대금 내림차순, 3. 절대 등락률 내림차순
+        const candidatePool = Array.from(candidateOccurrence.values())
+            .filter(c => !isEtfOrIndex(c.name))
+            .sort((a, b) => {
+                if (b.count !== a.count) return b.count - a.count;
+                if (b.value !== a.value) return b.value - a.value;
+                return Math.abs(b.change) - Math.abs(a.change);
+            })
+            .slice(0, 30);
+
+        const symbols = candidatePool.map(c => c.code);
+
+        // 상위 30개 종목에 대한 실시간 퀀트 지표 (체결강도, 이격도, 공매도 비중) 수집
+        console.log(`📡 [Pulse] 상위 30개 후보 종목의 실시간 퀀트 지표 수집 시작...`);
+        const metricsMap = await fetchMultipleStockQuantMetrics(symbols);
+
+        // 각 종목별 100점 만점 퀀트 스코어 계산 및 상세 점수표 구축
+        const scoredCandidates = candidatePool.map(c => {
+            const m = metricsMap[c.code] || { price: c.price, disparity5: 100, disparity20: 100, strength: 100, shortRatio: 0 };
+            
+            // 1) 체결강도 점수 (Max 40점)
+            let strengthScore = 0;
+            const str = m.strength;
+            if (str >= 120) strengthScore = 40;
+            else if (str >= 105) strengthScore = 30;
+            else if (str >= 100) strengthScore = 20;
+            else if (str >= 90) strengthScore = 10;
+            else strengthScore = 0;
+
+            // 2) 20일 이격도 점수 (Max 35점)
+            let disparityScore = 0;
+            const disp = m.disparity20;
+            if (disp >= 98 && disp <= 103) disparityScore = 35;
+            else if (disp > 103 && disp <= 106) disparityScore = 25;
+            else if (disp < 98) disparityScore = 15;
+            else if (disp > 106 && disp < 107) disparityScore = 5;
+            else disparityScore = -10; // 107% 이상 감점
+
+            // 3) 공매도 비중 점수 (Max 25점)
+            let shortScore = 0;
+            const sr = m.shortRatio;
+            if (sr < 5) shortScore = 25;
+            else if (sr >= 5 && sr < 10) shortScore = 15;
+            else if (sr >= 10 && sr < 15) shortScore = 5;
+            else shortScore = -10; // 15% 이상 감점
+
+            const totalScore = strengthScore + disparityScore + shortScore;
+
+            return {
+                name: c.name,
+                code: c.code,
+                price: m.price || c.price,
+                change: c.change,
+                metrics: {
+                    disparity5: m.disparity5,
+                    disparity20: m.disparity20,
+                    strength: m.strength,
+                    shortRatio: m.shortRatio
+                },
+                scores: {
+                    strengthScore,
+                    disparityScore,
+                    shortScore
+                },
+                totalScore
+            };
+        });
+
+        // 퀀트 점수 높은 순 정렬
+        const sortedScored = [...scoredCandidates].sort((a, b) => b.totalScore - a.totalScore);
+
+        // 하드 필터링 적용 (안전 모드 여부에 따라 동적 상향 조절)
+        const minTotalScore = marketStress.safeMode ? 75 : 60;
+        const minStrength = marketStress.safeMode ? 100 : 90;
+        const maxDisparity = marketStress.safeMode ? 104 : 107;
+        const maxShortRatio = marketStress.safeMode ? 7 : 10;
+
+        console.log(`🛡️ [Filter Config] Safe Mode: ${marketStress.safeMode} ➡️ 최소 점수 ${minTotalScore}점, 최소 체결강도 ${minStrength}%, 최대 이격도 ${maxDisparity}%, 최대 공매도 비중 ${maxShortRatio}% 적용`);
+
+        const technicallyFiltered = sortedScored.filter(c => {
+            return c.totalScore >= minTotalScore &&
+                   c.metrics.strength >= minStrength &&
+                   c.metrics.disparity20 < maxDisparity &&
+                   c.metrics.shortRatio < maxShortRatio;
+        });
+
+
+        // 2차 재무 건전성 및 밸류에이션 하드 필터링 적용 (상위 10개 대상)
+        const filteredCandidates = [];
+        console.log(`📡 [Pulse] 기술적 필터 통과 종목 대상 재무 건전성 및 수급 조회 시작...`);
+        for (let i = 0; i < technicallyFiltered.length; i++) {
+            const c = technicallyFiltered[i];
+            
+            // 상위 10개 종목만 재무 조사 진행 (Rate Limit 및 API 부하 절약)
+            if (filteredCandidates.length >= 10) {
+                break;
+            }
+
+            try {
+                // 1. 재무 데이터 조회
+                const fin = await fetchStockFinancialsForVeto(c.code);
+                await sleep(160);
+
+                if (fin) {
+                    // (1) ROE 적자 기업 원천 제외 Veto Rule
+                    if (fin.roe !== null && fin.roe < 0) {
+                        console.log(`❌ [Financial Veto] ${c.name} (${c.code}) - ROE 적자(${fin.roe}%)로 후보군에서 원천 제외`);
+                        continue;
+                    }
+
+                    // (2) 최근 3분기 연속 영업이익 적자(영업손실) 한계 기업 제외 Veto Rule
+                    if (fin.opProfits && fin.opProfits.length >= 3 && fin.opProfits.every(p => p < 0)) {
+                        console.log(`❌ [Financial Veto] ${c.name} (${c.code}) - 3분기 연속 영업이익 적자로 후보군에서 원천 제외`);
+                        continue;
+                    }
+
+                    // (3) 중장기 가치주 배제 태깅 (ROE < 5% 이거나 PER > 100배 혹은 PER < 0배인 극단적 밸류에이션 종목)
+                    let isLongTermExcluded = false;
+                    const reason = [];
+                    if (fin.roe !== null && fin.roe < 5) {
+                        isLongTermExcluded = true;
+                        reason.push(`ROE 5% 미만 (${fin.roe}%)`);
+                    }
+                    if (fin.per !== null && (fin.per > 100 || fin.per < 0)) {
+                        isLongTermExcluded = true;
+                        reason.push(`PER 과열/마이너스 (${fin.per}배)`);
+                    }
+
+                    c.financials = fin;
+                    c.isLongTermExcluded = isLongTermExcluded;
+                    c.longTermExcludeReason = reason.join(', ');
+                }
+
+                // 2. 수급 데이터 조회
+                const supplyRes = await fetchStockInvestorTrend(c.code);
+                if (supplyRes && supplyRes.stats) {
+                    c.supplyStats = supplyRes.stats;
+                }
+                await sleep(160);
+
+                filteredCandidates.push(c);
+            } catch (err) {
+                console.error(`⚠️ [Pulse] ${c.name} 재무/수급 분석 중 에러:`, err.message);
+                // API 에러 발생 시 안전 장치로 포함
+                filteredCandidates.push(c);
+            }
+        }
+
+        // 기준 충족 종목이 없을 경우 즉시 안전 대피(Hold) 시그널 반환 및 캐싱
+        if (filteredCandidates.length === 0) {
+            console.log(`⚠️ [Pulse] 최소 안전 기준(기술적 필터 및 재무 건전성 Veto)을 충족하는 종목이 없습니다. 추천을 보류합니다.`);
+            const holdSignal = {
+                theme: "시장 관망 및 추천 보류",
+                themeProb: "100%",
+                stock: "현금 비중 확대 (추천 없음)",
+                symbol: "000000",
+                price: "0",
+                tp: "0",
+                sl: "0",
+                fundamental: "안전 기준을 충족하는 후보 종목 없음",
+                macro: `현재 시장 위험 지수 상승으로 리스크 필터가 격상되었습니다 (Safe Mode: ${marketStress.safeMode ? 'Active' : 'Inactive'}). 코스피/코스닥 후보 종목 중 강화된 퀀트 매수 조건(체결강도 ${minStrength}% 이상, 공매도 비중 ${maxShortRatio}% 미만, 이격도 ${maxDisparity}% 미만)을 만족하는 종목이 존재하지 않습니다.`,
+                bearCase: "모든 추적 후보군의 단기 매도세 우위 혹은 재무 부실 상태 지속.",
+                reason: "계량 기술 필터링 및 재무 건전성 통과 기준을 만족하는 우량 종목 부재.",
+                feedback: "현금을 확보하고 시장이 진정되거나 우량 수급 매수세가 재유입될 때까지 관망할 것을 강력 권고합니다.",
+                shortTermPicks: [],
+                longTermPicks: [],
+                newInsight: "시장 약세장 혹은 모멘텀 소멸 구간에서는 매수를 멈추고 관망하는 것이 가장 훌륭한 퀀트 트레이딩 전략입니다.",
+                marketStress
+            };
+            
+            fs.writeFileSync(aiCachePath, JSON.stringify({ pulse: holdSignal, hourKey }, null, 2), 'utf8');
+            return { data: holdSignal, time: timeStr };
+        }
+
+
+        const scoredCandidatesCtx = filteredCandidates.map((c, idx) => {
+            const supplyText = c.supplyStats ? 
+                `➡️ 수급: 외인 5일 누적 ${c.supplyStats.foreign5D > 0 ? '+' : ''}${c.supplyStats.foreign5D.toLocaleString()}주 / 기관 5일 누적 ${c.supplyStats.organ5D > 0 ? '+' : ''}${c.supplyStats.organ5D.toLocaleString()}주` : 
+                `➡️ 수급: (조회 대기 상태)`;
+            
+            const fin = c.financials;
+            const finText = fin ? 
+                `➡️ 재무: ROE: ${fin.roe !== null ? fin.roe + '%' : '정보 없음'} / PER: ${fin.per !== null ? fin.per + '배' : '정보 없음'} / PBR: ${fin.pbr !== null ? fin.pbr + '배' : '정보 없음'}` : 
+                `➡️ 재무: (조회 대기 상태)`;
+
+            const excludeBadge = c.isLongTermExcluded ? 
+                ` ⚠️ [중장기 가치주 제외 대상 - 사유: ${c.longTermExcludeReason}]` : 
+                '';
+
+            return `[${idx + 1}위] ${c.name} (${c.code})${excludeBadge} - 퀀트 종합점수: ${c.totalScore}점 / 100점
+    - [20일 이격도] 수치: ${c.metrics.disparity20}% ➡️ 점수: ${c.scores.disparityScore}점 / 35점
+    - [체결강도] 수치: ${c.metrics.strength}% ➡️ 점수: ${c.scores.strengthScore}점 / 40점
+    - [공매도 비중] 수치: ${c.metrics.shortRatio}% ➡️ 점수: ${c.scores.shortScore}점 / 25점
+    - [5일 누적 수급] ${supplyText}
+    - [재무 및 밸류에이션] ${finText}
+    - 현재가: ${c.price.toLocaleString()}원 (전일대비: ${c.change > 0 ? '+' : ''}${c.change}%)`;
+        }).join('\n\n');
 
         const diary = getRagDiary();
         const patterns = getPatternInsights();
@@ -634,38 +1139,40 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         const longTermMemory = patterns.length > 0 ? patterns.map(p => `- ${p.insight}`).join('\n') : '장기 교훈 없음.';
 
+
+
         // --- Pass 1: Selection Prompt ---
         const selectionPrompt = `너는 글로벌 매크로 분석가이자 퀀트 전문가야. 
-        오늘은 ${krNow.getUTCFullYear()}년 ${krNow.getUTCMonth()+1}월 ${krNow.getUTCDate()}일 ${timeStr}야. 
-        아래 [현재 매크로 상황], [외인/기관 수급 가집계], [최신 뉴스], [장기 기억]를 종합하여 
+        오늘은 \${krNow.getUTCFullYear()}년 \${krNow.getUTCMonth()+1}월 \${krNow.getUTCDate()}일 \${timeStr}야. 
+        아래 [현재 매크로 상황], [실시간 시장 포착 후보 종목 및 퀀트 점수표], [최신 뉴스], [장기 기억]를 종합하여 
         지금 가장 강력한 '상승 모멘텀'을 가진 주도 테마 1개를 선정하고, 이에 포함되거나 연관된 유망 종목 '총 25개'를 선정해.
 
-        **분석 가이드라인**
-        1. [최신 뉴스]를 분석할 때, 발행 시각이 분석일(${krNow.getUTCFullYear()}-${krNow.getUTCMonth()+1}-${krNow.getUTCDate()})로부터 '24시간 이내'인 뉴스를 최우선 가중치(35%)로 반영해.
-        2. 오래된 뉴스는 시장의 기대를 이미 선반영한 결과로 간주하고, '새로운 모멘텀'으로서의 가치를 낮게 평가해.
-        3. 매크로 지표: 10%, 외인/기관 수급: 30%, 장기 기억(과거 패턴 및 최근 실적): 25%
+        **분석 가이드라인 및 필수 제약사항 (VETO RULES)**
+        1. **TOP PICK 선정 규칙**: 최종 추천 종목의 첫 번째 종목(TOP PICK, candidates[0])은 반드시 아래 [실시간 시장 포착 후보 종목 및 퀀트 점수표]에서 **퀀트 스코어가 높은 상위권(1위~5위 이내) 종목** 중에서만 골라야 해.
+        2. **절대 진입 금지 필터**: 퀀트 스코어가 **40점 이하**이거나, 20일 이격도 점수에서 **음수 감점(-10점)**을 받아 가격 부담이 극도로 심한 종목(예: 20일 이격도 107% 초과로 과열)은 **절대 TOP PICK으로 선정할 수 없어**. 뉴스 호재가 아무리 강력하고 거래량이 많아도 이 룰은 예외 없이 적용해.
+        3. **정렬 순서**: 추천 종목 'candidates' 배열의 정렬 순서는 퀀트 종합 점수(totalScore)가 높은 종목이 맨 앞으로 오도록 내림차순 정렬해야 해.
+        4. [최신 뉴스]를 분석할 때, 발행 시각이 분석일(\${krNow.getUTCFullYear()}-\${krNow.getUTCMonth()+1}-\${krNow.getUTCDate()})로부터 '24시간 이내'인 뉴스를 최우선 가중치(35%)로 반영해.
+        5. 매크로 지표: 10%, 외인/기관 수급: 30%, 퀀트 점수 및 리스크 필터링: 35%, 장기 기억(과거 패턴 및 최근 실적): 25%
 
         [현재 매크로 상황]
-        ${macroCtx}
+        \${macroCtx}
 
-        [실시간 시장 포착 종목 (다각화된 신호)]
-        * 레이블 안내: [🔥급등] 상승률 상위, [💰거래폭발] 거래대금 상위, [📈골든크로스] 기술적 지표 개선, [📊수급포착] 거래량 급계
-        ${discoveryCtx}
-
-        [외인/기관 수급 (장중 가집계 상위)]
-        ${supplyList}
+        [실시간 시장 포착 후보 종목 및 퀀트 점수표 (총점 순 정렬)]
+        아래 후보들은 퀀트 종합점수(체결강도 40점 + 20일 이격도 35점 + 공매도 비중 25점 = 100점 만점) 기준으로 정렬되어 있습니다.
+        점수가 높은 종목일수록 매수 유입이 세고, 가격 부담이 적고, 공매도 압박이 없는 안전한 종목입니다.
+        \${scoredCandidatesCtx}
 
         [최신 뉴스 데이터]
-        ${currentNews}
+        \${currentNews}
         
         [장기 기억 (과거 패턴 및 최근 실적)]
-        ${longTermMemory}
+        \${longTermMemory}
         
         [최근 추천 성적 요약]
-        ${performanceReport}
+        \${performanceReport}
 
         [지시사항]
-        1. 위의 가중치를 엄격히 준수하여 테마 및 종목을 선정해.
+        1. 위의 가중치와 TOP PICK 선정 제한사항을 엄격히 준수하여 테마 및 종목을 선정해.
         2. 환율(USD/KRW)과 미국채 금리가 현재 섹션(수출주/금융주/성장주 등)에 미치는 영향을 매크로 비중(10%) 내에서 중요하게 고려해.
         3. 외인이나 기관의 수급이 실제로 들어오고 있는 종목을 'candidates'에 우선 포함시켜(30%).
         4. 과거에 반복되었던 패턴이나 최근의 성적(장기 기억)이 현재 상황과 일치하거나 긍정적인 경우 높은 점수(25%)를 부여해.
@@ -673,19 +1180,20 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         6. **정직한 보류 권한:** 만약 너의 분석 결과, 현재 시장 상황이나 수급, 매크로 지표 상 '진짜 주도주'가 될 만한 종목이 단 하나도 발견되지 않는다면, 억지로 종목을 채우지 말고 candidates 리스트를 **빈 배열([])**로 반환해. 'Structural Decline'인 종목을 추천하는 것은 투자자에게 치명적인 손실을 입히는 행위임을 명심해.
         
         [출력 양식 (JSON)]
-        { "theme": "주도 테마명", "candidates": [{"n": "종목명", "s": "상장코드"}] }`;
+        { "theme": "주도 테마명", "candidates": [{"n": "종목명", "s": "상장코드"}] }\n`;
 
         const selectionRaw = await fetchAiContent(selectionPrompt);
         console.log('Selection Raw Output:', JSON.stringify(selectionRaw, null, 2));
         const candidates = selectionRaw?.candidates || [];
-        const mainTheme = selectionRaw?.theme || "분석중";
-
+        const mainTheme = selectionRaw?.theme || '분석중';
         // --- 중간 단계: KIS 실시간 가격 조회 ---
         console.log(`📊 [${timeStr}] 2단계: 후보 종목(${candidates.length}개) 실시간 가격 동기화 중...`);
         const syncedPrices = [];
+        const candidatePriceMap = {};
         for (const c of candidates) {
             const fresh = await fetchStockPrice(c.s);
             if (fresh) {
+                candidatePriceMap[c.s] = fresh.price;
                 syncedPrices.push(`${c.n}(${c.s}): ${fresh.price}원`);
                 await sleep(150); // 한투 API 부하 관리
             }
@@ -695,75 +1203,107 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         // --- Pass 2: Final Analysis Prompt ---
         console.log(`🧠 [${timeStr}] 3단계: 주가 리스크 분석 및 최종 리포트 생성 중...`);
         
-        // 대표 종목에 대해 심층 분석 데이터 수집 (리스크 체크용)
-        const topPick = candidates[0];
-        const topPickCode = topPick?.s;
+        // 대표 후보 종목들(상위 5개)에 대해 심층 분석 데이터 수집
+        const topCandidates = candidates.slice(0, 5);
+        const detailedCandidatesData = [];
         
-        let stockSpecificNews = "";
-        let stockNewsSentiment = null;
-        let themeSpecificNews = ""; // 테마 전용 뉴스 추가
+        // 테마 전용 뉴스 수집
+        let themeSpecificNews = "데이터 부족";
         let themeNewsSentiment = null;
-        let stockSpecificSupply = "";
-        let supplyStats = null;
-        let topAnalytics = null;
-
-        if (topPickCode) {
-            console.log(`🔍 [Pulse] TOP PICK(${topPick.n}) 및 테마(${mainTheme}) 심층 데이터 수집 중...`);
-            const [newsResult, themeNewsResult, supplyResult, analyticsResult] = await Promise.all([
-                fetchNaverNews(`${topPick.n} 주식 전망 공시 뉴스`),
-                fetchNaverNews(`${mainTheme} 산업 전망 시장 분석`), // 테마 전용 뉴스
-                fetchStockInvestorTrend(topPickCode),
-                fetchStockAnalytics(topPickCode)
-            ]);
-            stockSpecificNews = newsResult?.text || "데이터 부족";
-            stockNewsSentiment = newsResult?.sentiment || null;
+        if (mainTheme) {
+            const themeNewsResult = await fetchNaverNews(`${mainTheme} 산업 전망 시장 분석`);
             themeSpecificNews = themeNewsResult?.text || "데이터 부족";
             themeNewsSentiment = themeNewsResult?.sentiment || null;
-            stockSpecificSupply = supplyResult?.rawSummary || "정보 없음";
-            supplyStats = supplyResult?.stats || null;
-            topAnalytics = analyticsResult;
-
-            console.log(`📑 [Pulse] 테마 뉴스 수집 결과: ${themeSpecificNews.length > 50 ? '성공' : '실패/부족'}`);
-            console.log(`📊 [Pulse] 종목 수급 수집 결과: ${stockSpecificSupply}`);
         }
 
-        const analyticsCtx = topPickCode ? `
-        [TOP PICK: ${topPick.n} 전용 심층 데이터]
-        1. 종목별 최신 뉴스/공시:
-        ${stockSpecificNews || "데이터 부족"}
-        - 종목 뉴스 감성 지수: 호재(Bullish) ${stockNewsSentiment?.bullishPercent || 0}%, 악재(Bearish) ${stockNewsSentiment?.bearishPercent || 0}%, 중립(Neutral) ${stockNewsSentiment?.neutralPercent || 0}%
-        
-        2. 해당 테마(${mainTheme}) 산업 전망 뉴스:
+        console.log(`🔍 [Pulse] 선정된 후보 종목군 중 상위 ${topCandidates.length}개 종목 심층 데이터(뉴스/수급/재무) 수집 시작...`);
+        for (const c of topCandidates) {
+            try {
+                const [newsResult, supplyResult, analyticsResult] = await Promise.all([
+                    fetchNaverNews(`${c.n} 주식 전망 공시 뉴스`),
+                    fetchStockInvestorTrend(c.s),
+                    fetchStockAnalytics(c.s)
+                ]);
+                
+                detailedCandidatesData.push({
+                    name: c.n,
+                    code: c.s,
+                    news: newsResult?.text || "데이터 부족",
+                    newsSentiment: newsResult?.sentiment || null,
+                    supply: supplyResult?.rawSummary || "정보 없음",
+                    supplyStats: supplyResult?.stats || null,
+                    finance: analyticsResult?.financeData || null,
+                    technical: analyticsResult?.technicalIndicators || null,
+                    priceData: analyticsResult?.priceData || null,
+                    strength: analyticsResult?.strength || null,
+                    shortRatio: analyticsResult?.shortRatio || null
+                });
+                
+                await sleep(150); // API 부하 조절
+            } catch (err) {
+                console.error(`Error fetching detailed data for candidate ${c.n}:`, err.message);
+            }
+        }
+
+        const themeCtx = `
+        [해당 테마(${mainTheme}) 산업 전망 뉴스]
         ${themeSpecificNews || "데이터 부족"}
-        - 테마 뉴스 감성 지수: 호재(Bullish) ${themeNewsSentiment?.bullishPercent || 0}%, 악재(Bearish) ${themeNewsSentiment?.bearishPercent || 0}%, 중립(Neutral) ${themeNewsSentiment?.neutralPercent || 0}%
+        - 테마 뉴스 감성 지수: 호재(Bullish) ${themeNewsSentiment?.bullishPercent || 0}%, 악재(Bearish) ${themeNewsSentiment?.bearishPercent || 0}%, 중립(Neutral) ${themeNewsSentiment?.neutralPercent || 0}%`;
 
-        3. 외국인/기관 수급 추이 (3일):
-        ${stockSpecificSupply}
-        - 외국인 5일 누적 순매수 수량: ${supplyStats?.foreign5D !== undefined ? supplyStats.foreign5D.toLocaleString() + '주' : '정보 없음'}
-        - 기관 5일 누적 순매수 수량: ${supplyStats?.organ5D !== undefined ? supplyStats.organ5D.toLocaleString() + '주' : '정보 없음'}
-        - 외국인 20일 누적 순매수 수량: ${supplyStats?.foreign20D !== undefined ? supplyStats.foreign20D.toLocaleString() + '주' : '정보 없음'}
-        - 기관 20일 누적 순매수 수량: ${supplyStats?.organ20D !== undefined ? supplyStats.organ20D.toLocaleString() + '주' : '정보 없음'}
-        - 외국인 연속 순매수 일수: ${supplyStats?.foreignConsecutiveDays !== undefined ? supplyStats.foreignConsecutiveDays + '일 연속' : '정보 없음'}
-        - 기관 연속 순매수 일수: ${supplyStats?.organConsecutiveDays !== undefined ? supplyStats.organConsecutiveDays + '일 연속' : '정보 없음'}
+        const analyticsCtx = detailedCandidatesData.length > 0 ? detailedCandidatesData.map((d, idx) => {
+            const financeStr = d.finance && d.finance.length > 0 ? 
+                d.finance.map(f => `- ${f.period}: 매출 ${f.revenue}억, 영업이익 ${f.profit}억`).join('\n        ') : 
+                "재무 정보 없음";
+            const priceDataStr = d.priceData && d.priceData.length > 0 ?
+                d.priceData.slice(0, 5).map(p => `- ${p.date}: 종가 ${p.close}원, 거래량 ${p.vol}주`).join('\n        ') :
+                "최근 가격 추이 정보 없음";
+                
+            return `[분석 후보 ${idx + 1}위: ${d.name} (${d.code})]
+        1. 종목별 최신 뉴스/공시:
+        ${d.news}
+        - 종목 뉴스 감성 지수: 호재(Bullish) ${d.newsSentiment?.bullishPercent || 0}%, 악재(Bearish) ${d.newsSentiment?.bearishPercent || 0}%, 중립(Neutral) ${d.newsSentiment?.neutralPercent || 0}%
         
-        4. 과거 실적 (재무):
-        ${topAnalytics?.financeData ? topAnalytics.financeData.map(f => `- ${f.period}: 매출 ${f.revenue}억, 영업이익 ${f.profit}억`).join('\n        ') : "정보 없음"}
+        2. 외국인/기관 수급 추이 (3일):
+        ${d.supply}
+        - 외국인 5일 누적 순매수 수량: ${d.supplyStats?.foreign5D !== undefined ? d.supplyStats.foreign5D.toLocaleString() + '주' : '정보 없음'}
+        - 기관 5일 누적 순매수 수량: ${d.supplyStats?.organ5D !== undefined ? d.supplyStats.organ5D.toLocaleString() + '주' : '정보 없음'}
+        - 외국인 20일 누적 순매수 수량: ${d.supplyStats?.foreign20D !== undefined ? d.supplyStats.foreign20D.toLocaleString() + '주' : '정보 없음'}
+        - 기관 20일 누적 순매수 수량: ${d.supplyStats?.organ20D !== undefined ? d.supplyStats.organ20D.toLocaleString() + '주' : '정보 없음'}
+        - 외국인 연속 순매수 일수: ${d.supplyStats?.foreignConsecutiveDays !== undefined ? d.supplyStats.foreignConsecutiveDays + '일 연속' : '정보 없음'}
+        - 기관 연속 순매수 일수: ${d.supplyStats?.organConsecutiveDays !== undefined ? d.supplyStats.organConsecutiveDays + '일 연속' : '정보 없음'}
+        
+        3. 과거 실적 (재무):
+        ${financeStr}
 
-        5. 최근 60일(약 3개월) 주가/거래량 추이:
-        ${topAnalytics?.priceData ? topAnalytics.priceData.map(p => `- ${p.date}: 종가 ${p.close}원, 거래량 ${p.vol}주`).join('\n        ') : "정보 없음"}
+        4. 최근 주가/거래량 추이:
+        ${priceDataStr}
 
-        6. 기술적 분석 지표 (정량 데이터):
-        - RSI (14일 상대강도지수): ${topAnalytics?.technicalIndicators?.rsi || "정보 없음"} (참고: 70 이상 과열, 30 이하 과매도)
-        - 5일 이동평균선: ${topAnalytics?.technicalIndicators?.ma5 || "정보 없음"}원
-        - 20일 이동평균선: ${topAnalytics?.technicalIndicators?.ma20 || "정보 없음"}원
-        - 60일 이동평균선: ${topAnalytics?.technicalIndicators?.ma60 || "정보 없음"}원
-        - 이동평균선 배열 추세: ${topAnalytics?.technicalIndicators?.maAlignment || "정보 없음"}
-        - 볼린저 밴드 상한선(Upper): ${topAnalytics?.technicalIndicators?.bollinger?.upper || "정보 없음"}원
-        - 볼린저 밴드 중심선(SMA20): ${topAnalytics?.technicalIndicators?.bollinger?.middle || "정보 없음"}원
-        - 볼린저 밴드 하한선(Lower): ${topAnalytics?.technicalIndicators?.bollinger?.lower || "정보 없음"}원
-        - 밴드 내 현재 주가 위치: ${topAnalytics?.technicalIndicators?.bollinger?.positionPercent || "정보 없음"}% (0%는 하한선, 100%는 상한선)
-        - 볼린저 밴드 지표 해석: ${topAnalytics?.technicalIndicators?.bollinger?.interpretation || ""}
-        `.trim() : "분석 데이터 수집 실패";
+        5. 기술적 분석 및 거래 지표 (정량 데이터):
+        - RSI (14일 상대강도지수): ${d.technical?.rsi || "정보 없음"} (참고: 70 이상 과열, 30 이하 과매도)
+        - 5일 이동평균선 이격도: ${d.technical?.disparity5 || "정보 없음"}%
+        - 20일 이동평균선 이격도: ${d.technical?.disparity20 || "정보 없음"}%
+        - 당일 체결강도: ${d.strength || "정보 없음"}%
+        - 최근 거래일 공매도 거래 비중: ${d.shortRatio || "정보 없음"}%
+        - 5일 이동평균선: ${d.technical?.ma5 || "정보 없음"}원
+        - 20일 이동평균선: ${d.technical?.ma20 || "정보 없음"}원
+        - 60일 이동평균선: ${d.technical?.ma60 || "정보 없음"}원
+        - 이동평균선 배열 추세: ${d.technical?.maAlignment || "정보 없음"}
+        - 볼린저 밴드 상한선(Upper): ${d.technical?.bollinger?.upper || "정보 없음"}원
+        - 볼린저 밴드 중심선(SMA20): ${d.technical?.bollinger?.middle || "정보 없음"}원
+        - 볼린저 밴드 하한선(Lower): ${d.technical?.bollinger?.lower || "정보 없음"}원
+        - 밴드 내 현재 주가 위치: ${d.technical?.bollinger?.positionPercent || "정보 없음"}%
+        - 볼린저 밴드 지표 해석: ${d.technical?.bollinger?.interpretation || ""}`;
+        }).join('\n\n=========================================\n\n') : "분석 데이터 수집 실패";
+
+        const stressCtx = `
+        [시장 매크로 스트레스 분석 리포트 (Z-Score & Volatility Adjusted)]
+        - 전체 시장 스트레스 지수: ${marketStress.score}점 / 100점 (기준: 50점 이상 안전 모드 발동, 80점 이상 매수 중단)
+        - 안전 모드(Safe Mode) 가동 여부: ${marketStress.safeMode ? "🚨 ACTIVE (안전모드 발동 - 하드 필터 및 종목 선정 조건 대폭 강화됨)" : "NORMAL (일반모드)"}
+        - 코스피 기술적 분석: 현재가 ${marketStress.kospi.current} / 20일선 평균 ${marketStress.kospi.sma20} (Z-Score: ${marketStress.kospi.zScore}, 20일선 기울기: ${marketStress.kospi.slope}%, 스트레스 기여도: ${marketStress.kospi.score}점)
+        - 코스닥 기술적 분석: 현재가 ${marketStress.kosdaq.current} / 20일선 평균 ${marketStress.kosdaq.sma20} (Z-Score: ${marketStress.kosdaq.zScore}, 20일선 기울기: ${marketStress.kosdaq.slope}%, 스트레스 기여도: ${marketStress.kosdaq.score}점)
+        - 원/달러 환율 분석: 현재 환율 ${marketStress.usd.rate}원 / 일일 변동률 ${marketStress.usd.changePercent}% (스트레스 기여도: ${marketStress.usd.score}점)
+        - 미국 국채 10년물 금리 분석: 현재 금리 ${marketStress.us10y.yield}% / 일일 변동률 ${marketStress.us10y.changePercent}% (스트레스 기여도: ${marketStress.us10y.score}점)
+        `;
 
         const finalPrompt = `너는 퀀트 트레이더이자 리스크 매니저야. 
         [테마: ${mainTheme}]와 아래 [데이터]를 바탕으로 최종 리포트를 작성해.
@@ -773,33 +1313,41 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         - 외인/기관 수급 (전체 및 개별 종목): 30%
         - 최신 뉴스 (전체 및 개별 종목): 35%
         - 장기 기억(과거 패턴 및 최근 실적): 25%
+ 
+        ${themeCtx}
 
         ${analyticsCtx}
 
+        ${stressCtx}
+ 
         [실시간 가격 (Snapshot)]
         ${priceCtx}
-
+ 
         [뉴스/매크로 재료]
         ${currentNews}
         - 시장 종합 뉴스 감성 지수: 호재(Bullish) ${marketNewsSentiment?.bullishPercent || 0}%, 악재(Bearish) ${marketNewsSentiment?.bearishPercent || 0}%, 중립(Neutral) ${marketNewsSentiment?.neutralPercent || 0}%
-
+ 
         [장기 기억 (과거 패턴 및 교훈)]
         ${longTermMemory}
-
+ 
         [최근 추천 성적 요약]
         ${performanceReport}
-
+ 
         [지시사항 - 리스크 관리 및 최종 추천]
         1. 오늘은 ${krNow.getUTCFullYear()}년 ${krNow.getUTCMonth()+1}월 ${krNow.getUTCDate()}일이므로, 과거 실적 데이터가 아닌 미래 지향적(2026-2027) 시각에서 분석해.
-        2. [산업 테마 뉴스]와 [개별 종목 뉴스]가 일치하고, [외인/기관 수급]이 동반되는 '강력한 합치(Concurrence)'가 발견된다면 리스트를 비우지 말고 적극적으로 종목을 추천해.
-        3. 'shortTermPicks'는 뉴스 재료가 신선하고 거래량이 폭발한 종목 위주로 선정해.
-        4. 'longTermPicks'는 재무 건전성이 확보되고 매크로 상황(환율/금리)이 우호적인 종목 위주로 선정해.
+        2. [산업 테마 뉴스]와 [개별 종목 뉴스]가 일치하고, [외인/기관 수급]이 동반되는 '강력한 합치(Concurrence)'가 발견된다면 리스트를 비우지 말고 적극적으로 종목을 추천해. 이번에는 필터링을 통과하고 [분석 후보] 상세 분석이 제공된 상위 3~5개 후보들에 대해 적극적으로 매칭 및 리스크 검증을 수행하여 'shortTermPicks' 및 'longTermPicks' 리스트를 완성도 높게 채우도록 해.
+        3. 'shortTermPicks'는 제공된 분석 후보들 중 단기 체결강도가 강하고 뉴스 재료가 신선하며 최근 5일/20일 수급 유입이 긍정적인 종목 위주로 선정해.
+        4. 'longTermPicks'는 제공된 분석 후보들 중 재무 건전성이 탄탄하고(매출 및 영업이익 상승세), 기관 또는 외인 수급이 꾸준하게 유입되며 장기 성장성이 기대되는 종목 위주로 선정해.
         5. **필터링 대원칙(VETO RULE):** 분석 결과 펀더멘털이 "하락 추세(Structural Decline)"로 판명된 종목은 수급이 아무리 좋아도 절대 TOP PICK(메인 추천)으로 선정하지 마. 억지로 추천할 필요가 없으며, 정합성이 맞지 않으면 모든 추천 종목 필드를 비워둬도 좋아. 
         6. **정직성 원칙 (Sincerity):** 데이터가 불충분하거나 모든 후보가 장기 하락 추세(Structural Decline)라면, TOP PICK(stock 필드)을 null로 설정하고, feedback에 그 이유(추천 보류 근거)를 솔직하고 냉정하게 기술해. "억지 추천"은 금기 사항이야.
         7. 'bearCase'에는 [개별 종목 전용 데이터]에서 발견된 구체적인 아킬레스건을 명시할 것.
         8. 'fundamental' 섹션에서 현재 종목이 "낙폭 과대(Undervalued)"인지 "하락 추세(Structural Decline)"인지를 실적 추이와 가격 추이를 비교하여 명확히 판정해.
         9. 'macro' 필드에는 현재 환율/금리 상황에서 이 테마가 가질 '아킬레스건(치명적 약점)'을 반드시 포함할 것.
-        10. **기술적 지표 분석 적용:** 제공된 기술적 분석 지표를 바탕으로 주가 위치를 정밀하게 평가해. 만약 RSI가 70 이상이거나 볼린저 밴드 상한선 부근(positionPercent > 80%)에 도달한 과열 상태라면, 아무리 뉴스가 좋아도 단기 리스크가 큼을 'bearCase' 및 'feedback'에 경고로 지적하고 분할 매수 전략을 추천해. 반대로 RSI가 30 이하이거나 볼린저 밴드 하한선 부근(positionPercent < 20%)에 위치한 과매도 상태라면 낙폭 과대 반등 가치를 분석해 리포트에 반영해.
+        10. **핵심 퀀트 계량 지표 분석 및 필터링 강제 적용:**
+            - **당일 체결강도**: 체결강도가 100% 미만(매수세가 매도세보다 약한 상태)인 종목은 수급 불균형이 발생한 상태이므로 신규 매수를 보수적으로 접근해. 만약 체결강도가 90% 이하로 급감한 상태라면 당일 거래에서 강력한 리스크 요인으로 분류하여 'bearCase'에 기재하고, 단기/장기 추천 순위에서 심각한 패널티를 줘. 체결강도가 100%~120% 이상으로 살아있는 종목 위주로 매수 우선순위를 둬.
+            - **이격도 (5일 및 20일)**: 주가가 이평선에 안정적으로 걸쳐 있는지 검증해. 5일/20일 이격도가 105%를 초과하는 과열 상태인 종목은 추격 매수 부담이 높으므로 'feedback'에 진입 시 주의를 경고하고 매수 단가를 낮게 권유해. 98%~102% 부근에서 안정적인 매수 기회를 주는 종목을 최우선해.
+            - **공매도 거래 비중**: 최근 거래일의 공매도 거래 비중이 10% 이상으로 높은 경우, 향후 강한 하방 압력이 존재함을 뜻하므로 목표가(tp)를 더 타이트하게 내리고 손절선(sl)을 타이트하게 조절해. 만약 공매도 비중이 15%를 초과하여 비정상적으로 높다면, 뉴스 재료가 이를 돌파할 만큼 강력하지 않은 한 TOP PICK(메인 추천) 선정에서 제외(VETO)해.
+            - **RSI & 볼린저 밴드**: RSI가 70 이상이거나 볼린저 밴드 상한선 부근(positionPercent > 80%)에 도달한 과열 상태라면, 아무리 뉴스가 좋아도 단기 리스크가 큼을 'bearCase' 및 'feedback'에 경고로 지적하고 분할 매수 전략을 추천해. 반대로 RSI가 30 이하이거나 볼린저 밴드 하한선 부근(positionPercent < 20%)에 위치한 과매도 상태라면 낙폭 과대 반등 가치를 분석해 리포트에 반영해.
         11. **이동평균선 배열 가이드:** 이동평균선이 '역배열 (하락 추세 지속)'인 종목은 메인 추천(TOP PICK)에서 가능한 배제하고, '정배열 (강력한 추세 상승)'이거나 막 20일선 골든크로스가 발생한 안정적인 종목 위주로 선정해.
         12. **최근 추천 백테스팅 피드백 학습:** 제공된 [최근 추천 성적 요약] 백테스팅 리포트를 꼼꼼히 확인해. 최근 추천 성공률이 매우 낮거나 마이너스 성적을 낸 특정 테마군(예: 3일/5일 마이너스)이 있다면, 이번 선정 시 유사 테마/유사 지표를 가진 종목에 대한 리스크 판정을 2배 더 응격하게 적용하여 억지 추천을 원천 배제해. 리포트의 feedback이나 reason에서 스스로 과거 성적 피드백 결과(예: '최근 반도체 테마의 성적이 양호하므로 모멘텀 신뢰도가 높음' 또는 '최근 2차전지 테마의 3일 수익률이 마이너스로 부진하므로 이번 2차전지 종목 추천에서는 목표가를 낮춰 보수적으로 접근함')를 인용하며 학습한 흔적을 남겨줘.
         13. **누적 수급 및 연속 순매수 분석 적용:** 제공된 외국인/기관의 5일/20일 누적 순매수 수량 및 연속 순매수 일수를 분석에 반영해. 외인 또는 기관이 3일 이상 연속 순매수 중이거나 5일/20일 누적 순매수 유입이 큰 종목은 상승의 지속성과 세력 수급의 신뢰도가 높은 주도주로 취급하고 매매 전략을 적극적으로 산정해. 반면 5일/20일 누적이 순매도이거나 연속 순매수 일수가 짧다면(0~1일) 일회성 speculative(테마성 일시 반등)일 가능성이 크므로 보수적으로 대응해.
@@ -833,8 +1381,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         if (signalData) {
             cleanSignal(signalData);
-            // 최종 검증: 다시 한번 실시간가 동기화 (오차 방지)
-            await refreshRecommendedPrices(signalData);
+            signalData.marketStress = marketStress;
+            // 최종 검증: 다시 한번 실시간가 동기화 (오차 방지, 캐시 맵 연동)
+            await refreshRecommendedPrices(signalData, candidatePriceMap);
 
             saveAiCache({ pulse: { data: signalData } }, currentHourKey);
             saveRagDiary(currentNews, signalData);
@@ -857,17 +1406,24 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 // --- AI Helper (Used in passes) ---
 const fetchAiContent = async (p) => {
     try {
-        const result = await aiModel.generateContent(p);
+        const result = await aiModel.generateContent({
+            contents: [{ role: 'user', parts: [{ text: p }] }],
+            generationConfig: { responseMimeType: "application/json" }
+        });
         const text = result.response.text().trim();
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        return JSON.parse(jsonMatch ? jsonMatch[0] : text);
+        return JSON.parse(text);
     } catch(e) {
         console.warn('Gemini 실패, Vertex 폴백...', e.message);
         try {
-            const vResult = await vertexModel.generateContent(p);
-            const vText = vResult.response.candidates[0].content.parts[0].text;
-            const vJsonMatch = vText.match(/\{[\s\S]*\}/);
-            return JSON.parse(vJsonMatch ? vJsonMatch[0] : vText);
+            if (vertexModel) {
+                const vResult = await vertexModel.generateContent({
+                    contents: [{ role: 'user', parts: [{ text: p }] }],
+                    generationConfig: { responseMimeType: "application/json" }
+                });
+                const vText = vResult.response.candidates[0].content.parts[0].text.trim();
+                return JSON.parse(vText);
+            }
+            return null;
         } catch(vErr) { 
             console.error('Vertex fallback 실패:', vErr.message);
             return null; 
