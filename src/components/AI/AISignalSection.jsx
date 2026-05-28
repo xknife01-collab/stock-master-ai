@@ -195,7 +195,14 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                           <td className="px-4 py-3">
                             <div className="flex flex-col">
                               <span className="text-white font-bold group-hover:text-blue-400 transition-colors">{it.n}</span>
-                              <span className="text-[9px] text-white/30 font-mono tracking-tighter">{it.c}</span>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[9px] text-white/30 font-mono tracking-tighter">{it.c}</span>
+                                {it.sp && (
+                                  <span className="text-[8px] px-1 py-0.2 rounded bg-blue-500/10 border border-blue-500/20 text-blue-300 font-medium leading-none">
+                                    📊 {it.sp}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="px-4 py-3 text-right font-mono text-white/70">{parseInt(it.p)?.toLocaleString()}원</td>
@@ -234,7 +241,14 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                           <td className="px-4 py-3">
                             <div className="flex flex-col">
                               <span className="text-white font-bold group-hover:text-purple-400 transition-colors">{it.n}</span>
-                              <span className="text-[9px] text-white/30 font-mono tracking-tighter">{it.c}</span>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[9px] text-white/30 font-mono tracking-tighter">{it.c}</span>
+                                {it.sp && (
+                                  <span className="text-[8px] px-1 py-0.2 rounded bg-purple-500/10 border border-purple-500/20 text-purple-300 font-medium leading-none">
+                                    📊 {it.sp}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="px-4 py-3 text-right font-mono text-white/70">{parseInt(it.p)?.toLocaleString()}원</td>

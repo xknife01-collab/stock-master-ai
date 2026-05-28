@@ -179,10 +179,86 @@ const StockPopup = ({ item, onClose }) => {
               )}
 
               <div className="border-t border-gray-100 pt-6">
-                <div className="text-[11px] font-bold text-gray-500 mb-4 flex items-center gap-2">
-                  <div className="w-1 h-3 bg-blue-600 rounded-full"></div>
-                  수급 및 심리 분석 <span className="text-[9px] text-gray-400 font-normal">(Sentiment)</span>
+                <div className="text-[11px] font-bold text-gray-500 mb-4 flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-3 bg-[#7000ff] rounded-full"></div>
+                    3대 주체별 5일 누적 수급 분석
+                  </div>
+                  <span className="text-[9px] text-gray-400 font-normal">(5거래일 합계)</span>
                 </div>
+
+                {/* 🚨 개미지옥 경보 사이렌 (Retail Absorption Veto Warning) */}
+                {stockDetail.advanced?.investor && 
+                 stockDetail.advanced.investor.personal5D > 0 && 
+                 stockDetail.advanced.investor.foreign5D < 0 && 
+                 stockDetail.advanced.investor.organ5D < 0 && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5 shadow-[0_2px_8px_rgba(239,68,68,0.08)] animate-pulse">
+                    <span className="text-lg">🚨</span>
+                    <div className="flex-1">
+                      <div className="text-[11px] font-black text-red-600">개미 지옥 및 설거지 경보 (Retail Absorption Warning)</div>
+                      <div className="text-[9px] text-red-500 leading-tight">외인/기관이 던진 대량 매도 물량을 개인이 홀로 수렴 중인 고위험 종목입니다. 진입에 극도로 유의하세요.</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 📊 수급 힘겨루기 가로 Bar 차트 (100% Stacked Bar) */}
+                {stockDetail.advanced?.investor ? (() => {
+                  const fAbs = Math.abs(stockDetail.advanced.investor.foreign5D);
+                  const oAbs = Math.abs(stockDetail.advanced.investor.organ5D);
+                  const pAbs = Math.abs(stockDetail.advanced.investor.personal5D);
+                  const totalAbs = fAbs + oAbs + pAbs || 1;
+
+                  const fPercent = ((fAbs / totalAbs) * 100).toFixed(0);
+                  const oPercent = ((oAbs / totalAbs) * 100).toFixed(0);
+                  const pPercent = ((pAbs / totalAbs) * 100).toFixed(0);
+
+                  return (
+                    <div className="bg-gray-50/50 border border-gray-100 rounded-xl p-4 mb-4">
+                      <div className="flex justify-between text-[10px] font-bold text-gray-500 mb-2">
+                        <span className="text-red-500">🔴 외인 ({fPercent}%)</span>
+                        <span className="text-blue-500">🔵 기관 ({oPercent}%)</span>
+                        <span className="text-green-600">🟢 개인 ({pPercent}%)</span>
+                      </div>
+                      {/* 누적 가로 막대 차트 */}
+                      <div className="h-3 w-full rounded-full overflow-hidden flex bg-gray-200">
+                        <div className="h-full bg-red-400 transition-all duration-500" style={{ width: `${fPercent}%` }} />
+                        <div className="h-full bg-blue-400 transition-all duration-500" style={{ width: `${oPercent}%` }} />
+                        <div className="h-full bg-green-400 transition-all duration-500" style={{ width: `${pPercent}%` }} />
+                      </div>
+                      
+                      {/* 상세 수치 노출 */}
+                      <div className="grid grid-cols-3 gap-2 mt-3 text-[10px] font-medium border-t border-gray-100 pt-2.5">
+                        <div className="text-center">
+                          <div className="text-gray-400 font-bold">외국인</div>
+                          <div className={`font-mono font-bold ${stockDetail.advanced.investor.foreign5D >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                            {stockDetail.advanced.investor.foreign5D > 0 ? '+' : ''}{stockDetail.advanced.investor.foreign5D.toLocaleString()}주
+                          </div>
+                        </div>
+                        <div className="text-center border-x border-gray-100 border-gray-200/50">
+                          <div className="text-gray-400 font-bold">기관</div>
+                          <div className={`font-mono font-bold ${stockDetail.advanced.investor.organ5D >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                            {stockDetail.advanced.investor.organ5D > 0 ? '+' : ''}{stockDetail.advanced.investor.organ5D.toLocaleString()}주
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-gray-400 font-bold">개인(개미)</div>
+                          <div className={`font-mono font-bold ${stockDetail.advanced.investor.personal5D >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                            {stockDetail.advanced.investor.personal5D > 0 ? '+' : ''}{stockDetail.advanced.investor.personal5D.toLocaleString()}주
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 연속 매수 일수 정보 추가 */}
+                      <div className="mt-2.5 text-[8px] text-gray-400 flex justify-around border-t border-gray-100 pt-2 font-bold uppercase tracking-wider">
+                        <span>외인 {stockDetail.advanced.investor.foreignConsecutiveDays}일 연속 순매수</span>
+                        <span>기관 {stockDetail.advanced.investor.organConsecutiveDays}일 연속 순매수</span>
+                        <span>개인 {stockDetail.advanced.investor.personalConsecutiveDays}일 연속 순매수</span>
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div className="py-6 text-center text-xs text-gray-400 font-bold bg-gray-50 rounded-xl animate-pulse mb-4">실시간 누적 수급 정보를 계산하는 중...</div>
+                )}
 
                 <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-3">
                   <div className="flex justify-between items-center mb-2">

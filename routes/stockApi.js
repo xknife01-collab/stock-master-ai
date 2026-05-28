@@ -1,6 +1,6 @@
 import express from 'express';
 import axios from 'axios';
-import { KIS_BASE_URL, ensureToken, getKisHeaders } from '../lib/kisCore.js';
+import { KIS_BASE_URL, ensureToken, getKisHeaders, fetchStockInvestorTrend } from '../lib/kisCore.js';
 
 const router = express.Router();
 
@@ -235,7 +235,7 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
     const { symbol } = req.params;
     const commonHeaders = getKisHeaders(''); // tr_id는 개별 호출에서 설정
 
-    const [priceResult, ratioResult, consensusResult, incomeResult, ccnlResult, shortResult, creditResult, dailyResult] = await Promise.allSettled([
+    const [priceResult, ratioResult, consensusResult, incomeResult, ccnlResult, shortResult, creditResult, dailyResult, investorResult] = await Promise.allSettled([
         axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price`, {
             params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol },
             headers: { ...commonHeaders, 'tr_id': 'FHKST01010100' }
@@ -280,7 +280,8 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
                 FID_PERIOD_DIV_CODE: 'D', FID_ORG_ADJ_PRC: '1'
             },
             headers: { ...commonHeaders, 'tr_id': 'FHKST03010100' }
-        })
+        }),
+        fetchStockInvestorTrend(symbol) // 실시간 투자자 수급 추가!
     ]);
 
     const val = (result) => result.status === 'fulfilled' ? result.value : null;
@@ -292,6 +293,7 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
     const shortRes = val(shortResult);
     const creditRes = val(creditResult);
     const dailyRes = val(dailyResult);
+    const investorRes = val(investorResult); // 투자자 수급 꺼내기
 
     const currentPrice = parseInt(priceRes?.data?.output?.stck_prpr || '0');
     const dailyPrices = (dailyRes?.data?.output2 || []);
@@ -320,7 +322,8 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
             disparity5,
             disparity20,
             shortRatio: shortRes?.data?.output?.[0]?.ssts_vol_rlim || (Math.random() * 5 + 0.5).toFixed(2),
-            creditBalance: creditRes?.data?.output?.[0]?.whol_loan_rmnd_rate || (Math.random() * 2 + 0.1).toFixed(2)
+            creditBalance: creditRes?.data?.output?.[0]?.whol_loan_rmnd_rate || (Math.random() * 2 + 0.1).toFixed(2),
+            investor: investorRes?.stats || null // 추가!
         }
     };
     res.json({ fundamental });
