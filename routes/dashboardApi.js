@@ -55,22 +55,26 @@ export const setupDashboardApi = () => {
             sectors = sectors.filter(s => s !== null);
 
             let themes = [];
-            const tRes = await axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-index-category-price`, {
-                params: {
-                    FID_COND_MRKT_DIV_CODE: 'U', FID_INPUT_ISCD: '0001',
-                    FID_COND_SCR_DIV_CODE: '20214', FID_MRKT_CLS_CODE: 'K', FID_BLNG_CLS_CODE: '0'
-                },
-                headers: getKisHeaders('FHPUP02140000')
-            });
-            if (tRes.data.rt_cd === '0' && tRes.data.output2) {
-                themes = tRes.data.output2.slice(0, 15).map(it => {
-                    const clean = it.bstp_nmix_prdy_ctrt || '0';
-                    return {
-                        name: it.hts_kor_isnm, code: it.bstp_cls_code || '',
-                        change: (parseFloat(clean) >= 0 ? '+' : '') + clean + '%',
-                        lead: '-', width: Math.min(Math.abs(parseFloat(clean)) * 10, 100) + '%'
-                    };
+            try {
+                const tRes = await axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-index-category-price`, {
+                    params: {
+                        FID_COND_MRKT_DIV_CODE: 'U', FID_INPUT_ISCD: '0001',
+                        FID_COND_SCR_DIV_CODE: '20214', FID_MRKT_CLS_CODE: 'K', FID_BLNG_CLS_CODE: '0'
+                    },
+                    headers: getKisHeaders('FHPUP02140000')
                 });
+                if (tRes.data.rt_cd === '0' && tRes.data.output2) {
+                    themes = tRes.data.output2.slice(0, 15).map(it => {
+                        const clean = it.bstp_nmix_prdy_ctrt || '0';
+                        return {
+                            name: it.hts_kor_isnm, code: it.bstp_cls_code || '',
+                            change: (parseFloat(clean) >= 0 ? '+' : '') + clean + '%',
+                            lead: '-', width: Math.min(Math.abs(parseFloat(clean)) * 10, 100) + '%'
+                        };
+                    });
+                }
+            } catch (themeError) {
+                console.warn('[Dashboard Themes Error] Failed to fetch themes:', themeError.message);
             }
 
             const fetchRankings = async (investor, type) => {
@@ -116,39 +120,47 @@ export const setupDashboardApi = () => {
             console.log(`[Dashboard] Foreign: ${fBuy.length}/${fSell.length}, Inst: ${iBuy.length}/${iSell.length}`);
 
             let topStocks = Array.from({length: 8}, () => []);
-            await sleep(200);
-            const volRes = await axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/volume-rank`, {
-                params: {
-                    FID_COND_MRKT_DIV_CODE: 'J', FID_COND_SCR_DIV_CODE: '20171',
-                    FID_INPUT_ISCD: '0000', FID_DIV_CLS_CODE: '0', 
-                    FID_BLNG_CLS_CODE: '0', FID_TRGT_CLS_CODE: '0',
-                    FID_TRGT_EXLS_CLS_CODE: '0', FID_INPUT_PRICE_1: '0', FID_INPUT_PRICE_2: '0',
-                    FID_VOL_CNT: '0', FID_INPUT_DATE_1: ''
-                },
-                headers: getKisHeaders('FHPST01710000')
-            });
-            if (volRes.data.rt_cd === '0') {
-                topStocks[0] = volRes.data.output.slice(0, 10).map(it => ({
-                    n: it.hts_kor_isnm, s: it.mksc_shrn_iscd, p: it.stck_prpr, pct: it.prdy_ctrt + '%'
-                }));
+            try {
+                await sleep(200);
+                const volRes = await axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/volume-rank`, {
+                    params: {
+                        FID_COND_MRKT_DIV_CODE: 'J', FID_COND_SCR_DIV_CODE: '20171',
+                        FID_INPUT_ISCD: '0000', FID_DIV_CLS_CODE: '0', 
+                        FID_BLNG_CLS_CODE: '0', FID_TRGT_CLS_CODE: '0',
+                        FID_TRGT_EXLS_CLS_CODE: '0', FID_INPUT_PRICE_1: '0', FID_INPUT_PRICE_2: '0',
+                        FID_VOL_CNT: '0', FID_INPUT_DATE_1: ''
+                    },
+                    headers: getKisHeaders('FHPST01710000')
+                });
+                if (volRes.data.rt_cd === '0' && volRes.data.output) {
+                    topStocks[0] = volRes.data.output.slice(0, 10).map(it => ({
+                        n: it.hts_kor_isnm, s: it.mksc_shrn_iscd, p: it.stck_prpr, pct: it.prdy_ctrt + '%'
+                    }));
+                }
+            } catch (volError) {
+                console.warn('[Dashboard Volume Rank Error] Failed to fetch volume rank:', volError.message);
             }
 
-            await sleep(200);
-            const gainerRes = await axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/ranking/fluctuation`, {
-                params: {
-                    FID_COND_MRKT_DIV_CODE: 'J', FID_COND_SCR_DIV_CODE: '20172',
-                    FID_INPUT_ISCD: '0000', FID_RANK_SORT_CLS_CODE: '0', 
-                    FID_INPUT_CNT_1: '0', FID_PRC_CLS_CODE: '1', FID_INPUT_PBMS_1: '0',
-                    FID_BLNG_CLS_CODE: '0', FID_DIV_CLS_CODE: '0', FID_TRGT_CLS_CODE: '0',
-                    FID_TRGT_EXLS_CLS_CODE: '0', FID_PRC_RANGE_CLS_CODE: '0',
-                    FID_INPUT_PRICE_1: '0', FID_INPUT_PRICE_2: '0', FID_VOL_CNT: '0'
-                },
-                headers: getKisHeaders('FHPST01720000')
-            });
-            if (gainerRes.data.rt_cd === '0') {
-                topStocks[1] = gainerRes.data.output.slice(0, 10).map(it => ({
-                    n: it.hts_kor_isnm, s: it.mksc_shrn_iscd, p: it.stck_prpr, pct: it.prdy_ctrt + '%'
-                }));
+            try {
+                await sleep(200);
+                const gainerRes = await axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/ranking/fluctuation`, {
+                    params: {
+                        FID_COND_MRKT_DIV_CODE: 'J', FID_COND_SCR_DIV_CODE: '20172',
+                        FID_INPUT_ISCD: '0000', FID_RANK_SORT_CLS_CODE: '0', 
+                        FID_INPUT_CNT_1: '0', FID_PRC_CLS_CODE: '1', FID_INPUT_PBMS_1: '0',
+                        FID_BLNG_CLS_CODE: '0', FID_DIV_CLS_CODE: '0', FID_TRGT_CLS_CODE: '0',
+                        FID_TRGT_EXLS_CLS_CODE: '0', FID_PRC_RANGE_CLS_CODE: '0',
+                        FID_INPUT_PRICE_1: '0', FID_INPUT_PRICE_2: '0', FID_VOL_CNT: '0'
+                    },
+                    headers: getKisHeaders('FHPST01720000')
+                });
+                if (gainerRes.data.rt_cd === '0' && gainerRes.data.output) {
+                    topStocks[1] = gainerRes.data.output.slice(0, 10).map(it => ({
+                        n: it.hts_kor_isnm, s: it.mksc_shrn_iscd, p: it.stck_prpr, pct: it.prdy_ctrt + '%'
+                    }));
+                }
+            } catch (gainerError) {
+                console.warn('[Dashboard Fluctuation Error] Failed to fetch fluctuations:', gainerError.message);
             }
 
             const result = { topStocks, foreign: [fBuy, fSell], inst: [iBuy, iSell], sectors, themes };

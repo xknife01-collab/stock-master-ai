@@ -1,5 +1,112 @@
 [
   {
+    "time": "2026-05-28T04:32:00.283Z",
+    "news_summary": "[AI MY 뉴스] 28일 중국증시 '2대 돌발 이슈가 결정할 방향성'\n코인 거래 식자 유튜브 켠 업비트·빗썸…콘텐츠로 투자자 붙잡기\n[코인 시황] 비트코인 ETF서 2주간 약 3.3조원 이탈…블랙록 IBIT선 1....",
+    "prediction": {
+      "theme": "AI 반도체 및 첨단 패키징 (HBM 핵심)",
+      "themeProb": "90%",
+      "stock": "SK하이닉스",
+      "symbol": "000660",
+      "price": "2180000",
+      "targetPrice": "2250000",
+      "stopLoss": "2050000",
+      "fundamental": "성장 가속화 (Accelerated Growth)",
+      "macro": "AI 반도체 시장의 강력한 성장세는 지속되나, 원/달러 환율 1500원대 유지 및 미국 국채금리 변동성은 비용 상승 압력과 투자 심리 위축 요인으로 작용할 수 있습니다. 특히 HBM 공급 병목 현상 지속 가능성에 대한 뉴스는 잠재적 생산 차질 및 단기 공급망 리스크로 작용할 수 있습니다.",
+      "bearCase": "SK하이닉스는 현재 RSI 71.1, 5일/20일 이동평균선 이격도 105.25%/123.05%, 볼린저 밴드 상한선 근접(87.6%) 등으로 단기적인 기술적 과열이 심각합니다. 체결강도 또한 91.4%로 매도세가 우위에 있어 즉시 진입 시 추격 매수 부담이 매우 크며, 최근 외국인 순매도세가 지속되고 있습니다. 이는 단기적으로 가격 조정 가능성을 높이는 요인입니다.",
+      "reason": "SK하이닉스는 2026년 1분기 영업이익이 2025년 연간 영업이익을 초과하는 '압도적인 펀더멘털 개선'을 보이며 AI 반도체 및 HBM 시장의 핵심 주도주로서 강력한 성장 동력을 확보하고 있습니다. 또한, 이동평균선이 정배열 추세를 유지하며 견고한 상승 흐름을 나타내고 있습니다. 기관의 5일/20일 누적 순매수세가 긍정적으로 작용하고 있으며, HBM 관련 긍정적 뉴스가 지속적으로 유입되고 있어 테마와의 '강력한 합치'를 이룹니다.",
+      "feedback": "SK하이닉스는 중장기적 관점에서 매우 매력적인 종목이나, 현재 RSI 및 이격도, 볼린저 밴드 등 기술적 지표들이 극심한 단기 과열 상태를 나타내고 있어 추격 매수는 지양해야 합니다. 또한 최근 백테스팅 성과가 저조했던 점을 감안하여, 시장 조정 시 분할 매수를 통한 진입 전략을 권고하며, 손절가를 타이트하게 설정하여 리스크 관리에 만전을 기해야 합니다."
+    },
+    "symbol": "000660",
+    "price": "2180000",
+    "shortTermPicks": [],
+    "longTermPicks": [
+      {
+        "n": "SK하이닉스",
+        "c": "000660",
+        "p": "2180000"
+      },
+      {
+        "n": "한미반도체",
+        "c": "042700",
+        "p": "286000"
+      }
+    ]
+  },
+  {
+    "time": "2026-05-28T00:02:19.057Z",
+    "news_summary": "[AI MY 뉴스] 28일 중국증시 '2대 돌발 이슈가 결정할 방향성'\n코인 거래 식자 유튜브 켠 업비트·빗썸…콘텐츠로 투자자 붙잡기\n[코인 시황] 비트코인 ETF서 2주간 약 3.3조원 이탈…블랙록 IBIT선 1....",
+    "prediction": {
+      "theme": "AI 반도체 및 로봇 산업",
+      "themeProb": "90%",
+      "stock": "이수페타시스",
+      "symbol": "007660",
+      "price": "127500",
+      "targetPrice": "150000",
+      "stopLoss": "115000",
+      "fundamental": "압도적인 펀더멘털 개선 (2026년 1분기 영업이익이 2025년 연간 영업이익을 초과)",
+      "macro": "현재 원/달러 환율(1502.5원)의 고공행진은 반도체 및 로봇 산업의 원자재 수입 비용 증가 및 외국인 투자 심리 위축을 야기할 수 있는 아킬레스건입니다. 코스닥 시장의 기술적 약세(20일선 기울기 -1.098%) 또한 일부 중소형 로봇/AI 반도체 기업에 부담으로 작용할 수 있습니다.",
+      "bearCase": "외국인/기관 수급이 단기적으로 혼조세를 보이며, 외국인 20일 누적 순매도가 존재하여 중장기 수급의 안정성 판단에 리스크가 있습니다. 또한, '이차전지 소재 기업 지분 인수 철회' 뉴스가 과거 존재했으며, 이는 이종사업 확장 실패에 대한 우려를 남길 수 있습니다. 최근 추천 백테스팅 결과가 전반적으로 저조한 점을 고려할 때, 예상치 못한 시장 변동성 발생 시 단기 수익률이 부진할 가능성이 높습니다.",
+      "reason": "이수페타시스는 'AI 가속기 수요 확대' 및 '구글 TPU 관련' 뉴스 등 테마(AI 반도체)와의 강력한 합치를 보여주고 있습니다. 특히, 2026년 1분기 영업이익(81억)이 2025년 연간 영업이익(60억)을 압도적으로 초과하며 '장기 기억'에서 강조된 '압도적인 펀더멘털 개선' 조건을 충족했습니다. 기술적으로는 체결강도 999.99%로 매수세가 매우 강하고, 이동평균선이 정배열 추세로 강력한 상승 모멘텀을 시사합니다. RSI(50.3)와 볼린저 밴드 내 주가 위치(33.8%) 또한 과열/과매도 없이 안정적인 구간에 있어 기술적 리스크가 낮습니다. 공매도 비중도 0%로 하방 압력이 없습니다. 이는 외국인/기관 수급의 일부 혼조세를 상쇄하고 'VETO RULE'을 회피하며 TOP PICK으로 선정될 충분한 근거가 됩니다.",
+      "feedback": "이수페타시스는 강력한 펀더멘털 개선과 AI 반도체 테마 모멘텀, 그리고 긍정적인 기술적 지표들이 합치되어 매력적인 종목입니다. 다만, 최근 백테스팅 결과(1영업일 평균 수익률 -2.56%)가 저조하므로, 단기 변동성에 대한 신중한 접근이 필수적입니다. 목표가 6200원은 볼린저 밴드 상단 부근으로 단기적 상승 여력을 고려한 보수적 수치이며, 손절가 5750원은 볼린저 밴드 하단 부근에서 지지 여부를 확인하는 타이트한 리스크 관리선입니다. 매수 시에는 분할 매수 전략을 통해 리스크를 분산하고, 시장 상황에 따라 유연하게 대응하시기 바랍니다. 특히 외국인 수급의 단기적인 매도 전환 가능성에 유의하며 지속적인 모니터링이 필요합니다."
+    },
+    "symbol": "007660",
+    "price": "127500",
+    "shortTermPicks": [
+      {
+        "n": "이수페타시스",
+        "c": "007660",
+        "p": "127500"
+      }
+    ],
+    "longTermPicks": [
+      {
+        "n": "이수페타시스",
+        "c": "007660",
+        "p": "127500"
+      }
+    ],
+    "backtest": {
+      "day1Price": null,
+      "day1Yield": null,
+      "day3Price": null,
+      "day3Yield": null,
+      "day5Price": null,
+      "day5Yield": null,
+      "finalized": false
+    }
+  },
+  {
+    "time": "2026-05-27T23:32:09.565Z",
+    "news_summary": "코인 거래 식자 유튜브 켠 업비트·빗썸…콘텐츠로 투자자 붙잡기\n[코인 시황] 비트코인 ETF서 2주간 약 3.3조원 이탈…블랙록 IBIT선 1.9조...\n\"하반기 투자전략 제시\"... 신한투자증권, 'Premier ...",
+    "prediction": {
+      "theme": "AI 및 HBM 반도체",
+      "themeProb": "95%",
+      "stock": "SK하이닉스",
+      "symbol": "000660",
+      "price": "2243000",
+      "targetPrice": "2340000",
+      "stopLoss": "2100000",
+      "fundamental": "압도적인 펀더멘털 개선 (Extremely Bullish)",
+      "macro": "현재 원/달러 환율 1502원으로 외국인 투자 심리에 잠재적 부담. 코스닥의 하락 추세는 시장 전반에 부정적 영향을 미칠 수 있으며, 단일 종목 레버리지 ETF 출시로 시장 변동성 확대 가능성 상존. 그러나 AI/HBM 반도체 테마는 글로벌 수요 호황으로 매크로 변동성 대비 강력한 성장 동력을 유지 중.",
+      "bearCase": "SK하이닉스는 현재 RSI 76, 5일 이격도 113.04%, 20일 이격도 129.86%로 극심한 단기 과열 상태이며, 볼린저 밴드 상한선(97.1%)에 근접하여 추격 매수 부담이 높습니다. 외국인 수급은 5일/20일 모두 순매도세를 보이며 하방 압력을 가하고 있습니다. 또한, 당일 체결강도 0.00%는 데이터 오류일 가능성도 있지만, 만약 실제라면 극심한 매수세 약화를 의미하는 매우 치명적인 단기 리스크 요인입니다. 이와 함께 공매도 비중 정보 부재로 추가적인 리스크 분석이 어렵습니다.",
+      "reason": "SK하이닉스는 2026년 1분기 영업이익(51조 6169억원)이 2025년 연간 영업이익(50조 4656억원)을 이미 초과하는 '압도적인 펀더멘털 개선'을 보이며, 이는 '장기 기억' 학습을 통해 단기 기술적 과열 및 일부 수급 이탈과 같은 복합적인 리스크 요인 속에서도 VETO RULE을 회피하고 TOP PICK으로 선정할 수 있는 핵심 동력임을 재확인했습니다. AI 및 HBM 반도체 테마의 강력한 성장 기대감과 기관의 견고한 순매수세가 펀더멘털 개선을 뒷받침하고 있습니다. 2024년 대비 2025년 실적 성장도 매우 강력합니다. 이는 엔비디아 랠리에 따른 시장의 반도체 재평가 기대감과 맞물려 강력한 주가 상승 모멘텀으로 작용하고 있습니다.",
+      "feedback": "SK하이닉스는 압도적인 펀더멘털 개선과 AI/HBM 테마의 핵심 수혜주로서 중장기적인 성장성이 매우 유망합니다. 그러나 현재 극심한 단기 과열 신호(RSI, 이격도, 볼린저 밴드 상한선 근접)와 외국인 순매도세, 그리고 치명적인 체결강도 0.00% 데이터는 단기 변동성 확대를 야기할 수 있으므로, 신규 진입 시에는 반드시 분할 매수 전략을 통해 매수 단가를 낮추고, 목표가(234만원) 도달 시 일부 차익 실현을 고려하며, 타이트한 손절가(210만원)를 준수하는 엄격한 리스크 관리가 필수적입니다. 기관의 꾸준한 순매수세가 중장기 투자 매력을 지지하고 있지만, 단기적인 변동성에 주의하십시오. '장기 기억' 학습에 따라 강력한 펀더멘털 시그널을 바탕으로 하더라도, 시장의 비합리적 단기 변동성과 맞물려 리스크 관리가 여전히 최우선임을 강조합니다."
+    },
+    "symbol": "000660",
+    "price": "2243000",
+    "shortTermPicks": [],
+    "longTermPicks": [],
+    "backtest": {
+      "day1Price": null,
+      "day1Yield": null,
+      "day3Price": null,
+      "day3Yield": null,
+      "day5Price": null,
+      "day5Yield": null,
+      "finalized": false
+    }
+  },
+  {
     "time": "2026-05-27T10:12:07.336Z",
     "news_summary": "\"하반기 투자전략 제시\"... 신한투자증권, 'Premier 리서치 금융시장포럼...\n[코스피 지수선물 옵션] 엔비디아 랠리 그대로… SK하이닉스·삼성전자...\n신한투자증권, 하반기 금융시장포럼 개최…자산별·산업별 ...",
     "prediction": {
@@ -27,8 +134,8 @@
       }
     ],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 2179000,
+      "day1Yield": -2.85,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,
@@ -70,8 +177,8 @@
       }
     ],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 2179000,
+      "day1Yield": -2.85,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,
@@ -101,8 +208,8 @@
     "shortTermPicks": [],
     "longTermPicks": [],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 2179000,
+      "day1Yield": -2.85,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,
@@ -132,8 +239,8 @@
     "shortTermPicks": [],
     "longTermPicks": [],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 124300,
+      "day1Yield": -6.05,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,
@@ -163,8 +270,8 @@
     "shortTermPicks": [
       {
         "n": "주성엔지니어링",
-        "c": "036220",
-        "p": "7380"
+        "c": "036930",
+        "p": "228500"
       },
       {
         "n": "SK하이닉스",
@@ -190,8 +297,8 @@
       }
     ],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 291000,
+      "day1Yield": -5.21,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,
@@ -238,8 +345,8 @@
       }
     ],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 291000,
+      "day1Yield": -5.67,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,
@@ -286,8 +393,8 @@
       }
     ],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 290500,
+      "day1Yield": -7.56,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,
@@ -344,8 +451,8 @@
       }
     ],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 291000,
+      "day1Yield": -7.62,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,
@@ -397,8 +504,8 @@
       }
     ],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 291000,
+      "day1Yield": -7.55,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,
@@ -445,8 +552,8 @@
       }
     ],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 291000,
+      "day1Yield": -8.63,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,
@@ -488,8 +595,8 @@
       }
     ],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 290500,
+      "day1Yield": -9.08,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,
@@ -525,8 +632,8 @@
       }
     ],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 291000,
+      "day1Yield": -8.63,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,
@@ -573,8 +680,8 @@
       }
     ],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 291000,
+      "day1Yield": -8.71,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,
@@ -621,8 +728,8 @@
       }
     ],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 291000,
+      "day1Yield": -8.35,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,
@@ -684,8 +791,8 @@
       }
     ],
     "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
+      "day1Price": 291000,
+      "day1Yield": -8.85,
       "day3Price": null,
       "day3Yield": null,
       "day5Price": null,

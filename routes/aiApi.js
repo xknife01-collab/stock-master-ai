@@ -16,6 +16,97 @@ const ragDiaryPath = path.join(__dirname, '../rag_diary.json');
 const aiCachePath = path.join(__dirname, '../ai_cache.json');
 const patternInsightsPath = path.join(__dirname, '../pattern_insights.json');
 
+
+
+// ==========================================
+// 🔧 [상장코드 환각 방지] Supabase 연동 인메모리 캐시 & 교정기
+// ==========================================
+import supabase from '../lib/supabaseClient.js';
+
+const stockMasterCache = {};
+
+// Supabase로부터 기존에 수집된 상장코드 매핑 캐시 로딩
+const initStockMasterCache = async () => {
+    if (!supabase) return;
+    try {
+        const { data, error } = await supabase
+            .from('stock_master_map')
+            .select('name, code');
+        if (error) {
+            console.error('❌ [Supabase] Failed to fetch stock_master_map:', error.message);
+            return;
+        }
+        if (data) {
+            data.forEach(row => {
+                stockMasterCache[row.name] = row.code;
+            });
+            console.log(`⚡ [Supabase] stock_master_map 캐시 로드 완료: ${data.length}개 종목`);
+        }
+    } catch (e) {
+        console.error('❌ [Supabase] Failed to initialize stock_master_map cache:', e.message);
+    }
+};
+
+// 비동기 캐시 초기화 실행
+initStockMasterCache();
+
+// 단일 종목 Supabase 업서트 (비동기, Non-blocking)
+const upsertStockMaster = async (name, code) => {
+    if (!supabase || !name || !code) return;
+    try {
+        const cleanedName = name.replace(/\s+/g, '');
+        if (stockMasterCache[cleanedName] === code) return; // 이미 동일한 매핑 정보가 캐시되어 있으면 스킵
+        
+        stockMasterCache[cleanedName] = code; // 메모리에 즉시 반영
+        
+        // 백그라운드에서 Supabase로 영구 저장 수행 (API 지연 예방)
+        supabase
+            .from('stock_master_map')
+            .upsert({ name: cleanedName, code }, { onConflict: 'name' })
+            .then(({ error }) => {
+                if (error) {
+                    console.error(`❌ [Supabase] stock_master_map upsert error for ${name}:`, error.message);
+                } else {
+                    console.log(`💾 [Supabase] 종목 마스터 자가학습 등록: ${name} -> ${code}`);
+                }
+            })
+            .catch(err => {
+                console.error(`❌ [Supabase] stock_master_map background error:`, err.message);
+            });
+    } catch (e) {
+        console.error('[Supabase Upsert Exception]', e.message);
+    }
+};
+
+// 리스트 기반 벌크 학습기
+const updateStockMasterFromList = (list) => {
+    if (!Array.isArray(list)) return;
+    list.forEach(it => {
+        if (it.name && it.code) {
+            upsertStockMaster(it.name, it.code);
+        }
+    });
+};
+
+const correctStockSymbol = (name, currentSymbol, candidatePool = []) => {
+    if (!name) return currentSymbol;
+    
+    const cleanedName = name.replace(/\s+/g, '');
+    
+    // 1차: 실시간 수집 후보군 풀 대조 (당일 수집)
+    const poolMatch = candidatePool.find(p => p.name && p.name.replace(/\s+/g, '') === cleanedName);
+    if (poolMatch) {
+        return poolMatch.code;
+    }
+    
+    // 2차: Supabase 누적 마스터 캐시 대조
+    if (stockMasterCache[cleanedName]) {
+        return stockMasterCache[cleanedName];
+    }
+    
+    return currentSymbol;
+};
+
 // --- Helper Functions ---
 
 const getPatternInsights = () => {
@@ -190,12 +281,36 @@ const refreshRecommendedPrices = async (signal, candidatePriceMap = {}) => {
     // 1. 메인 픽 가격 갱신 (symbol 필드가 있는 경우)
     if (signal.symbol) {
         let realPrice = candidatePriceMap[signal.symbol];
+        let matchedName = null;
         if (!realPrice) {
             const fresh = await fetchStockPrice(signal.symbol);
-            if (fresh) realPrice = fresh.price;
+            if (fresh) {
+                realPrice = fresh.price;
+                matchedName = fresh.name;
+            }
         }
         
         if (realPrice) {
+            // [교차 검증] KIS에서 조회한 한글 종목명과 AI 추천 이름 비교
+            if (matchedName && signal.stock) {
+                const cleanedMatched = matchedName.replace(/\s+/g, '');
+                const cleanedSignal = signal.stock.replace(/\s+/g, '');
+                if (cleanedMatched !== cleanedSignal) {
+                    console.warn(`⚠️ [Warning] 종목명 불일치 감지: AI추천=${signal.stock}, KIS실명=${matchedName} (조회된 코드: ${signal.symbol})`);
+                    // 사전/후보군을 통한 긴급 코드 재확인 및 가격 재조회 시도
+                    const correctCode = correctStockSymbol(signal.stock, signal.symbol, []);
+                    if (correctCode !== signal.symbol) {
+                        console.log(`🔧 [Mismatch Fix] 올바른 코드로 다시 조회 시도: ${correctCode}`);
+                        const freshCorrect = await fetchStockPrice(correctCode);
+                        if (freshCorrect) {
+                            signal.symbol = correctCode;
+                            realPrice = freshCorrect.price;
+                            matchedName = freshCorrect.name;
+                        }
+                    }
+                }
+            }
+
             signal.price = realPrice.toString();
             
             // AI가 간혹 0을 하나 더 붙이거나 빼먹어서 10배 차이로 tp/sl을 출력하는 오류 자동 보정
@@ -228,12 +343,34 @@ const refreshRecommendedPrices = async (signal, candidatePriceMap = {}) => {
         if(!picks || !Array.isArray(picks)) return;
         await Promise.all(picks.map(async (item) => {
             let realPrice = candidatePriceMap[item.c];
+            let matchedName = null;
             if (!realPrice) {
                 const fresh = await fetchStockPrice(item.c);
-                if (fresh) realPrice = fresh.price;
+                if (fresh) {
+                    realPrice = fresh.price;
+                    matchedName = fresh.name;
+                }
             }
             
             if (realPrice) {
+                // [교차 검증] KIS에서 조회한 한글 종목명과 AI 추천 이름 비교
+                if (matchedName && item.n) {
+                    const cleanedMatched = matchedName.replace(/\s+/g, '');
+                    const cleanedItem = item.n.replace(/\s+/g, '');
+                    if (cleanedMatched !== cleanedItem) {
+                        console.warn(`⚠️ [Warning] 추천주 종목명 불일치 감지: AI추천=${item.n}, KIS실명=${matchedName} (조회된 코드: ${item.c})`);
+                        const correctCode = correctStockSymbol(item.n, item.c, []);
+                        if (correctCode !== item.c) {
+                            const freshCorrect = await fetchStockPrice(correctCode);
+                            if (freshCorrect) {
+                                item.c = correctCode;
+                                realPrice = freshCorrect.price;
+                                matchedName = freshCorrect.name;
+                            }
+                        }
+                    }
+                }
+
                 item.p = realPrice.toString();
                 
                 const parsedTp = parseInt(item.tp);
@@ -927,6 +1064,13 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         processList(htsVolume, "수급포착");
         processList(parseSupplyStocks(supplyList), "수급우수");
 
+        // 💾 [Supabase 자가 학습] 실시간 발견된 모든 한글 종목명 - 코드 맵을 백그라운드로 저장
+        updateStockMasterFromList(gainers);
+        updateStockMasterFromList(values);
+        updateStockMasterFromList(htsGolden);
+        updateStockMasterFromList(htsVolume);
+        updateStockMasterFromList(parseSupplyStocks(supplyList));
+
         // 상위 30개 종목 압축 선정 (ETF 및 인덱스 펀드류 제거)
         // 정렬 기준: 1. 포착 횟수 내림차순, 2. 거래대금 내림차순, 3. 절대 등락률 내림차순
         const candidatePool = Array.from(candidateOccurrence.values())
@@ -1180,11 +1324,33 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         6. **정직한 보류 권한:** 만약 너의 분석 결과, 현재 시장 상황이나 수급, 매크로 지표 상 '진짜 주도주'가 될 만한 종목이 단 하나도 발견되지 않는다면, 억지로 종목을 채우지 말고 candidates 리스트를 **빈 배열([])**로 반환해. 'Structural Decline'인 종목을 추천하는 것은 투자자에게 치명적인 손실을 입히는 행위임을 명심해.
         
         [출력 양식 (JSON)]
-        { "theme": "주도 테마명", "candidates": [{"n": "종목명", "s": "상장코드"}] }\n`;
+        { "theme": "주도 테마명", "candidates": ["종목명1", "종목명2", "종목명3"] }\n`;
 
         const selectionRaw = await fetchAiContent(selectionPrompt);
         console.log('Selection Raw Output:', JSON.stringify(selectionRaw, null, 2));
-        const candidates = selectionRaw?.candidates || [];
+        const rawCandidates = selectionRaw?.candidates || [];
+        
+        // 🔧 [결정론적 1:1 상장코드 주입 레이어]
+        const candidates = rawCandidates.map(name => {
+            if (!name || typeof name !== 'string') return null;
+            const cleanedName = name.replace(/\s+/g, '');
+            
+            // 1차: 실시간 수집 후보군 풀에서 최우선 매칭
+            const poolMatch = candidatePool.find(p => p.name && p.name.replace(/\s+/g, '') === cleanedName);
+            if (poolMatch) {
+                return { n: poolMatch.name, s: poolMatch.code };
+            }
+            
+            // 2차: Supabase 누적 마스터 캐시에서 대조
+            if (stockMasterCache[cleanedName]) {
+                return { n: name, s: stockMasterCache[cleanedName] };
+            }
+            
+            // 3차: 매핑 데이터가 전혀 없는 종목은 환각 방지를 위해 제외
+            console.warn(`🚨 [원천 차단] 1차 매칭 실패 종목 제외: ${name}`);
+            return null;
+        }).filter(Boolean);
+
         const mainTheme = selectionRaw?.theme || '분석중';
         // --- 중간 단계: KIS 실시간 가격 조회 ---
         console.log(`📊 [${timeStr}] 2단계: 후보 종목(${candidates.length}개) 실시간 가격 동기화 중...`);
@@ -1380,6 +1546,35 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         const signalData = finalRaw.signal || finalRaw;
 
         if (signalData) {
+            // 🔧 [결정론적 2차 강제 주입 레이어] AI의 출력을 신뢰하지 않고 백엔드 메모리/Supabase 사전에서 100% 정확한 코드를 강제로 덮어씌웁니다.
+            const getDeterministicCode = (name, reportedCode) => {
+                if (!name) return reportedCode;
+                const cleanedName = name.replace(/\s+/g, '');
+                
+                // 1차: 당일 실시간 후보군 풀에서 조회
+                const poolMatch = candidatePool.find(p => p.name && p.name.replace(/\s+/g, '') === cleanedName);
+                if (poolMatch) return poolMatch.code;
+                
+                // 2차: Supabase 누적 마스터 캐시에서 조회
+                if (stockMasterCache[cleanedName]) return stockMasterCache[cleanedName];
+                
+                return reportedCode; // 매칭 실패 시 최후의 보루
+            };
+
+            if (signalData.stock) {
+                signalData.symbol = getDeterministicCode(signalData.stock, signalData.symbol);
+            }
+            if (Array.isArray(signalData.shortTermPicks)) {
+                signalData.shortTermPicks.forEach(p => {
+                    p.c = getDeterministicCode(p.n, p.c);
+                });
+            }
+            if (Array.isArray(signalData.longTermPicks)) {
+                signalData.longTermPicks.forEach(p => {
+                    p.c = getDeterministicCode(p.n, p.c);
+                });
+            }
+
             cleanSignal(signalData);
             signalData.marketStress = marketStress;
             // 최종 검증: 다시 한번 실시간가 동기화 (오차 방지, 캐시 맵 연동)
