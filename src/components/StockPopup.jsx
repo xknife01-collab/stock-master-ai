@@ -257,7 +257,11 @@ const StockPopup = ({ item, onClose }) => {
                     </div>
                   );
                 })() : (
-                  <div className="py-6 text-center text-xs text-gray-400 font-bold bg-gray-50 rounded-xl animate-pulse mb-4">실시간 누적 수급 정보를 계산하는 중...</div>
+                  <div className="py-5 text-center text-xs text-gray-400 font-bold bg-gray-50 rounded-xl mb-4 border border-gray-100/50 flex flex-col gap-1.5 justify-center items-center">
+                    <span className="text-base">⚠️</span>
+                    <span className="text-[10px] text-gray-500 font-black">실시간 거래소 수급 정보 조회 불가</span>
+                    <span className="text-[8px] text-gray-400 font-normal leading-normal px-4">한국투자증권 API 서버 점검 또는 제공되지 않는 해외 주식/상장 종목입니다.</span>
+                  </div>
                 )}
 
                 <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-3">
