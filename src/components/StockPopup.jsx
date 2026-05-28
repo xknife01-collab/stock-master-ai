@@ -247,6 +247,9 @@ const StockPopup = ({ item, onClose }) => {
                         </div>
                         <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right">
                           외인 {stockDetail.advanced.investor.foreignConsecutiveDays}일 연속 순매수
+                          {stockDetail.advanced.investor.foreignConsecutiveVolume > 0 && 
+                            ` (총 ${stockDetail.advanced.investor.foreignConsecutiveVolume.toLocaleString()}주)`
+                          }
                         </div>
                       </div>
 
@@ -274,6 +277,9 @@ const StockPopup = ({ item, onClose }) => {
                         </div>
                         <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right">
                           기관 {stockDetail.advanced.investor.organConsecutiveDays}일 연속 순매수
+                          {stockDetail.advanced.investor.organConsecutiveVolume > 0 && 
+                            ` (총 ${stockDetail.advanced.investor.organConsecutiveVolume.toLocaleString()}주)`
+                          }
                         </div>
                       </div>
 
@@ -301,6 +307,9 @@ const StockPopup = ({ item, onClose }) => {
                         </div>
                         <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right">
                           개인 {stockDetail.advanced.investor.personalConsecutiveDays}일 연속 순매수
+                          {stockDetail.advanced.investor.personalConsecutiveVolume > 0 && 
+                            ` (총 ${stockDetail.advanced.investor.personalConsecutiveVolume.toLocaleString()}주)`
+                          }
                         </div>
                       </div>
                     </div>

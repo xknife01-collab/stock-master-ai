@@ -1464,9 +1464,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         - 외국인 20일 누적 순매수 수량: ${d.supplyStats?.foreign20D !== undefined ? d.supplyStats.foreign20D.toLocaleString() + '주' : '정보 없음'}
         - 기관 20일 누적 순매수 수량: ${d.supplyStats?.organ20D !== undefined ? d.supplyStats.organ20D.toLocaleString() + '주' : '정보 없음'}
         - 개인 20일 누적 순매수 수량: ${d.supplyStats?.personal20D !== undefined ? d.supplyStats.personal20D.toLocaleString() + '주' : '정보 없음'}
-        - 외국인 연속 순매수 일수: ${d.supplyStats?.foreignConsecutiveDays !== undefined ? d.supplyStats.foreignConsecutiveDays + '일 연속' : '정보 없음'}
-        - 기관 연속 순매수 일수: ${d.supplyStats?.organConsecutiveDays !== undefined ? d.supplyStats.organConsecutiveDays + '일 연속' : '정보 없음'}
-        - 개인 연속 순매수 일수: ${d.supplyStats?.personalConsecutiveDays !== undefined ? d.supplyStats.personalConsecutiveDays + '일 연속' : '정보 없음'}
+        - 외국인 연속 순매수 일수: ${d.supplyStats?.foreignConsecutiveDays !== undefined ? `${d.supplyStats.foreignConsecutiveDays}일 연속${d.supplyStats.foreignConsecutiveVolume > 0 ? ` (연속 기간 총 ${d.supplyStats.foreignConsecutiveVolume.toLocaleString()}주)` : ''}` : '정보 없음'}
+        - 기관 연속 순매수 일수: ${d.supplyStats?.organConsecutiveDays !== undefined ? `${d.supplyStats.organConsecutiveDays}일 연속${d.supplyStats.organConsecutiveVolume > 0 ? ` (연속 기간 총 ${d.supplyStats.organConsecutiveVolume.toLocaleString()}주)` : ''}` : '정보 없음'}
+        - 개인 연속 순매수 일수: ${d.supplyStats?.personalConsecutiveDays !== undefined ? `${d.supplyStats.personalConsecutiveDays}일 연속${d.supplyStats.personalConsecutiveVolume > 0 ? ` (연속 기간 총 ${d.supplyStats.personalConsecutiveVolume.toLocaleString()}주)` : ''}` : '정보 없음'}
         
         3. 과거 실적 (재무):
         ${financeStr}
