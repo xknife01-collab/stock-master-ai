@@ -727,13 +727,27 @@ export const executeHourlyPulse = async (force = false) => {
     const cache = getAiCache();
     const marketOpen = isMarketOpen();
 
-    // 2. 장외 시간 및 캐시 확인 (장외 시간이고 캐시가 있으면 Gemini 호출 없이 캐시 즉각 반환)
-    if (!force && !marketOpen && cache && cache.pulse) {
-        console.log(`💤 [Pulse] 장 마감 상태 (이전 분석 결과 캐시 고정 제공)`);
-        let pulseData = cache.pulse.data || cache.pulse;
-        await refreshRecommendedPrices(pulseData);
-        cleanSignal(pulseData);
-        return { data: pulseData, time: timeStr };
+    // 2. 장외 시간 및 캐시 확인 (장외 시간이고 캐시가 없으면 diary에서 복구하여 즉각 제공)
+    if (!force && !marketOpen) {
+        let pulseData = null;
+        if (cache && cache.pulse) {
+            pulseData = cache.pulse.data || cache.pulse;
+        } else {
+            // 캐시가 날아갔다면 최신 다이어리 기록을 읽어 캐시를 동적 복구합니다.
+            const diary = getRagDiary();
+            if (diary && diary.length > 0) {
+                console.log(`💤 [Pulse] 장 마감 상태 및 캐시 누락: 다이어리 최신 레코드로 복구 시도`);
+                pulseData = diary[0].prediction || diary[0];
+                saveAiCache({ pulse: { data: pulseData } }, currentHourKey);
+            }
+        }
+
+        if (pulseData) {
+            console.log(`💤 [Pulse] 장 마감 상태 (이전 분석 결과 캐시 고정 제공)`);
+            await refreshRecommendedPrices(pulseData);
+            cleanSignal(pulseData);
+            return { data: pulseData, time: timeStr };
+        }
     }
 
     // 3. 캐시 확인 (해당 시간에 이미 완료된 결과가 있는지 - 30분 단위)
