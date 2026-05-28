@@ -1157,20 +1157,31 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         // 퀀트 점수 높은 순 정렬
         const sortedScored = [...scoredCandidates].sort((a, b) => b.totalScore - a.totalScore);
 
-        // 하드 필터링 적용 (안전 모드 여부에 따라 동적 상향 조절)
-        const minTotalScore = marketStress.safeMode ? 75 : 60;
-        const minStrength = marketStress.safeMode ? 100 : 90;
-        const maxDisparity = marketStress.safeMode ? 104 : 107;
-        const maxShortRatio = marketStress.safeMode ? 7 : 10;
-
-        console.log(`🛡️ [Filter Config] Safe Mode: ${marketStress.safeMode} ➡️ 최소 점수 ${minTotalScore}점, 최소 체결강도 ${minStrength}%, 최대 이격도 ${maxDisparity}%, 최대 공매도 비중 ${maxShortRatio}% 적용`);
-
+        // 🛡️ [최고의 투자자 Dual-Engine 이원화 필터 적용]
         const technicallyFiltered = sortedScored.filter(c => {
-            return c.totalScore >= minTotalScore &&
-                   c.metrics.strength >= minStrength &&
-                   c.metrics.disparity20 < maxDisparity &&
-                   c.metrics.shortRatio < maxShortRatio;
+            const isSafe = marketStress.safeMode;
+            
+            // 1) 단타 (shortTermPicks) 안전 필터 기준 (추세 돌파형)
+            const passedShort = isSafe ? 
+                (c.totalScore >= 70 && c.metrics.strength >= 100 && c.metrics.disparity20 < 106 && c.metrics.shortRatio < 10) :
+                (c.totalScore >= 60 && c.metrics.strength >= 90 && c.metrics.disparity20 < 107 && c.metrics.shortRatio < 10);
+
+            // 2) 중장기 (longTermPicks) 안전 필터 기준 (바닥 매집형)
+            const passedLong = isSafe ?
+                (c.totalScore >= 70 && c.metrics.strength >= 85 && c.metrics.disparity20 < 102 && c.metrics.shortRatio < 7) :
+                (c.totalScore >= 60 && c.metrics.strength >= 85 && c.metrics.disparity20 < 105 && c.metrics.shortRatio < 10);
+
+            if (passedShort || passedLong) {
+                // AI에게 가이드를 주기 위한 지표 적합성 태그 부여
+                c.fitTags = [];
+                if (passedShort) c.fitTags.push("단기돌파형");
+                if (passedLong) c.fitTags.push("중장기매집형");
+                return true;
+            }
+            return false;
         });
+
+        console.log(`🛡️ [Filter Config] Dual-Engine 필터링 작동 완료 (Safe Mode: ${marketStress.safeMode}) ➡️ 총 ${technicallyFiltered.length}개 종목 합격`);
 
 
         // 2차 재무 건전성 및 밸류에이션 하드 필터링 적용 (상위 10개 대상)
@@ -1275,7 +1286,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 ` ⚠️ [중장기 가치주 제외 대상 - 사유: ${c.longTermExcludeReason}]` : 
                 '';
 
-            return `[${idx + 1}위] ${c.name} (${c.code})${excludeBadge} - 퀀트 종합점수: ${c.totalScore}점 / 100점
+            const fitTagText = c.fitTags && c.fitTags.length > 0 ? ` [시스템 판정: ${c.fitTags.join(' / ')}]` : '';
+
+            return `[${idx + 1}위] ${c.name} (${c.code})${excludeBadge}${fitTagText} - 퀀트 종합점수: ${c.totalScore}점 / 100점
     - [20일 이격도] 수치: ${c.metrics.disparity20}% ➡️ 점수: ${c.scores.disparityScore}점 / 35점
     - [체결강도] 수치: ${c.metrics.strength}% ➡️ 점수: ${c.scores.strengthScore}점 / 40점
     - [공매도 비중] 수치: ${c.metrics.shortRatio}% ➡️ 점수: ${c.scores.shortScore}점 / 25점
