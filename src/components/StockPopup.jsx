@@ -201,66 +201,116 @@ const StockPopup = ({ item, onClose }) => {
                   </div>
                 )}
 
-                {/* 📊 수급 힘겨루기 가로 Bar 차트 (100% Stacked Bar) */}
+                {/* 📊 수급 힘겨루기 가로 Bar 차트 (양방향 힘겨루기 세력선) */}
                 {stockDetail.advanced?.investor ? (() => {
-                  const fAbs = Math.abs(stockDetail.advanced.investor.foreign5D);
-                  const oAbs = Math.abs(stockDetail.advanced.investor.organ5D);
-                  const pAbs = Math.abs(stockDetail.advanced.investor.personal5D);
-                  const totalAbs = fAbs + oAbs + pAbs || 1;
+                  const fVal = stockDetail.advanced.investor.foreign5D;
+                  const oVal = stockDetail.advanced.investor.organ5D;
+                  const pVal = stockDetail.advanced.investor.personal5D;
 
-                  const fPercent = ((fAbs / totalAbs) * 100).toFixed(0);
-                  const oPercent = ((oAbs / totalAbs) * 100).toFixed(0);
-                  const pPercent = ((pAbs / totalAbs) * 100).toFixed(0);
+                  // 3대 주체 중 가장 강력한 절대치를 100% 기준으로 삼아 스케일링
+                  const maxAbs = Math.max(Math.abs(fVal), Math.abs(oVal), Math.abs(pVal), 1);
+
+                  const fRatio = (fVal / maxAbs) * 100;
+                  const oRatio = (oVal / maxAbs) * 100;
+                  const pRatio = (pVal / maxAbs) * 100;
 
                   return (
                     <div className="bg-gray-50/50 border border-gray-100 rounded-xl p-4 mb-4">
-                      <div className="flex justify-between text-[10px] font-bold text-gray-500 mb-2">
-                        <span className="text-red-500">🔴 외인 ({fPercent}%)</span>
-                        <span className="text-blue-500">🔵 기관 ({oPercent}%)</span>
-                        <span className="text-green-600">🟢 개인 ({pPercent}%)</span>
+                      {/* 포지션 차트 설명 */}
+                      <div className="flex justify-between text-[9px] text-gray-400 font-bold mb-3 border-b border-gray-100 pb-1.5 uppercase tracking-wider">
+                        <span>◀ 순매도 (유출)</span>
+                        <span className="text-gray-500 font-black">0선 (기준)</span>
+                        <span>순매수 (유입) ▶</span>
                       </div>
-                      {/* 누적 가로 막대 차트 */}
-                      <div className="h-3 w-full rounded-full overflow-hidden flex bg-gray-200">
-                        <div className="h-full bg-red-400 transition-all duration-500" style={{ width: `${fPercent}%` }} />
-                        <div className="h-full bg-blue-400 transition-all duration-500" style={{ width: `${oPercent}%` }} />
-                        <div className="h-full bg-green-400 transition-all duration-500" style={{ width: `${pPercent}%` }} />
-                      </div>
-                      
-                      {/* 상세 수치 노출 */}
-                      <div className="grid grid-cols-3 gap-2 mt-3 text-[10px] font-medium border-t border-gray-100 pt-2.5">
-                        <div className="text-center">
-                          <div className="text-gray-400 font-bold">외국인</div>
-                          <div className={`font-mono font-bold ${stockDetail.advanced.investor.foreign5D >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                            {stockDetail.advanced.investor.foreign5D > 0 ? '+' : ''}{stockDetail.advanced.investor.foreign5D.toLocaleString()}주
-                          </div>
+
+                      {/* 🔴 외국인 포지션 바 */}
+                      <div className="mb-4">
+                        <div className="flex justify-between text-[10px] font-black mb-1">
+                          <span className="text-gray-600">🔴 외국인</span>
+                          <span className={`font-mono ${fVal >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                            {fVal > 0 ? '+' : ''}{fVal.toLocaleString()}주
+                          </span>
                         </div>
-                        <div className="text-center border-x border-gray-100 border-gray-200/50">
-                          <div className="text-gray-400 font-bold">기관</div>
-                          <div className={`font-mono font-bold ${stockDetail.advanced.investor.organ5D >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                            {stockDetail.advanced.investor.organ5D > 0 ? '+' : ''}{stockDetail.advanced.investor.organ5D.toLocaleString()}주
-                          </div>
+                        <div className="h-3 w-full bg-gray-200/50 rounded-full overflow-hidden relative flex">
+                          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-400/80 z-10" /> {/* 0선 */}
+                          {fVal < 0 ? (
+                            <div 
+                              className="h-full bg-gradient-to-l from-blue-400 to-blue-500 rounded-l-full absolute right-1/2" 
+                              style={{ width: `${Math.min(50, Math.abs(fRatio) / 2)}%` }} 
+                            />
+                          ) : (
+                            <div 
+                              className="h-full bg-gradient-to-r from-red-400 to-red-500 rounded-r-full absolute left-1/2" 
+                              style={{ width: `${Math.min(50, fRatio / 2)}%` }} 
+                            />
+                          )}
                         </div>
-                        <div className="text-center">
-                          <div className="text-gray-400 font-bold">개인(개미)</div>
-                          <div className={`font-mono font-bold ${stockDetail.advanced.investor.personal5D >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                            {stockDetail.advanced.investor.personal5D > 0 ? '+' : ''}{stockDetail.advanced.investor.personal5D.toLocaleString()}주
-                          </div>
+                        <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right">
+                          외인 {stockDetail.advanced.investor.foreignConsecutiveDays}일 연속 순매수
                         </div>
                       </div>
 
-                      {/* 연속 매수 일수 정보 추가 */}
-                      <div className="mt-2.5 text-[8px] text-gray-400 flex justify-around border-t border-gray-100 pt-2 font-bold uppercase tracking-wider">
-                        <span>외인 {stockDetail.advanced.investor.foreignConsecutiveDays}일 연속 순매수</span>
-                        <span>기관 {stockDetail.advanced.investor.organConsecutiveDays}일 연속 순매수</span>
-                        <span>개인 {stockDetail.advanced.investor.personalConsecutiveDays}일 연속 순매수</span>
+                      {/* 🔵 기관 포지션 바 */}
+                      <div className="mb-4">
+                        <div className="flex justify-between text-[10px] font-black mb-1">
+                          <span className="text-gray-600">🔵 기관</span>
+                          <span className={`font-mono ${oVal >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                            {oVal > 0 ? '+' : ''}{oVal.toLocaleString()}주
+                          </span>
+                        </div>
+                        <div className="h-3 w-full bg-gray-200/50 rounded-full overflow-hidden relative flex">
+                          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-400/80 z-10" /> {/* 0선 */}
+                          {oVal < 0 ? (
+                            <div 
+                              className="h-full bg-gradient-to-l from-blue-400 to-blue-500 rounded-l-full absolute right-1/2" 
+                              style={{ width: `${Math.min(50, Math.abs(oRatio) / 2)}%` }} 
+                            />
+                          ) : (
+                            <div 
+                              className="h-full bg-gradient-to-r from-red-400 to-red-500 rounded-r-full absolute left-1/2" 
+                              style={{ width: `${Math.min(50, oRatio / 2)}%` }} 
+                            />
+                          )}
+                        </div>
+                        <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right">
+                          기관 {stockDetail.advanced.investor.organConsecutiveDays}일 연속 순매수
+                        </div>
+                      </div>
+
+                      {/* 🟢 개인 포지션 바 */}
+                      <div className="mb-1">
+                        <div className="flex justify-between text-[10px] font-black mb-1">
+                          <span className="text-gray-600">🟢 개인(개미)</span>
+                          <span className={`font-mono ${pVal >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                            {pVal > 0 ? '+' : ''}{pVal.toLocaleString()}주
+                          </span>
+                        </div>
+                        <div className="h-3 w-full bg-gray-200/50 rounded-full overflow-hidden relative flex">
+                          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-400/80 z-10" /> {/* 0선 */}
+                          {pVal < 0 ? (
+                            <div 
+                              className="h-full bg-gradient-to-l from-blue-400 to-blue-500 rounded-l-full absolute right-1/2" 
+                              style={{ width: `${Math.min(50, Math.abs(pRatio) / 2)}%` }} 
+                            />
+                          ) : (
+                            <div 
+                              className="h-full bg-gradient-to-r from-red-400 to-red-500 rounded-r-full absolute left-1/2" 
+                              style={{ width: `${Math.min(50, pRatio / 2)}%` }} 
+                            />
+                          )}
+                        </div>
+                        <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right">
+                          개인 {stockDetail.advanced.investor.personalConsecutiveDays}일 연속 순매수
+                        </div>
                       </div>
                     </div>
                   );
                 })() : (
-                  <div className="py-5 text-center text-xs text-gray-400 font-bold bg-gray-50 rounded-xl mb-4 border border-gray-100/50 flex flex-col gap-1.5 justify-center items-center">
-                    <span className="text-base">⚠️</span>
-                    <span className="text-[10px] text-gray-500 font-black">실시간 거래소 수급 정보 조회 불가</span>
-                    <span className="text-[8px] text-gray-400 font-normal leading-normal px-4">한국투자증권 API 서버 점검 또는 제공되지 않는 해외 주식/상장 종목입니다.</span>
+                  <div className="py-5 text-center text-[10px] text-gray-500 font-bold bg-gray-50 border border-gray-100 rounded-xl mb-4 p-4 flex flex-col gap-2 justify-center items-center">
+                    <span className="text-lg">⚠️</span>
+                    <span className="leading-relaxed font-bold max-w-[280px]">
+                      한국투자증권 OpenAPI 서버는 매일 장외 시간(특히 밤 11시 30분 ~ 새벽 시간대)이나 특정 점검 시간에 접속 시 rt_cd 에러를 뱉으며 수급 데이터를 돌려주지 않습니다.
+                    </span>
                   </div>
                 )}
 
