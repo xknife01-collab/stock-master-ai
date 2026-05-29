@@ -323,17 +323,7 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
             disparity20,
             shortRatio: shortRes?.data?.output?.[0]?.ssts_vol_rlim || (Math.random() * 5 + 0.5).toFixed(2),
             creditBalance: creditRes?.data?.output?.[0]?.whol_loan_rmnd_rate || (Math.random() * 2 + 0.1).toFixed(2),
-            investor: investorRes?.stats || {
-                foreign5D: Math.floor((Math.random() - 0.5) * 1500000),
-                organ5D: Math.floor((Math.random() - 0.5) * 1500000),
-                personal5D: Math.floor((Math.random() - 0.5) * 1500000),
-                foreign20D: Math.floor((Math.random() - 0.5) * 6000000),
-                organ20D: Math.floor((Math.random() - 0.5) * 6000000),
-                personal20D: Math.floor((Math.random() - 0.5) * 6000000),
-                foreignConsecutiveDays: Math.floor(Math.random() * 5),
-                organConsecutiveDays: Math.floor(Math.random() * 5),
-                personalConsecutiveDays: Math.floor(Math.random() * 5)
-            }
+            investor: investorRes?.stats || null
         }
     };
     res.json({ fundamental });
