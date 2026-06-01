@@ -1,6 +1,6 @@
 import express from 'express';
 import axios from 'axios';
-import { KIS_BASE_URL, ensureToken, getKisHeaders, fetchStockInvestorTrend } from '../lib/kisCore.js';
+import { KIS_BASE_URL, ensureToken, getKisHeaders, fetchStockInvestorTrend, kisRequest } from '../lib/kisCore.js';
 
 const router = express.Router();
 
@@ -55,7 +55,9 @@ const generateMockChart = (basePrice, rangeType) => {
 router.get('/:symbol', ensureToken, async (req, res) => {
     const { symbol } = req.params;
     try {
-        const response = await axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price`, {
+        const response = await kisRequest({
+            method: 'get',
+            url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price`,
             params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol },
             headers: getKisHeaders('FHKST01010100')
         });
@@ -143,7 +145,9 @@ router.get('/history/:symbol', ensureToken, async (req, res) => {
                 FID_ETC_CLS_CODE: ''
             };
 
-            const response = await axios.get(`${KIS_BASE_URL}${url}`, {
+            const response = await kisRequest({
+                method: 'get',
+                url: `${KIS_BASE_URL}${url}`,
                 params,
                 headers: getKisHeaders(trId)
             });
@@ -235,53 +239,89 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
     const { symbol } = req.params;
     const commonHeaders = getKisHeaders(''); // tr_id는 개별 호출에서 설정
 
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const pricePromise = kisRequest({
+        method: 'get',
+        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price`,
+        params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol },
+        headers: { ...commonHeaders, 'tr_id': 'FHKST01010100' }
+    });
+    await delay(120);
+
+    const ratioPromise = kisRequest({
+        method: 'get',
+        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/finance/financial-ratio`,
+        params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol, FID_DIV_CLS_CODE: '0' },
+        headers: { ...commonHeaders, 'tr_id': 'FHKST66430300' }
+    });
+    await delay(120);
+
+    const consensusPromise = kisRequest({
+        method: 'get',
+        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/estimate-perform`,
+        params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol },
+        headers: { ...commonHeaders, 'tr_id': 'HHKST668300C0' }
+    });
+    await delay(120);
+
+    const incomePromise = kisRequest({
+        method: 'get',
+        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/finance/income-statement`,
+        params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol, FID_DIV_CLS_CODE: '0' },
+        headers: { ...commonHeaders, 'tr_id': 'FHKST66430200' }
+    });
+    await delay(120);
+
+    const ccnlPromise = kisRequest({
+        method: 'get',
+        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-ccnl`,
+        params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol },
+        headers: { ...commonHeaders, 'tr_id': 'FHKST01010300' }
+    });
+    await delay(120);
+
+    const shortPromise = kisRequest({
+        method: 'get',
+        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/daily-short-sale`,
+        params: {
+            FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol,
+            FID_INPUT_DATE_1: new Date(Date.now() - 60 * 86400000).toISOString().slice(0,10).replace(/-/g,''),
+            FID_INPUT_DATE_2: new Date().toISOString().slice(0,10).replace(/-/g,'')
+        },
+        headers: { ...commonHeaders, 'tr_id': 'FHPST04830000' }
+    });
+    await delay(120);
+
+    const creditPromise = kisRequest({
+        method: 'get',
+        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/daily-credit-balance`,
+        params: {
+            FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol,
+            FID_INPUT_DATE_1: new Date(Date.now() - 60 * 86400000).toISOString().slice(0,10).replace(/-/g,''),
+            FID_INPUT_DATE_2: new Date().toISOString().slice(0,10).replace(/-/g,'')
+        },
+        headers: { ...commonHeaders, 'tr_id': 'FHPST04760000' }
+    });
+    await delay(120);
+
+    const dailyPromise = kisRequest({
+        method: 'get',
+        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice`,
+        params: {
+            FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol,
+            FID_INPUT_DATE_1: new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10).replace(/-/g,''),
+            FID_INPUT_DATE_2: new Date().toISOString().slice(0,10).replace(/-/g,''),
+            FID_PERIOD_DIV_CODE: 'D', FID_ORG_ADJ_PRC: '1'
+        },
+        headers: { ...commonHeaders, 'tr_id': 'FHKST03010100' }
+    });
+    await delay(120);
+
+    const investorPromise = fetchStockInvestorTrend(symbol);
+
     const [priceResult, ratioResult, consensusResult, incomeResult, ccnlResult, shortResult, creditResult, dailyResult, investorResult] = await Promise.allSettled([
-        axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price`, {
-            params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol },
-            headers: { ...commonHeaders, 'tr_id': 'FHKST01010100' }
-        }),
-        axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/finance/financial-ratio`, {
-            params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol, FID_DIV_CLS_CODE: '0' },
-            headers: { ...commonHeaders, 'tr_id': 'FHKST66430300' }
-        }),
-        axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/estimate-perform`, {
-            params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol },
-            headers: { ...commonHeaders, 'tr_id': 'HHKST668300C0' }
-        }),
-        axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/finance/income-statement`, {
-            params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol, FID_DIV_CLS_CODE: '0' },
-            headers: { ...commonHeaders, 'tr_id': 'FHKST66430200' }
-        }),
-        axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-ccnl`, {
-            params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol },
-            headers: { ...commonHeaders, 'tr_id': 'FHKST01010300' }
-        }),
-        axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/daily-short-sale`, {
-            params: {
-                FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol,
-                FID_INPUT_DATE_1: new Date(Date.now() - 60 * 86400000).toISOString().slice(0,10).replace(/-/g,''),
-                FID_INPUT_DATE_2: new Date().toISOString().slice(0,10).replace(/-/g,'')
-            },
-            headers: { ...commonHeaders, 'tr_id': 'FHPST04830000' }
-        }),
-        axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/daily-credit-balance`, {
-            params: {
-                FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol,
-                FID_INPUT_DATE_1: new Date(Date.now() - 60 * 86400000).toISOString().slice(0,10).replace(/-/g,''),
-                FID_INPUT_DATE_2: new Date().toISOString().slice(0,10).replace(/-/g,'')
-            },
-            headers: { ...commonHeaders, 'tr_id': 'FHPST04760000' }
-        }),
-        axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice`, {
-            params: {
-                FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol,
-                FID_INPUT_DATE_1: new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10).replace(/-/g,''),
-                FID_INPUT_DATE_2: new Date().toISOString().slice(0,10).replace(/-/g,''),
-                FID_PERIOD_DIV_CODE: 'D', FID_ORG_ADJ_PRC: '1'
-            },
-            headers: { ...commonHeaders, 'tr_id': 'FHKST03010100' }
-        }),
-        fetchStockInvestorTrend(symbol) // 실시간 투자자 수급 추가!
+        pricePromise, ratioPromise, consensusPromise, incomePromise, ccnlPromise, shortPromise, creditPromise, dailyPromise, investorPromise
     ]);
 
     const val = (result) => result.status === 'fulfilled' ? result.value : null;

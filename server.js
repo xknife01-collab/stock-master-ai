@@ -20,15 +20,18 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // --- Cron Jobs ---
-// 1. 매 30분(00분, 30분)마다 Pulse 실행 (AI 시장 분석)
-cron.schedule('*/30 * * * *', async () => {
-    console.log('⏰ [Cron] 30분 주기 - Pulse 자동 실행 시작...');
+// 1. 장중 시간(KST 09:05 - 15:35) 월~금요일 매 30분마다 Pulse 실행 (AI 시장 분석)
+cron.schedule('5,35 9-15 * * 1-5', async () => {
+    console.log('⏰ [Cron] 장중 시간(KST) - Pulse 자동 실행 시작...');
     try {
         await executeHourlyPulse();
         console.log('✅ [Cron] Pulse 자동 실행 완료.');
     } catch (e) {
         console.error('❌ [Cron] Pulse 자동 실행 실패:', e.message);
     }
+}, {
+    scheduled: true,
+    timezone: "Asia/Seoul"
 });
 
 // Middleware

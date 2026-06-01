@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { aiModel, vertexModel } from '../lib/ai.js';
-import { getAccessToken, KIS_BASE_URL, getKisHeaders, fetchStockPrice, fetchStockAnalytics, fetchStockInvestorTrend, fetchMarketRankings, fetchConditionResult, fetchMultipleStockQuantMetrics, fetchStockFinancialsForVeto, fetchIndexDailyHistory } from '../lib/kisCore.js';
+import { getAccessToken, KIS_BASE_URL, getKisHeaders, fetchStockPrice, fetchStockAnalytics, fetchStockInvestorTrend, fetchMarketRankings, fetchConditionResult, fetchMultipleStockQuantMetrics, fetchStockFinancialsForVeto, fetchIndexDailyHistory, initKisStockMaster } from '../lib/kisCore.js';
 import { fetchMacroIndicators } from './macroApi.js';
 import { getSupplyCache, saveSupplyCache } from '../lib/supplyCache.js';
 
@@ -25,8 +25,16 @@ import supabase from '../lib/supabaseClient.js';
 
 const stockMasterCache = {};
 
-// Supabase로부터 기존에 수집된 상장코드 매핑 캐시 로딩
+// Supabase 및 KIS 마스터로부터 기존에 수집된 상장코드 매핑 캐시 로딩
 const initStockMasterCache = async () => {
+    // 1. KIS 마스터 파일에서 국내 전 종목 매핑 캐싱 (근본적 해결)
+    try {
+        await initKisStockMaster(stockMasterCache);
+    } catch (err) {
+        console.error('❌ [KIS Master Init Failed] falling back to Supabase:', err.message);
+    }
+
+    // 2. Supabase로부터 누적 캐시 추가 로딩
     if (!supabase) return;
     try {
         const { data, error } = await supabase
@@ -38,7 +46,8 @@ const initStockMasterCache = async () => {
         }
         if (data) {
             data.forEach(row => {
-                stockMasterCache[row.name] = row.code;
+                const cleaned = row.name.replace(/\s+/g, '');
+                stockMasterCache[cleaned] = row.code;
             });
             console.log(`⚡ [Supabase] stock_master_map 캐시 로드 완료: ${data.length}개 종목`);
         }
@@ -706,8 +715,8 @@ export const isMarketOpen = () => {
     const minutes = nowKst.getUTCMinutes();
     const timeVal = hours * 100 + minutes; // 예: 09:30 -> 930
     
-    // 분석 활성 시간: 장 시작 전(08:30)부터 장 마감(15:30)까지
-    return timeVal >= 830 && timeVal <= 1530;
+    // 분석 활성 시간: 국내 장 운영 시간인 KST 09:00 ~ 15:35
+    return timeVal >= 900 && timeVal <= 1535;
 };
 
 // --- Pulse Logic (Extracted for Cron) ---
@@ -1094,12 +1103,12 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 if (b.value !== a.value) return b.value - a.value;
                 return Math.abs(b.change) - Math.abs(a.change);
             })
-            .slice(0, 30);
+            .slice(0, 25);
 
         const symbols = candidatePool.map(c => c.code);
 
-        // 상위 30개 종목에 대한 실시간 퀀트 지표 (체결강도, 이격도, 공매도 비중) 수집
-        console.log(`📡 [Pulse] 상위 30개 후보 종목의 실시간 퀀트 지표 수집 시작...`);
+        // 상위 25개 종목에 대한 실시간 퀀트 지표 (체결강도, 이격도, 공매도 비중) 수집
+        console.log(`📡 [Pulse] 상위 25개 후보 종목의 실시간 퀀트 지표 수집 시작...`);
         const metricsMap = await fetchMultipleStockQuantMetrics(symbols);
 
         // 각 종목별 100점 만점 퀀트 스코어 계산 및 상세 점수표 구축
