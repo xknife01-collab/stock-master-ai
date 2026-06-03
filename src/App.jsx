@@ -29,9 +29,7 @@ const App = () => {
 
   // Global States
   const [stocks, setStocks] = useState([]);
-  const [alerts, setAlerts] = useState([
-    { id: 1, message: 'KRW/USD 변동성 확대 감지', severity: 'info' }
-  ]);
+  const [alerts, setAlerts] = useState([]);
   const [dashboardData, setDashboardData] = useState(null);
   const [news, setNews] = useState([]);
   const [aiSignal, setAiSignal] = useState(null);
