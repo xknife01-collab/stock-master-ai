@@ -1257,6 +1257,11 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         // 기준 충족 종목이 없을 경우 즉시 안전 대피(Hold) 시그널 반환 및 캐싱
         if (filteredCandidates.length === 0) {
             console.log(`⚠️ [Pulse] 최소 안전 기준(기술적 필터 및 재무 건전성 Veto)을 충족하는 종목이 없습니다. 추천을 보류합니다.`);
+            const isSafe = marketStress.safeMode;
+            const minStrength = isSafe ? 100 : 90;
+            const maxShortRatio = isSafe ? 10 : 10;
+            const maxDisparity = isSafe ? 106 : 107;
+
             const holdSignal = {
                 theme: "시장 관망 및 추천 보류",
                 themeProb: "100%",
