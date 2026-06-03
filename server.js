@@ -20,9 +20,9 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // --- Cron Jobs ---
-// 1. 장중 시간(KST 09:05 - 15:35, UTC 00:05 - 06:35) 월~금요일 매 30분마다 Pulse 실행 (AI 시장 분석)
-// 클라우드 서버(Render 등)의 타임존 세팅 오작동 방지를 위해 UTC 기준으로 스케줄을 명시적으로 매핑합니다.
-cron.schedule('5,35 0-6 * * 1-5', async () => {
+// 1. 장중 시간(KST 09:05 - 15:35) 월~금요일 매 30분마다 Pulse 실행 (AI 시장 분석)
+// 서버의 로컬 타임존 설정에 영향을 받지 않도록 Asia/Seoul 타임존을 명시적으로 지정하여 스케줄링합니다.
+cron.schedule('5,35 9-15 * * 1-5', async () => {
     console.log('⏰ [Cron] 장중 시간(KST) - Pulse 자동 실행 시작...');
     try {
         await executeHourlyPulse();
@@ -30,6 +30,9 @@ cron.schedule('5,35 0-6 * * 1-5', async () => {
     } catch (e) {
         console.error('❌ [Cron] Pulse 자동 실행 실패:', e.message);
     }
+}, {
+    scheduled: true,
+    timezone: "Asia/Seoul"
 });
 
 // Middleware
