@@ -1281,7 +1281,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 marketStress
             };
             
-            fs.writeFileSync(aiCachePath, JSON.stringify({ pulse: holdSignal, hourKey }, null, 2), 'utf8');
+            fs.writeFileSync(aiCachePath, JSON.stringify({ pulse: holdSignal, hourKey: currentHourKey }, null, 2), 'utf8');
             return { data: holdSignal, time: timeStr };
         }
 
