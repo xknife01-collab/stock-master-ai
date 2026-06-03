@@ -1281,6 +1281,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 marketStress
             };
             
+            saveRagDiary("시장 관망: 안전 필터 기준 충족 종목 없음", holdSignal);
             fs.writeFileSync(aiCachePath, JSON.stringify({ pulse: holdSignal, hourKey: currentHourKey }, null, 2), 'utf8');
             return { data: holdSignal, time: timeStr };
         }
