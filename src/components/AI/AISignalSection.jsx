@@ -110,23 +110,45 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                   <span className="text-[#00ffab] text-sm font-black">{sig.themeProb || '??%'}</span>
                 </div>
               </div>
-              <div className="bg-white/5 rounded-xl border border-white/10 p-4 col-span-2">
-                <div className="text-[#a4b1cd] text-[9px] font-black mb-2 uppercase tracking-widest opacity-50">✨ Top Pick & Targets</div>
-                <div className="flex items-center justify-between">
-                  <span 
-                    onClick={() => !hasNoRecommendation && onOpenPopup(sig.stock, sig.price, sig.themeProb, sig.symbol)} 
-                    className={`font-black text-lg ${hasNoRecommendation ? 'text-white/20 italic' : 'text-blue-300 underline underline-offset-4 decoration-blue-500/50 cursor-pointer'}`}
-                  >
-                    {hasNoRecommendation ? '⚠️ 분석 정합성 부족으로 추천 보류' : sig.stock}
-                  </span>
-                  <div className="flex gap-2">
-                    <div className="px-2 py-1 bg-green-500/10 border border-green-500/20 rounded text-[10px] font-black text-green-400">
-                      TARGET {sig.tp && !isNaN(parseInt(sig.tp)) ? '₩' + parseInt(sig.tp).toLocaleString() : '---'}
-                    </div>
-                    <div className="px-2 py-1 bg-red-500/10 border border-red-500/20 rounded text-[10px] font-black text-red-400">
-                      STOP {sig.sl && !isNaN(parseInt(sig.sl)) ? '₩' + parseInt(sig.sl).toLocaleString() : '---'}
-                    </div>
+              <div className={`rounded-xl p-4 col-span-2 border ${
+                hasNoRecommendation 
+                  ? 'bg-amber-500/5 border-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.05)]' 
+                  : 'bg-white/5 border-white/10'
+              }`}>
+                <div className="text-[#a4b1cd] text-[9px] font-black mb-2 uppercase tracking-widest opacity-50 flex items-center gap-1.5">
+                  {hasNoRecommendation ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                      ⚠️ AI Recommendation Hold (추천 보류 사유)
+                    </>
+                  ) : (
+                    '✨ Top Pick & Targets'
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span 
+                      onClick={() => !hasNoRecommendation && onOpenPopup(sig.stock, sig.price, sig.themeProb, sig.symbol)} 
+                      className={`font-black text-lg ${hasNoRecommendation ? 'text-amber-400' : 'text-blue-300 underline underline-offset-4 decoration-blue-500/50 cursor-pointer'}`}
+                    >
+                      {hasNoRecommendation ? '시장 리스크 관리로 인한 추천 보류' : sig.stock}
+                    </span>
+                    {!hasNoRecommendation && (
+                      <div className="flex gap-2">
+                        <div className="px-2 py-1 bg-green-500/10 border border-green-500/20 rounded text-[10px] font-black text-green-400">
+                          TARGET {sig.tp && !isNaN(parseInt(sig.tp)) ? '₩' + parseInt(sig.tp).toLocaleString() : '---'}
+                        </div>
+                        <div className="px-2 py-1 bg-red-500/10 border border-red-500/20 rounded text-[10px] font-black text-red-400">
+                          STOP {sig.sl && !isNaN(parseInt(sig.sl)) ? '₩' + parseInt(sig.sl).toLocaleString() : '---'}
+                        </div>
+                      </div>
+                    )}
                   </div>
+                  {hasNoRecommendation && (
+                    <p className="text-white/80 text-xs leading-relaxed mt-1 border-t border-amber-500/10 pt-2 italic font-medium">
+                      {sig.reason || '현재 시장 변동성 지표(Z-Score) 경계 수준 돌파 및 종목별 리스크 VETO 필터 통과 종목 부재로 신규 포트폴리오 편입을 보류합니다.'}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
