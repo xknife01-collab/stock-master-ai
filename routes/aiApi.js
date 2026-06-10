@@ -134,13 +134,48 @@ const savePatternInsights = (newInsight) => {
     }
 };
 
-const getRagDiary = () => {
-    if (!fs.existsSync(ragDiaryPath)) return [];
-    try { return JSON.parse(fs.readFileSync(ragDiaryPath, 'utf8')); } catch (e) { return []; }
+const getRagDiary = async () => {
+    let localData = [];
+    if (fs.existsSync(ragDiaryPath)) {
+        try { return JSON.parse(fs.readFileSync(ragDiaryPath, 'utf8')); } catch (e) { localData = []; }
+    }
+    
+    // 로컬 데이터가 공백이거나 비어있을 때 Supabase 데이터베이스 조회
+    if ((!localData || localData.length === 0) && supabase) {
+        try {
+            // 메모리 캐시 우선 확인
+            if (stockMasterCache['__rag_diary__']) {
+                const dbData = JSON.parse(stockMasterCache['__rag_diary__']);
+                if (Array.isArray(dbData) && dbData.length > 0) {
+                    localData = dbData;
+                    try { fs.writeFileSync(ragDiaryPath, JSON.stringify(localData, null, 2), 'utf8'); } catch (fsErr) {}
+                }
+            } else {
+                // DB에서 직접 조회
+                const { data, error } = await supabase
+                    .from('stock_master_map')
+                    .select('code')
+                    .eq('name', '__rag_diary__')
+                    .maybeSingle();
+                
+                if (!error && data && data.code) {
+                    const dbData = JSON.parse(data.code);
+                    if (Array.isArray(dbData) && dbData.length > 0) {
+                        localData = dbData;
+                        stockMasterCache['__rag_diary__'] = data.code;
+                        try { fs.writeFileSync(ragDiaryPath, JSON.stringify(localData, null, 2), 'utf8'); } catch (fsErr) {}
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('❌ Failed to restore rag_diary from Supabase:', e.message);
+        }
+    }
+    return localData;
 };
 
-const saveRagDiary = (news, signal) => {
-    const diary = getRagDiary();
+const saveRagDiary = async (news, signal) => {
+    const diary = await getRagDiary();
     
     // Deduplication check: 30 min cooldown OR same hour
     const now = new Date();
@@ -150,8 +185,6 @@ const saveRagDiary = (news, signal) => {
         const currentHour = now.getHours();
         const timeDiff = now.getTime() - lastTime;
         
-        // If it's the same hour AND less than 30 mins, skip. 
-        // If hour is different, it's a new scheduled pulse, so allow it.
         if (currentHour === lastHour && timeDiff < 30 * 60 * 1000) {
             console.log(`⏭️ [Diary] ${currentHour}시 분석이 이미 존재하며 시간 간격이 짧아 저장을 건너뜁니다.`);
             return;
@@ -177,27 +210,82 @@ const saveRagDiary = (news, signal) => {
         },
         symbol: signal.symbol,
         price: signal.price || 0,
-        // 픽 실적 추적용: 다음 시간에 수익률 계산
         shortTermPicks: (signal.shortTermPicks || []).map(p => ({ n: p.n, c: p.c, p: p.p })),
         longTermPicks: (signal.longTermPicks || []).map(p => ({ n: p.n, c: p.c, p: p.p }))
     });
     if (diary.length > 48) diary.pop(); // 48시간치 보관
-    fs.writeFileSync(ragDiaryPath, JSON.stringify(diary, null, 2), 'utf8');
+    
+    const jsonStr = JSON.stringify(diary, null, 2);
+    try {
+        fs.writeFileSync(ragDiaryPath, jsonStr, 'utf8');
+    } catch (e) {
+        console.error('❌ Local diary write failed:', e.message);
+    }
+    
+    // Supabase 영구 백업 업서트
+    if (supabase) {
+        upsertStockMaster('__rag_diary__', jsonStr);
+    }
 };
 
 
-const getAiCache = () => {
-    if (!fs.existsSync(aiCachePath)) return { signal: null, hourKey: null };
-    try { return JSON.parse(fs.readFileSync(aiCachePath, 'utf8')); } catch (e) { return { signal: null, hourKey: null }; }
+const getAiCache = async () => {
+    let localCache = null;
+    if (fs.existsSync(aiCachePath)) {
+        try { localCache = JSON.parse(fs.readFileSync(aiCachePath, 'utf8')); } catch (e) { localCache = null; }
+    }
+    
+    // 로컬 캐시가 없거나 유실된 상태일 때 Supabase 캐시 확인
+    if ((!localCache || !localCache.pulse) && supabase) {
+        try {
+            if (stockMasterCache['__ai_cache__']) {
+                const dbCache = JSON.parse(stockMasterCache['__ai_cache__']);
+                if (dbCache && dbCache.pulse) {
+                    localCache = dbCache;
+                    try { fs.writeFileSync(aiCachePath, JSON.stringify(localCache, null, 2), 'utf8'); } catch (fsErr) {}
+                }
+            } else {
+                const { data, error } = await supabase
+                    .from('stock_master_map')
+                    .select('code')
+                    .eq('name', '__ai_cache__')
+                    .maybeSingle();
+                
+                if (!error && data && data.code) {
+                    const dbCache = JSON.parse(data.code);
+                    if (dbCache && dbCache.pulse) {
+                        localCache = dbCache;
+                        stockMasterCache['__ai_cache__'] = data.code;
+                        try { fs.writeFileSync(aiCachePath, JSON.stringify(localCache, null, 2), 'utf8'); } catch (fsErr) {}
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('❌ Failed to restore ai_cache from Supabase:', e.message);
+        }
+    }
+    
+    return localCache || { signal: null, hourKey: null };
 };
 
 const saveAiCache = (pulseData, hourKey) => {
-    // pulseData에서 순수 데이터(signal/prediction 객체)만 추출
     let dataToSave = pulseData.data || pulseData.signal || pulseData.prediction || pulseData;
     if (dataToSave.pulse) dataToSave = dataToSave.pulse;
     if (dataToSave.data) dataToSave = dataToSave.data;
     
-    fs.writeFileSync(aiCachePath, JSON.stringify({ pulse: dataToSave, hourKey }, null, 2), 'utf8');
+    const cacheObj = { pulse: dataToSave, hourKey };
+    const jsonStr = JSON.stringify(cacheObj, null, 2);
+    
+    try {
+        fs.writeFileSync(aiCachePath, jsonStr, 'utf8');
+    } catch (e) {
+        console.error('❌ Local cache write failed:', e.message);
+    }
+    
+    // Supabase 영구 백업 업서트
+    if (supabase) {
+        upsertStockMaster('__ai_cache__', jsonStr);
+    }
 };
 
 const fetchNaverNews = async (query = '주식 시장 전망 시황') => {
@@ -672,9 +760,6 @@ const fetchMarketSnapshot = async () => {
 };
 
 // --- State ---
-const initialCache = getAiCache();
-let cachedAiSignal = initialCache.signal;
-let lastCachedHourKey = initialCache.hourKey;
 let fetchingAiSignalPromise = null;
 
 // --- Routes ---
@@ -690,7 +775,7 @@ router.get('/pulse', async (req, res) => {
         res.json({ time: timeStr, data: outData });
     } catch (error) {
         console.error('Pulse logic failed, falling back to cache:', error.message);
-        const cache = getAiCache();
+        const cache = await getAiCache();
         let pulseData = cache.pulse;
         if (pulseData?.data) pulseData = pulseData.data;
 
@@ -733,7 +818,7 @@ export const executeHourlyPulse = async (force = false) => {
         return await fetchingAiSignalPromise;
     }
 
-    const cache = getAiCache();
+    const cache = await getAiCache();
     const marketOpen = isMarketOpen();
 
     // 2. 장외 시간 및 캐시 확인 (장외 시간이고 캐시가 없으면 diary에서 복구하여 즉각 제공)
@@ -743,7 +828,7 @@ export const executeHourlyPulse = async (force = false) => {
             pulseData = cache.pulse.data || cache.pulse;
         } else {
             // 캐시가 날아갔다면 최신 다이어리 기록을 읽어 캐시를 동적 복구합니다.
-            const diary = getRagDiary();
+            const diary = await getRagDiary();
             if (diary && diary.length > 0) {
                 console.log(`💤 [Pulse] 장 마감 상태 및 캐시 누락: 다이어리 최신 레코드로 복구 시도`);
                 pulseData = diary[0].prediction || diary[0];
@@ -1312,7 +1397,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
     - 현재가: ${c.price.toLocaleString()}원 (전일대비: ${c.change > 0 ? '+' : ''}${c.change}%)`;
         }).join('\n\n');
 
-        const diary = getRagDiary();
+        const diary = await getRagDiary();
         const patterns = getPatternInsights();
 
         // 1. 과거 추천 종목 백테스팅 데이터 실시간 업데이트 및 파일 저장
@@ -1627,7 +1712,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             await refreshRecommendedPrices(signalData, candidatePriceMap);
 
             saveAiCache({ pulse: { data: signalData } }, currentHourKey);
-            saveRagDiary(currentNews, signalData);
+            await saveRagDiary(currentNews, signalData);
             
             if (signalData.newInsight) {
                 savePatternInsights(signalData.newInsight);
@@ -1675,8 +1760,8 @@ const fetchAiContent = async (p) => {
 import { sendStopLossAlert } from '../lib/notifier.js';
 
 // --- History Endpoint ---
-router.get('/history', (req, res) => {
-    try { res.json(getRagDiary()); } catch (e) { res.status(500).json({ error: 'Failed' }); }
+router.get('/history', async (req, res) => {
+    try { res.json(await getRagDiary()); } catch (e) { res.status(500).json({ error: 'Failed' }); }
 });
 
 // --- Test SMS Endpoint ---
