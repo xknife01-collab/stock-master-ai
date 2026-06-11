@@ -1198,51 +1198,73 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         // 각 종목별 100점 만점 퀀트 스코어 계산 및 상세 점수표 구축
         const scoredCandidates = candidatePool.map(c => {
-            const m = metricsMap[c.code] || { price: c.price, disparity5: 100, disparity20: 100, strength: 100, shortRatio: 0 };
+            const m = metricsMap[c.code] || { price: c.price, disparity5: 100, disparity20: 100, strength: 100, shortRatio: 0, investor5D: { foreign: 0, organ: 0, personal: 0 } };
             
-            // 1) 체결강도 점수 (Max 40점)
+            // 1) 체결강도 점수 (Max 30점)
             let strengthScore = 0;
             const str = m.strength;
-            if (str >= 120) strengthScore = 40;
-            else if (str >= 105) strengthScore = 30;
-            else if (str >= 100) strengthScore = 20;
-            else if (str >= 90) strengthScore = 10;
+            if (str >= 120) strengthScore = 30;
+            else if (str >= 105) strengthScore = 20;
+            else if (str >= 100) strengthScore = 15;
+            else if (str >= 90) strengthScore = 5;
             else strengthScore = 0;
 
-            // 2) 20일 이격도 점수 (Max 35점)
+            // 2) 20일 이격도 점수 (Max 25점)
             let disparityScore = 0;
             const disp = m.disparity20;
-            if (disp >= 98 && disp <= 103) disparityScore = 35;
-            else if (disp > 103 && disp <= 106) disparityScore = 25;
-            else if (disp < 98) disparityScore = 15;
-            else if (disp > 106 && disp < 107) disparityScore = 5;
-            else disparityScore = -10; // 107% 이상 감점
+            if (disp >= 98 && disp <= 103) disparityScore = 25;
+            else if (disp > 103 && disp <= 106) disparityScore = 15;
+            else if (disp < 98) disparityScore = 10;
+            else if (disp > 106 && disp < 107) disparityScore = 0;
+            else disparityScore = -15; // 107% 이상 감점
 
-            // 3) 공매도 비중 점수 (Max 25점)
+            // 3) 공매도 비중 점수 (Max 20점)
             let shortScore = 0;
             const sr = m.shortRatio;
-            if (sr < 5) shortScore = 25;
-            else if (sr >= 5 && sr < 10) shortScore = 15;
-            else if (sr >= 10 && sr < 15) shortScore = 5;
-            else shortScore = -10; // 15% 이상 감점
+            if (sr < 5) shortScore = 20;
+            else if (sr >= 5 && sr < 10) shortScore = 10;
+            else if (sr >= 10 && sr < 15) shortScore = 0;
+            else shortScore = -15; // 15% 이상 감점
 
-            const totalScore = strengthScore + disparityScore + shortScore;
+            // 4) 수급 점수 및 개미지옥 Veto 강력 감점 (Max 25점)
+            let supplyScore = 0;
+            const inv = m.investor5D || { foreign: 0, organ: 0, personal: 0 };
+            
+            // 개미지옥 패턴 검증: 외인 순매도, 기관 순매도, 개인 순매수
+            const isAntHell = inv.foreign < 0 && inv.organ < 0 && inv.personal > 0;
+            
+            if (isAntHell) {
+                supplyScore = -30; // 개미지옥 강력 감점
+            } else if (inv.foreign > 0 && inv.organ > 0) {
+                supplyScore = 25; // 외인/기관 양매수
+            } else if (inv.foreign + inv.organ > 0) {
+                supplyScore = 15; // 합산 순매수
+            } else if (inv.foreign > 0 || inv.organ > 0) {
+                supplyScore = 10; // 한쪽만 순매수
+            } else {
+                supplyScore = 0; // 양매도 & 개인 순매도 등
+            }
+
+            const totalScore = strengthScore + disparityScore + shortScore + supplyScore;
 
             return {
                 name: c.name,
                 code: c.code,
                 price: m.price || c.price,
                 change: c.change,
+                isAntHell,
                 metrics: {
                     disparity5: m.disparity5,
                     disparity20: m.disparity20,
                     strength: m.strength,
-                    shortRatio: m.shortRatio
+                    shortRatio: m.shortRatio,
+                    investor5D: m.investor5D
                 },
                 scores: {
                     strengthScore,
                     disparityScore,
-                    shortScore
+                    shortScore,
+                    supplyScore
                 },
                 totalScore
             };
@@ -1373,9 +1395,10 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
 
         const scoredCandidatesCtx = sortedScored.map((c, idx) => {
+            const mInv = c.metrics.investor5D || { foreign: 0, organ: 0, personal: 0 };
             const supplyText = c.supplyStats ? 
                 `➡️ 수급: 외인 5일 누적 ${c.supplyStats.foreign5D > 0 ? '+' : ''}${c.supplyStats.foreign5D.toLocaleString()}주 / 기관 5일 누적 ${c.supplyStats.organ5D > 0 ? '+' : ''}${c.supplyStats.organ5D.toLocaleString()}주 / 개인 5일 누적 ${c.supplyStats.personal5D > 0 ? '+' : ''}${c.supplyStats.personal5D.toLocaleString()}주` : 
-                `➡️ 수급: (조회 대기 상태)`;
+                `➡️ 수급: 외인 5일 누적 ${mInv.foreign > 0 ? '+' : ''}${mInv.foreign.toLocaleString()}주 / 기관 5일 누적 ${mInv.organ > 0 ? '+' : ''}${mInv.organ.toLocaleString()}주 / 개인 5일 누적 ${mInv.personal > 0 ? '+' : ''}${mInv.personal.toLocaleString()}주`;
             
             const fin = c.financials;
             const finText = fin ? 
@@ -1387,11 +1410,13 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 '';
 
             const fitTagText = c.fitTags && c.fitTags.length > 0 ? ` [시스템 판정: ${c.fitTags.join(' / ')}]` : '';
+            const antHellBadge = c.isAntHell ? ` ⚠️ [수급 위험: 개미지옥 패턴 감점 -30점]` : '';
 
-            return `[${idx + 1}위] ${c.name} (${c.code})${excludeBadge}${fitTagText} - 퀀트 종합점수: ${c.totalScore}점 / 100점
-    - [20일 이격도] 수치: ${c.metrics.disparity20}% ➡️ 점수: ${c.scores.disparityScore}점 / 35점
-    - [체결강도] 수치: ${c.metrics.strength}% ➡️ 점수: ${c.scores.strengthScore}점 / 40점
-    - [공매도 비중] 수치: ${c.metrics.shortRatio}% ➡️ 점수: ${c.scores.shortScore}점 / 25점
+            return `[${idx + 1}위] ${c.name} (${c.code})${excludeBadge}${fitTagText}${antHellBadge} - 퀀트 종합점수: ${c.totalScore}점 / 100점
+    - [20일 이격도] 수치: ${c.metrics.disparity20}% ➡️ 점수: ${c.scores.disparityScore}점 / 25점
+    - [체결강도] 수치: ${c.metrics.strength}% ➡️ 점수: ${c.scores.strengthScore}점 / 30점
+    - [공매도 비중] 수치: ${c.metrics.shortRatio}% ➡️ 점수: ${c.scores.shortScore}점 / 20점
+    - [수급 점수] ➡️ 점수: ${c.scores.supplyScore}점 / 25점
     - [5일 누적 수급] ${supplyText}
     - [재무 및 밸류에이션] ${finText}
     - 현재가: ${c.price.toLocaleString()}원 (전일대비: ${c.change > 0 ? '+' : ''}${c.change}%)`;
