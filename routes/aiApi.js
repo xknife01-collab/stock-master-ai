@@ -268,16 +268,25 @@ const getAiCache = async () => {
     return localCache || { signal: null, hourKey: null };
 };
 
-const saveAiCache = (pulseData, hourKey) => {
+const saveAiCache = (pulseData, hourKey, savedTime = null) => {
     let dataToSave = pulseData.data || pulseData.signal || pulseData.prediction || pulseData;
     if (dataToSave.pulse) dataToSave = dataToSave.pulse;
     if (dataToSave.data) dataToSave = dataToSave.data;
     
-    const cacheObj = { pulse: dataToSave, hourKey };
+    let finalSavedTime = savedTime;
+    if (!finalSavedTime) {
+        const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+        const dateStr = `${String(nowKst.getUTCMonth() + 1).padStart(2, '0')}.${String(nowKst.getUTCDate()).padStart(2, '0')}`;
+        const timeStr = `${String(nowKst.getUTCHours()).padStart(2, '0')}:${String(nowKst.getUTCMinutes()).padStart(2, '0')}`;
+        finalSavedTime = `${dateStr} ${timeStr}`;
+    }
+    
+    const cacheObj = { pulse: dataToSave, hourKey, savedTime: finalSavedTime };
     const jsonStr = JSON.stringify(cacheObj, null, 2);
     
     try {
         fs.writeFileSync(aiCachePath, jsonStr, 'utf8');
+        console.log(`💾 [Cache] AI 분석 캐시 저장 완료 (HourKey: ${hourKey}, SavedTime: ${finalSavedTime})`);
     } catch (e) {
         console.error('❌ Local cache write failed:', e.message);
     }
@@ -765,14 +774,15 @@ let fetchingAiSignalPromise = null;
 // --- Routes ---
 
 router.get('/pulse', async (req, res) => {
-    const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000);
-    const timeStr = nowKst.getUTCHours().toString().padStart(2, '0') + ':' + nowKst.getUTCMinutes().toString().padStart(2, '0');
-
     try {
         const force = req.query.force === 'true';
         const result = await executeHourlyPulse(force);
         const outData = result.data || result;
-        res.json({ time: timeStr, data: outData });
+        res.json({ 
+            time: result.time || '--:--', 
+            data: outData,
+            marketOpen: result.marketOpen !== undefined ? result.marketOpen : isMarketOpen()
+        });
     } catch (error) {
         console.error('Pulse logic failed, falling back to cache:', error.message);
         const cache = await getAiCache();
@@ -781,7 +791,25 @@ router.get('/pulse', async (req, res) => {
 
         if (pulseData) {
             await refreshRecommendedPrices(pulseData);
-            return res.json({ time: "Last Sync (Fallback)", data: pulseData, error: error.message });
+            
+            let savedTime = cache.savedTime;
+            if (!savedTime && cache.hourKey) {
+                const parts = cache.hourKey.split('-');
+                if (parts.length >= 5) {
+                    const mm = parts[1].padStart(2, '0');
+                    const dd = parts[2].padStart(2, '0');
+                    const hh = parts[3].padStart(2, '0');
+                    const min = parts[4].padStart(2, '0');
+                    savedTime = `${mm}.${dd} ${hh}:${min}`;
+                }
+            }
+            
+            return res.json({ 
+                time: savedTime || "Last Sync (Fallback)", 
+                data: pulseData, 
+                marketOpen: false,
+                error: error.message 
+            });
         }
         res.status(500).json({ error: error.message });
     }
@@ -824,15 +852,27 @@ export const executeHourlyPulse = async (force = false) => {
     // 2. 장외 시간 및 캐시 확인 (장외 시간이고 캐시가 없으면 diary에서 복구하여 즉각 제공)
     if (!force && !marketOpen) {
         let pulseData = null;
+        let savedTime = null;
         if (cache && cache.pulse) {
             pulseData = cache.pulse.data || cache.pulse;
+            savedTime = cache.savedTime;
         } else {
             // 캐시가 날아갔다면 최신 다이어리 기록을 읽어 캐시를 동적 복구합니다.
             const diary = await getRagDiary();
             if (diary && diary.length > 0) {
                 console.log(`💤 [Pulse] 장 마감 상태 및 캐시 누락: 다이어리 최신 레코드로 복구 시도`);
                 pulseData = diary[0].prediction || diary[0];
-                saveAiCache({ pulse: { data: pulseData } }, currentHourKey);
+                
+                if (diary[0].time) {
+                    const d = new Date(diary[0].time);
+                    const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+                    const mm = String(kst.getUTCMonth() + 1).padStart(2, '0');
+                    const dd = String(kst.getUTCDate()).padStart(2, '0');
+                    const hh = String(kst.getUTCHours()).padStart(2, '0');
+                    const min = String(kst.getUTCMinutes()).padStart(2, '0');
+                    savedTime = `${mm}.${dd} ${hh}:${min}`;
+                }
+                saveAiCache({ pulse: { data: pulseData } }, currentHourKey, savedTime);
             }
         }
 
@@ -840,7 +880,24 @@ export const executeHourlyPulse = async (force = false) => {
             console.log(`💤 [Pulse] 장 마감 상태 (이전 분석 결과 캐시 고정 제공)`);
             await refreshRecommendedPrices(pulseData);
             cleanSignal(pulseData);
-            return { data: pulseData, time: timeStr };
+            
+            // 기존 캐시에 savedTime이 없을 경우 hourKey에서 파싱
+            if (!savedTime && cache && cache.hourKey) {
+                const parts = cache.hourKey.split('-');
+                if (parts.length >= 5) {
+                    const mm = parts[1].padStart(2, '0');
+                    const dd = parts[2].padStart(2, '0');
+                    const hh = parts[3].padStart(2, '0');
+                    const min = parts[4].padStart(2, '0');
+                    savedTime = `${mm}.${dd} ${hh}:${min}`;
+                }
+            }
+            
+            return { 
+                data: pulseData, 
+                time: savedTime || timeStr, 
+                marketOpen: false 
+            };
         }
     }
 
@@ -850,13 +907,34 @@ export const executeHourlyPulse = async (force = false) => {
         let pulseData = cache.pulse.data || cache.pulse;
         await refreshRecommendedPrices(pulseData);
         cleanSignal(pulseData);
-        return { data: pulseData, time: timeStr };
+        
+        let savedTime = cache.savedTime;
+        if (!savedTime && cache.hourKey) {
+            const parts = cache.hourKey.split('-');
+            if (parts.length >= 5) {
+                const mm = parts[1].padStart(2, '0');
+                const dd = parts[2].padStart(2, '0');
+                const hh = parts[3].padStart(2, '0');
+                const min = parts[4].padStart(2, '0');
+                savedTime = `${mm}.${dd} ${hh}:${min}`;
+            }
+        }
+        
+        return { 
+            data: pulseData, 
+            time: savedTime || timeStr, 
+            marketOpen: true 
+        };
     }
 
     // 4. 실행 프로세스 (잠금 설정)
     fetchingAiSignalPromise = (async () => {
         try {
-            return await _executeHourlyPulseInternal(currentHourKey, timeStr);
+            const result = await _executeHourlyPulseInternal(currentHourKey, timeStr);
+            return {
+                ...result,
+                marketOpen: true
+            };
         } finally {
             fetchingAiSignalPromise = null;
         }

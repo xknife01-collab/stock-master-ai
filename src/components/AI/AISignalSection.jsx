@@ -40,6 +40,17 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
             </div>
           </div>
           <div className="flex gap-4 items-center">
+            {aiSignal?.marketOpen === false && (
+              <div className="px-3 py-1 bg-amber-500/10 rounded-xl border border-amber-500/20 flex flex-col items-end shadow-[0_2px_10px_rgba(245,158,11,0.05)]">
+                <div className="text-[9px] font-black uppercase tracking-wider opacity-95 flex items-center gap-1.5 text-amber-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                  장외 시간 (Market Closed)
+                </div>
+                <div className="text-[10px] font-bold text-amber-300/90 leading-tight mt-0.5">
+                  직전 분석 결과 캐시 고정 제공
+                </div>
+              </div>
+            )}
             {sig?.marketStress && (
               <div className={`px-3 py-1 bg-white/[0.02] rounded-xl border flex flex-col items-end ${sig.marketStress.safeMode ? 'border-red-500/30 bg-red-500/5' : 'border-green-500/20 bg-green-500/5'}`}>
                 <div className="text-[9px] font-black uppercase tracking-wider opacity-60 flex items-center gap-1.5 text-white/70">
@@ -122,7 +133,19 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                       ⚠️ AI Recommendation Hold (추천 보류 사유)
                     </>
                   ) : (
-                    '✨ Top Pick & Targets'
+                    <>
+                      {aiSignal?.marketOpen === false ? (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                          🔒 Off-Market Cached Top Pick
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#00ffab] animate-pulse"></span>
+                          ✨ Real-time Top Pick & Targets
+                        </>
+                      )}
+                    </>
                   )}
                 </div>
                 <div className="flex flex-col gap-2">
