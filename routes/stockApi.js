@@ -260,7 +260,7 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
     const consensusPromise = kisRequest({
         method: 'get',
         url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/estimate-perform`,
-        params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol },
+        params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol, SHT_CD: symbol },
         headers: { ...commonHeaders, 'tr_id': 'HHKST668300C0' }
     });
     await delay(120);
@@ -299,7 +299,8 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
         params: {
             FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol,
             FID_INPUT_DATE_1: new Date(Date.now() - 60 * 86400000).toISOString().slice(0,10).replace(/-/g,''),
-            FID_INPUT_DATE_2: new Date().toISOString().slice(0,10).replace(/-/g,'')
+            FID_INPUT_DATE_2: new Date().toISOString().slice(0,10).replace(/-/g,''),
+            FID_COND_SCR_DIV_CODE: '20476'
         },
         headers: { ...commonHeaders, 'tr_id': 'FHPST04760000' }
     });
@@ -351,7 +352,17 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
         pbr: priceRes?.data?.output?.pbr || '-',
         roe: ratioRes?.data?.output?.[0]?.roe_val || '-',
         yield: priceRes?.data?.output?.dps || '-', 
-        consensus: (consensusRes?.data?.output || []).map(it => ({ date: it.stck_bsop_date, target: it.stck_hgpr, opinion: it.invt_opnn })),
+        consensus: consensusRes?.data?.output1
+            ? [{
+                date: consensusRes.data.output1.estdate || '-',
+                target: '-',
+                opinion: consensusRes.data.output1.rcmd_name || '-'
+              }]
+            : (consensusRes?.data?.output || []).map(it => ({
+                date: it.stck_bsop_date || it.estdate || '-',
+                target: it.hts_goal_prc || it.stck_hgpr || '-',
+                opinion: it.invt_opnn || it.rcmd_name || '-'
+              })),
         finance: (incomeRes?.data?.output || []).slice(0, 3).map(it => ({ 
             year: it.stac_yymm, 
             revenue: parseFloat(it.sale_account) || 0, 
