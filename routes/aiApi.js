@@ -1209,12 +1209,12 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             else if (str >= 90) strengthScore = 5;
             else strengthScore = 0;
 
-            // 2) 20일 이격도 점수 (Max 25점)
+            // 2) 20일 이격도 점수 (Max 20점)
             let disparityScore = 0;
             const disp = m.disparity20;
-            if (disp >= 98 && disp <= 103) disparityScore = 25;
-            else if (disp > 103 && disp <= 106) disparityScore = 15;
-            else if (disp < 98) disparityScore = 10;
+            if (disp >= 98 && disp <= 103) disparityScore = 20;
+            else if (disp > 103 && disp <= 106) disparityScore = 12;
+            else if (disp < 98) disparityScore = 8;
             else if (disp > 106 && disp < 107) disparityScore = 0;
             else disparityScore = -15; // 107% 이상 감점
 
@@ -1226,7 +1226,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             else if (sr >= 10 && sr < 15) shortScore = 0;
             else shortScore = -15; // 15% 이상 감점
 
-            // 4) 수급 점수 및 개미지옥 Veto 강력 감점 (Max 25점)
+            // 4) 수급 점수 및 개미지옥 Veto 강력 감점 (Max 30점)
             let supplyScore = 0;
             const inv = m.investor5D || { foreign: 0, organ: 0, personal: 0 };
             
@@ -1236,9 +1236,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             if (isAntHell) {
                 supplyScore = -30; // 개미지옥 강력 감점
             } else if (inv.foreign > 0 && inv.organ > 0) {
-                supplyScore = 25; // 외인/기관 양매수
+                supplyScore = 30; // 외인/기관 양매수
             } else if (inv.foreign + inv.organ > 0) {
-                supplyScore = 15; // 합산 순매수
+                supplyScore = 20; // 합산 순매수
             } else if (inv.foreign > 0 || inv.organ > 0) {
                 supplyScore = 10; // 한쪽만 순매수
             } else {
@@ -1413,10 +1413,10 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             const antHellBadge = c.isAntHell ? ` ⚠️ [수급 위험: 개미지옥 패턴 감점 -30점]` : '';
 
             return `[${idx + 1}위] ${c.name} (${c.code})${excludeBadge}${fitTagText}${antHellBadge} - 퀀트 종합점수: ${c.totalScore}점 / 100점
-    - [20일 이격도] 수치: ${c.metrics.disparity20}% ➡️ 점수: ${c.scores.disparityScore}점 / 25점
+    - [20일 이격도] 수치: ${c.metrics.disparity20}% ➡️ 점수: ${c.scores.disparityScore}점 / 20점
     - [체결강도] 수치: ${c.metrics.strength}% ➡️ 점수: ${c.scores.strengthScore}점 / 30점
     - [공매도 비중] 수치: ${c.metrics.shortRatio}% ➡️ 점수: ${c.scores.shortScore}점 / 20점
-    - [수급 점수] ➡️ 점수: ${c.scores.supplyScore}점 / 25점
+    - [수급 점수] ➡️ 점수: ${c.scores.supplyScore}점 / 30점
     - [5일 누적 수급] ${supplyText}
     - [재무 및 밸류에이션] ${finText}
     - 현재가: ${c.price.toLocaleString()}원 (전일대비: ${c.change > 0 ? '+' : ''}${c.change}%)`;
