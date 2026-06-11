@@ -1372,7 +1372,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         }
 
 
-        const scoredCandidatesCtx = filteredCandidates.map((c, idx) => {
+        const scoredCandidatesCtx = sortedScored.map((c, idx) => {
             const supplyText = c.supplyStats ? 
                 `➡️ 수급: 외인 5일 누적 ${c.supplyStats.foreign5D > 0 ? '+' : ''}${c.supplyStats.foreign5D.toLocaleString()}주 / 기관 5일 누적 ${c.supplyStats.organ5D > 0 ? '+' : ''}${c.supplyStats.organ5D.toLocaleString()}주 / 개인 5일 누적 ${c.supplyStats.personal5D > 0 ? '+' : ''}${c.supplyStats.personal5D.toLocaleString()}주` : 
                 `➡️ 수급: (조회 대기 상태)`;
@@ -1414,7 +1414,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         // --- Pass 1: Selection Prompt ---
         const selectionPrompt = `너는 글로벌 매크로 분석가이자 퀀트 전문가야. 
-        오늘은 \${krNow.getUTCFullYear()}년 \${krNow.getUTCMonth()+1}월 \${krNow.getUTCDate()}일 \${timeStr}야. 
+        오늘은 ${krNow.getUTCFullYear()}년 ${krNow.getUTCMonth()+1}월 ${krNow.getUTCDate()}일 ${timeStr}야. 
         아래 [현재 매크로 상황], [실시간 시장 포착 후보 종목 및 퀀트 점수표], [최신 뉴스], [장기 기억]를 종합하여 
         지금 가장 강력한 '상승 모멘텀'을 가진 주도 테마 1개를 선정하고, 아래 제공된 [실시간 시장 포착 후보 종목 및 퀀트 점수표] 목록 중에서 해당 테마와 가장 밀접하고 상승 확률이 높은 유망 종목들을 최대 15개 이내로 선정해.
 
@@ -1422,26 +1422,26 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         1. **TOP PICK 선정 규칙**: 최종 추천 종목의 첫 번째 종목(TOP PICK, candidates[0])은 반드시 아래 [실시간 시장 포착 후보 종목 및 퀀트 점수표]에서 **퀀트 스코어가 높은 상위권(1위~5위 이내) 종목** 중에서만 골라야 해.
         2. **절대 진입 금지 필터**: 퀀트 스코어가 **40점 이하**이거나, 20일 이격도 점수에서 **음수 감점(-10점)**을 받아 가격 부담이 극도로 심한 종목(예: 20일 이격도 107% 초과로 과열)은 **절대 TOP PICK으로 선정할 수 없어**. 뉴스 호재가 아무리 강력하고 거래량이 많아도 이 룰은 예외 없이 적용해.
         3. **정렬 순서**: 추천 종목 'candidates' 배열의 정렬 순서는 퀀트 종합 점수(totalScore)가 높은 종목이 맨 앞으로 오도록 내림차순 정렬해야 해.
-        4. [최신 뉴스]를 분석할 때, 발행 시각이 분석일(\${krNow.getUTCFullYear()}-\${krNow.getUTCMonth()+1}-\${krNow.getUTCDate()})로부터 '24시간 이내'인 뉴스를 최우선 가중치(20%)로 반영해.
+        4. [최신 뉴스]를 분석할 때, 발행 시각이 분석일(${krNow.getUTCFullYear()}-${krNow.getUTCMonth()+1}-${krNow.getUTCDate()})로부터 '24시간 이내'인 뉴스를 최우선 가중치(20%)로 반영해.
         5. 외인/기관 수급: 40%, 거시경제(매크로) 지표: 20%, 최신 뉴스 및 공시: 20%, 과거 피드백 및 장기 기억: 20%
         6. **후보군 리스트 매칭 엄수 (핵심)**: 'candidates' 배열에는 반드시 아래 [실시간 시장 포착 후보 종목 및 퀀트 점수표]에 명시된 한글 종목명과 **완벽히 동일한 이름**만 담아야 해. 임의로 새로운 종목명을 지어내거나, 설명식 문구(예: 'HBM 선두주자', '전력반도체', 'AI 반도체 설계', '전력 인프라 대장')를 종목명 대신 넣어서는 절대 안 돼. 만약 후보군 리스트에 테마와 연관된 종목이 부족하다면, 억지로 채우지 말고 연관된 종목들만(예: 3~5개) 반환해.
 
         [현재 매크로 상황]
-        \${macroCtx}
+        ${macroCtx}
 
         [실시간 시장 포착 후보 종목 및 퀀트 점수표 (총점 순 정렬)]
         아래 후보들은 퀀트 종합점수(체결강도 40점 + 20일 이격도 35점 + 공매도 비중 25점 = 100점 만점) 기준으로 정렬되어 있습니다.
         점수가 높은 종목일수록 매수 유입이 세고, 가격 부담이 적고, 공매도 압박이 없는 안전한 종목입니다.
-        \${scoredCandidatesCtx}
+        ${scoredCandidatesCtx}
 
         [최신 뉴스 데이터]
-        \${currentNews}
+        ${currentNews}
         
         [장기 기억 (과거 패턴 및 최근 실적)]
-        \${longTermMemory}
+        ${longTermMemory}
         
         [최근 추천 성적 요약]
-        \${performanceReport}
+        ${performanceReport}
 
         [지시사항]
         1. 위의 가중치와 TOP PICK 선정 제한사항을 엄격히 준수하여 테마 및 종목을 선정해.
@@ -1453,6 +1453,12 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         
         [출력 양식 (JSON)]
         { "theme": "주도 테마명", "candidates": ["종목명1", "종목명2", "종목명3"] }\n`;
+
+        try {
+            fs.writeFileSync(path.join(__dirname, '../scratch/last_selection_prompt.txt'), selectionPrompt, 'utf8');
+        } catch (e) {
+            console.warn('Failed to dump selectionPrompt:', e.message);
+        }
 
         const selectionRaw = await fetchAiContent(selectionPrompt);
         console.log('Selection Raw Output:', JSON.stringify(selectionRaw, null, 2));
@@ -1672,6 +1678,12 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             "newInsight": "새로운 교훈"
           }
         }`;
+
+        try {
+            fs.writeFileSync(path.join(__dirname, '../scratch/last_final_prompt.txt'), finalPrompt, 'utf8');
+        } catch (e) {
+            console.warn('Failed to dump finalPrompt:', e.message);
+        }
 
         const finalRaw = await fetchAiContent(finalPrompt);
         if (!finalRaw) throw new Error('Final analysis stage failed');
