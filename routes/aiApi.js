@@ -1330,6 +1330,15 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
             const isSafe = marketStress.safeMode;
             
+            const getSupplyPoints = (f, o, p, maxS) => {
+                const isAnt = f < 0 && o < 0 && p > 0;
+                if (isAnt) return -30;
+                if (f > 0 && o > 0) return maxS;
+                if (f + o > 0) return maxS === 20 ? 15 : 20;
+                if (f > 0 || o > 0) return 10;
+                return 0;
+            };
+            
             // --- 동적 가중치 공식 배분 ---
             if (isSafe) {
                 // [하락장/불안정기 모드 (Safe Mode)]
@@ -1356,20 +1365,13 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 else if (sr >= 12 && sr < 15) shortScore = 0;
                 else shortScore = -25; // 공매도 폭탄 강력 감점
 
-                // 4. 수급 (Max 20점)
-                const inv = m.investor5D || { foreign: 0, organ: 0, personal: 0 };
-                const isAntHell = inv.foreign < 0 && inv.organ < 0 && inv.personal > 0;
-                if (isAntHell) {
-                    supplyScore = -30;
-                } else if (inv.foreign > 0 && inv.organ > 0) {
-                    supplyScore = 20;
-                } else if (inv.foreign + inv.organ > 0) {
-                    supplyScore = 15;
-                } else if (inv.foreign > 0 || inv.organ > 0) {
-                    supplyScore = 10;
-                } else {
-                    supplyScore = 0;
-                }
+                // 4. 수급 (Max 20점) - 1일 수급 70% + 5일 수급 30% 반영
+                const inv1D = m.investor1D || { foreign: 0, organ: 0, personal: 0 };
+                const inv5D = m.investor5D || { foreign: 0, organ: 0, personal: 0 };
+                
+                const score1D = getSupplyPoints(inv1D.foreign, inv1D.organ, inv1D.personal, 20);
+                const score5D = getSupplyPoints(inv5D.foreign, inv5D.organ, inv5D.personal, 20);
+                supplyScore = Math.round(score1D * 0.7 + score5D * 0.3);
             } else {
                 // [상승장/안정기 모드 (Normal Mode)]
                 // 1. 체결강도 (Max 40점) - 모멘텀 극우대
@@ -1395,20 +1397,13 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 else if (sr >= 12 && sr < 15) shortScore = 0;
                 else shortScore = -15;
 
-                // 4. 수급 (Max 30점)
-                const inv = m.investor5D || { foreign: 0, organ: 0, personal: 0 };
-                const isAntHell = inv.foreign < 0 && inv.organ < 0 && inv.personal > 0;
-                if (isAntHell) {
-                    supplyScore = -30;
-                } else if (inv.foreign > 0 && inv.organ > 0) {
-                    supplyScore = 30;
-                } else if (inv.foreign + inv.organ > 0) {
-                    supplyScore = 20;
-                } else if (inv.foreign > 0 || inv.organ > 0) {
-                    supplyScore = 10;
-                } else {
-                    supplyScore = 0;
-                }
+                // 4. 수급 (Max 30점) - 1일 수급 70% + 5일 수급 30% 반영
+                const inv1D = m.investor1D || { foreign: 0, organ: 0, personal: 0 };
+                const inv5D = m.investor5D || { foreign: 0, organ: 0, personal: 0 };
+                
+                const score1D = getSupplyPoints(inv1D.foreign, inv1D.organ, inv1D.personal, 30);
+                const score5D = getSupplyPoints(inv5D.foreign, inv5D.organ, inv5D.personal, 30);
+                supplyScore = Math.round(score1D * 0.7 + score5D * 0.3);
             }
 
             const backtestPenalty = calculateBacktestPenalty(c.code);
@@ -1426,6 +1421,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     disparity20: m.disparity20,
                     strength: m.strength,
                     shortRatio: m.shortRatio,
+                    investor1D: m.investor1D,
                     investor5D: m.investor5D,
                     atr: m.atr,
                     atrPercent: m.atrPercent
@@ -1604,6 +1600,33 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                         c.isVetoed = true;
                         c.vetoReason = '장중 기관/외인 쌍끌이 매도';
                     }
+
+                    // 1일 실시간 수급 70% + 5일 수급 30% 반영하여 수급 점수 및 총점 재산정
+                    const maxSupplyScore = isSafe ? 20 : 30;
+                    const getSupplyPointsLocal = (f, o, p, maxS) => {
+                        const isAnt = f < 0 && o < 0 && p > 0;
+                        if (isAnt) return -30;
+                        if (f > 0 && o > 0) return maxS;
+                        if (f + o > 0) return maxS === 20 ? 15 : 20;
+                        if (f > 0 || o > 0) return 10;
+                        return 0;
+                    };
+
+                    const score1D = getSupplyPointsLocal(intradayEstimate.foreign, intradayEstimate.organ, intradayEstimate.personal, maxSupplyScore);
+                    const inv5D = c.metrics.investor5D || { foreign: 0, organ: 0, personal: 0 };
+                    const score5D = getSupplyPointsLocal(inv5D.foreign, inv5D.organ, inv5D.personal, maxSupplyScore);
+                    const newSupplyScore = Math.round(score1D * 0.7 + score5D * 0.3);
+
+                    const oldSupplyScore = c.scores.supplyScore || 0;
+                    c.scores.supplyScore = newSupplyScore;
+                    c.totalScore = c.totalScore - oldSupplyScore + newSupplyScore;
+
+                    // 원본 리스트(finalSortedScored) 객체 점수도 동기화
+                    const origItem = finalSortedScored.find(item => item.code === c.code);
+                    if (origItem) {
+                        origItem.scores.supplyScore = newSupplyScore;
+                        origItem.totalScore = c.totalScore;
+                    }
                 }
                 await sleep(160);
 
@@ -1655,6 +1678,8 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             return { data: holdSignal, time: timeStr };
         }
 
+
+        finalSortedScored.sort((a, b) => b.totalScore - a.totalScore);
 
         const scoredCandidatesCtx = finalSortedScored.map((c, idx) => {
             const mInv = c.metrics.investor5D || { foreign: 0, organ: 0, personal: 0 };
