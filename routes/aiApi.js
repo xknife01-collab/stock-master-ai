@@ -1323,49 +1323,92 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         const scoredCandidates = candidatePool.map(c => {
             const m = metricsMap[c.code] || { price: c.price, disparity5: 100, disparity20: 100, strength: 100, shortRatio: 0, investor5D: { foreign: 0, organ: 0, personal: 0 } };
             
-            // 1) 체결강도 점수 (Max 30점)
             let strengthScore = 0;
-            const str = m.strength;
-            if (str >= 120) strengthScore = 30;
-            else if (str >= 105) strengthScore = 20;
-            else if (str >= 100) strengthScore = 15;
-            else if (str >= 90) strengthScore = 5;
-            else strengthScore = 0;
-
-            // 2) 20일 이격도 점수 (Max 20점)
             let disparityScore = 0;
-            const disp = m.disparity20;
-            if (disp >= 98 && disp <= 103) disparityScore = 20;
-            else if (disp > 103 && disp <= 106) disparityScore = 12;
-            else if (disp < 98) disparityScore = 8;
-            else if (disp > 106 && disp < 107) disparityScore = 0;
-            else disparityScore = -15; // 107% 이상 감점
-
-            // 3) 공매도 비중 점수 (Max 20점)
             let shortScore = 0;
-            const sr = m.shortRatio;
-            if (sr < 5) shortScore = 20;
-            else if (sr >= 5 && sr < 10) shortScore = 10;
-            else if (sr >= 10 && sr < 15) shortScore = 0;
-            else shortScore = -15; // 15% 이상 감점
-
-            // 4) 수급 점수 및 개미지옥 Veto 강력 감점 (Max 30점)
             let supplyScore = 0;
-            const inv = m.investor5D || { foreign: 0, organ: 0, personal: 0 };
+
+            const isSafe = marketStress.safeMode;
             
-            // 개미지옥 패턴 검증: 외인 순매도, 기관 순매도, 개인 순매수
-            const isAntHell = inv.foreign < 0 && inv.organ < 0 && inv.personal > 0;
-            
-            if (isAntHell) {
-                supplyScore = -30; // 개미지옥 강력 감점
-            } else if (inv.foreign > 0 && inv.organ > 0) {
-                supplyScore = 30; // 외인/기관 양매수
-            } else if (inv.foreign + inv.organ > 0) {
-                supplyScore = 20; // 합산 순매수
-            } else if (inv.foreign > 0 || inv.organ > 0) {
-                supplyScore = 10; // 한쪽만 순매수
+            // --- 동적 가중치 공식 배분 ---
+            if (isSafe) {
+                // [하락장/불안정기 모드 (Safe Mode)]
+                // 1. 체결강도 (Max 10점)
+                const str = m.strength;
+                if (str >= 115) strengthScore = 10;
+                else if (str >= 100) strengthScore = 7;
+                else if (str >= 90) strengthScore = 3;
+                else strengthScore = 0;
+
+                // 2. 20일 이격도 (Max 20점) - 바닥 매집 및 낙폭과대 선호
+                const disp = m.disparity20;
+                if (disp >= 95 && disp <= 100) disparityScore = 20; // 20일선 근처 또는 소폭 아래 매수 적기
+                else if (disp > 100 && disp <= 103) disparityScore = 12;
+                else if (disp < 95 && disp >= 90) disparityScore = 15; // 낙폭 과대 지지선
+                else if (disp > 103 && disp <= 105) disparityScore = 5;
+                else disparityScore = -15; // 과열 종목 강력 페널티
+
+                // 3. 공매도 비중 (Max 30점) - 숏포지션 방어 극우대
+                const sr = m.shortRatio;
+                if (sr < 3) shortScore = 30; // 공매도가 거의 없는 클린 종목
+                else if (sr >= 3 && sr < 7) shortScore = 20;
+                else if (sr >= 7 && sr < 12) shortScore = 10;
+                else if (sr >= 12 && sr < 15) shortScore = 0;
+                else shortScore = -25; // 공매도 폭탄 강력 감점
+
+                // 4. 수급 (Max 20점)
+                const inv = m.investor5D || { foreign: 0, organ: 0, personal: 0 };
+                const isAntHell = inv.foreign < 0 && inv.organ < 0 && inv.personal > 0;
+                if (isAntHell) {
+                    supplyScore = -30;
+                } else if (inv.foreign > 0 && inv.organ > 0) {
+                    supplyScore = 20;
+                } else if (inv.foreign + inv.organ > 0) {
+                    supplyScore = 15;
+                } else if (inv.foreign > 0 || inv.organ > 0) {
+                    supplyScore = 10;
+                } else {
+                    supplyScore = 0;
+                }
             } else {
-                supplyScore = 0; // 양매도 & 개인 순매도 등
+                // [상승장/안정기 모드 (Normal Mode)]
+                // 1. 체결강도 (Max 40점) - 모멘텀 극우대
+                const str = m.strength;
+                if (str >= 120) strengthScore = 40;
+                else if (str >= 105) strengthScore = 30;
+                else if (str >= 100) strengthScore = 20;
+                else if (str >= 90) strengthScore = 10;
+                else strengthScore = 0;
+
+                // 2. 20일 이격도 (Max 20점) - 돌파 매매 관대
+                const disp = m.disparity20;
+                if (disp >= 98 && disp <= 104) disparityScore = 20;
+                else if (disp > 104 && disp <= 106) disparityScore = 15;
+                else if (disp < 98) disparityScore = 8;
+                else if (disp > 106 && disp < 107) disparityScore = 0;
+                else disparityScore = -15; // 107% 이상 과열 감점
+
+                // 3. 공매도 비중 (Max 10점)
+                const sr = m.shortRatio;
+                if (sr < 5) shortScore = 10;
+                else if (sr >= 5 && sr < 12) shortScore = 5;
+                else if (sr >= 12 && sr < 15) shortScore = 0;
+                else shortScore = -15;
+
+                // 4. 수급 (Max 30점)
+                const inv = m.investor5D || { foreign: 0, organ: 0, personal: 0 };
+                const isAntHell = inv.foreign < 0 && inv.organ < 0 && inv.personal > 0;
+                if (isAntHell) {
+                    supplyScore = -30;
+                } else if (inv.foreign > 0 && inv.organ > 0) {
+                    supplyScore = 30;
+                } else if (inv.foreign + inv.organ > 0) {
+                    supplyScore = 20;
+                } else if (inv.foreign > 0 || inv.organ > 0) {
+                    supplyScore = 10;
+                } else {
+                    supplyScore = 0;
+                }
             }
 
             const backtestPenalty = calculateBacktestPenalty(c.code);
@@ -1377,7 +1420,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 code: c.code,
                 price: m.price || c.price,
                 change: c.change,
-                isAntHell,
+                isAntHell: m.investor5D ? (m.investor5D.foreign < 0 && m.investor5D.organ < 0 && m.investor5D.personal > 0) : false,
                 metrics: {
                     disparity5: m.disparity5,
                     disparity20: m.disparity20,
@@ -1390,19 +1433,99 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     disparityScore,
                     shortScore,
                     supplyScore,
-                    backtestPenalty
+                    backtestPenalty,
+                    financialScore: 0 // 2차 재무 루프에서 부여됨
                 },
                 totalScore
             };
         });
 
-        // 퀀트 점수 높은 순 정렬
+        // 1차 정렬
         const sortedScored = [...scoredCandidates].sort((a, b) => b.totalScore - a.totalScore);
 
+        // 2) 상위 15개 후보군에 대하여 재무 데이터를 조회하여 Veto 심사 및 하락장 재무 점수(Max 20점) 부여
+        console.log(`📡 [Pulse] 상위 15개 후보 종목의 재무 데이터 및 VETO 요건 심사 시작...`);
+        const isSafe = marketStress.safeMode;
+        
+        for (let i = 0; i < Math.min(15, sortedScored.length); i++) {
+            const c = sortedScored[i];
+            try {
+                // 재무 데이터 조회
+                const fin = await fetchStockFinancialsForVeto(c.code);
+                c.financials = fin;
+
+                if (fin) {
+                    // (1) ROE 적자 기업 원천 제외 Veto Rule
+                    if (fin.roe !== null && fin.roe < 0) {
+                        console.log(`❌ [Financial Veto] ${c.name} (${c.code}) - ROE 적자(${fin.roe}%)로 후보군에서 원천 제외`);
+                        c.isVetoed = true;
+                        c.vetoReason = 'ROE 적자';
+                    }
+
+                    // (2) 최근 3분기 연속 영업이익 적자(영업손실) 한계 기업 제외 Veto Rule
+                    if (fin.opProfits && fin.opProfits.length >= 3 && fin.opProfits.every(p => p < 0)) {
+                        console.log(`❌ [Financial Veto] ${c.name} (${c.code}) - 3분기 연속 영업이익 적자로 후보군에서 원천 제외`);
+                        c.isVetoed = true;
+                        c.vetoReason = '3분기 연속 영업손실';
+                    }
+
+                    if (!c.isVetoed) {
+                        // 재무 점수 계산 (Max 20점, 하락장/안전 모드일 때만 적용)
+                        let financialScore = 0;
+                        if (isSafe) {
+                            // ROE 우수성 평가
+                            if (fin.roe >= 15) financialScore += 10;
+                            else if (fin.roe >= 8) financialScore += 7;
+                            else if (fin.roe >= 3) financialScore += 3;
+                            
+                            // 최근 분기 영업이익 성장세 평가 (직전 분기 대비 또는 흑자 유지 여부)
+                            const profits = fin.opProfits || [];
+                            if (profits.length >= 2) {
+                                const latest = profits[0];
+                                const prev = profits[1];
+                                if (latest > prev && latest > 0) {
+                                    financialScore += 10; // 영업이익 증가세
+                                } else if (latest > 0) {
+                                    financialScore += 5; // 영업이익 흑자 유지
+                                }
+                            } else if (profits.length === 1 && profits[0] > 0) {
+                                financialScore += 5;
+                            }
+                        }
+                        
+                        c.scores.financialScore = financialScore;
+                        if (isSafe) {
+                            c.totalScore = Math.max(-50, c.totalScore + financialScore);
+                        }
+
+                        // (3) 중장기 가치주 배제 태깅 (ROE < 5% 이거나 PER > 100배 혹은 PER < 0배인 극단적 밸류에이션 종목)
+                        let isLongTermExcluded = false;
+                        const reason = [];
+                        if (fin.roe !== null && fin.roe < 5) {
+                            isLongTermExcluded = true;
+                            reason.push(`ROE 5% 미만 (${fin.roe}%)`);
+                        }
+                        if (fin.per !== null && (fin.per > 100 || fin.per < 0)) {
+                            isLongTermExcluded = true;
+                            reason.push(`PER 과열/마이너스 (${fin.per}배)`);
+                        }
+                        c.isLongTermExcluded = isLongTermExcluded;
+                        c.longTermExcludeReason = reason.join(', ');
+                    }
+                }
+            } catch (finErr) {
+                console.error(`⚠️ [Pulse] ${c.name} 재무 데이터 조회 중 에러:`, finErr.message);
+            }
+            await sleep(160); // API 레이트 리밋 방지
+        }
+
+        // 재무 점수가 합산된 최종 점수 기준으로 재정렬
+        const finalSortedScored = [...sortedScored].sort((a, b) => b.totalScore - a.totalScore);
+
         // 🛡️ [최고의 투자자 Dual-Engine 이원화 필터 적용]
-        const technicallyFiltered = sortedScored.filter(c => {
-            const isSafe = marketStress.safeMode;
-            
+        const technicallyFiltered = finalSortedScored.filter(c => {
+            if (c.isVetoed) return false;
+
             // 1) 단타 (shortTermPicks) 안전 필터 기준 (추세 돌파형)
             const passedShort = isSafe ? 
                 (c.totalScore >= 70 && c.metrics.strength >= 100 && c.metrics.disparity20 < 106 && c.metrics.shortRatio < 10) :
@@ -1425,51 +1548,23 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         console.log(`🛡️ [Filter Config] Dual-Engine 필터링 작동 완료 (Safe Mode: ${marketStress.safeMode}) ➡️ 총 ${technicallyFiltered.length}개 종목 합격`);
 
-
-        // 2차 재무 건전성 및 밸류에이션 하드 필터링 적용 (상위 10개 대상)
+        // 2차 수급 데이터 조회 및 최종 후보 목록 구축 (상위 10개 대상)
         const filteredCandidates = [];
-        console.log(`📡 [Pulse] 기술적 필터 통과 종목 대상 재무 건전성 및 수급 조회 시작...`);
+        console.log(`📡 [Pulse] 기술적 필터 통과 종목 대상 추가 수급 분석 시작...`);
         for (let i = 0; i < technicallyFiltered.length; i++) {
             const c = technicallyFiltered[i];
             
-            // 상위 10개 종목만 재무 조사 진행 (Rate Limit 및 API 부하 절약)
+            // 상위 10개 종목만 최종 후보로 산정
             if (filteredCandidates.length >= 10) {
                 break;
             }
 
             try {
-                // 1. 재무 데이터 조회
-                const fin = await fetchStockFinancialsForVeto(c.code);
-                await sleep(160);
-
-                if (fin) {
-                    // (1) ROE 적자 기업 원천 제외 Veto Rule
-                    if (fin.roe !== null && fin.roe < 0) {
-                        console.log(`❌ [Financial Veto] ${c.name} (${c.code}) - ROE 적자(${fin.roe}%)로 후보군에서 원천 제외`);
-                        continue;
-                    }
-
-                    // (2) 최근 3분기 연속 영업이익 적자(영업손실) 한계 기업 제외 Veto Rule
-                    if (fin.opProfits && fin.opProfits.length >= 3 && fin.opProfits.every(p => p < 0)) {
-                        console.log(`❌ [Financial Veto] ${c.name} (${c.code}) - 3분기 연속 영업이익 적자로 후보군에서 원천 제외`);
-                        continue;
-                    }
-
-                    // (3) 중장기 가치주 배제 태깅 (ROE < 5% 이거나 PER > 100배 혹은 PER < 0배인 극단적 밸류에이션 종목)
-                    let isLongTermExcluded = false;
-                    const reason = [];
-                    if (fin.roe !== null && fin.roe < 5) {
-                        isLongTermExcluded = true;
-                        reason.push(`ROE 5% 미만 (${fin.roe}%)`);
-                    }
-                    if (fin.per !== null && (fin.per > 100 || fin.per < 0)) {
-                        isLongTermExcluded = true;
-                        reason.push(`PER 과열/마이너스 (${fin.per}배)`);
-                    }
-
+                // 혹시라도 재무 데이터가 누락된 경우 보완
+                if (!c.financials) {
+                    const fin = await fetchStockFinancialsForVeto(c.code);
                     c.financials = fin;
-                    c.isLongTermExcluded = isLongTermExcluded;
-                    c.longTermExcludeReason = reason.join(', ');
+                    await sleep(160);
                 }
 
                 // 2. 수급 데이터 조회
@@ -1481,8 +1576,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
                 filteredCandidates.push(c);
             } catch (err) {
-                console.error(`⚠️ [Pulse] ${c.name} 재무/수급 분석 중 에러:`, err.message);
-                // API 에러 발생 시 안전 장치로 포함
+                console.error(`⚠️ [Pulse] ${c.name} 추가 수급 분석 중 에러:`, err.message);
                 filteredCandidates.push(c);
             }
         }
@@ -1520,7 +1614,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         }
 
 
-        const scoredCandidatesCtx = sortedScored.map((c, idx) => {
+        const scoredCandidatesCtx = finalSortedScored.map((c, idx) => {
             const mInv = c.metrics.investor5D || { foreign: 0, organ: 0, personal: 0 };
             const supplyText = c.supplyStats ? 
                 `➡️ 수급: 외인 5일 누적 ${c.supplyStats.foreign5D > 0 ? '+' : ''}${c.supplyStats.foreign5D.toLocaleString()}주 / 기관 5일 누적 ${c.supplyStats.organ5D > 0 ? '+' : ''}${c.supplyStats.organ5D.toLocaleString()}주 / 개인 5일 누적 ${c.supplyStats.personal5D > 0 ? '+' : ''}${c.supplyStats.personal5D.toLocaleString()}주` : 
@@ -1541,9 +1635,10 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
             return `[${idx + 1}위] ${c.name} (${c.code})${excludeBadge}${fitTagText}${antHellBadge}${penaltyBadge} - 퀀트 종합점수: ${c.totalScore}점 / 100점
     - [20일 이격도] 수치: ${c.metrics.disparity20}% ➡️ 점수: ${c.scores.disparityScore}점 / 20점
-    - [체결강도] 수치: ${c.metrics.strength}% ➡️ 점수: ${c.scores.strengthScore}점 / 30점
-    - [공매도 비중] 수치: ${c.metrics.shortRatio}% ➡️ 점수: ${c.scores.shortScore}점 / 20점
-    - [수급 점수] ➡️ 점수: ${c.scores.supplyScore}점 / 30점
+    - [체결강도] 수치: ${c.metrics.strength}% ➡️ 점수: ${c.scores.strengthScore}점 / ${isSafe ? 10 : 40}점
+    - [공매도 비중] 수치: ${c.metrics.shortRatio}% ➡️ 점수: ${c.scores.shortScore}점 / ${isSafe ? 30 : 10}점
+    - [수급 점수] ➡️ 점수: ${c.scores.supplyScore}점 / ${isSafe ? 20 : 30}점
+    - [재무 안전성 점수] ➡️ 점수: ${c.scores.financialScore || 0}점 / 20점 ${isSafe ? '(하락장 적용)' : '(상승장 비활성화)'}
     - [과거 백테스트 감점] ➡️ 감점: -${c.scores.backtestPenalty}점 (최근 마이너스 성적 누적)
     - [5일 누적 수급] ${supplyText}
     - [재무 및 밸류에이션] ${finText}
@@ -1576,9 +1671,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         [현재 매크로 상황]
         ${macroCtx}
 
-        [실시간 시장 포착 후보 종목 및 퀀트 점수표 (총점 순 정렬)]
-        아래 후보들은 퀀트 종합점수(체결강도 40점 + 20일 이격도 35점 + 공매도 비중 25점 = 100점 만점) 기준으로 정렬되어 있습니다.
-        점수가 높은 종목일수록 매수 유입이 세고, 가격 부담이 적고, 공매도 압박이 없는 안전한 종목입니다.
+        [실시간 시장 포착 후보 종목 및 퀀트 점수표 (총점 순 정렬 - 적용 모드: ${isSafe ? '하락장 재무방어 모드 🛡️' : '상승장 모멘텀 모드 🚀'})]
+        아래 후보들은 시장 상황에 맞춘 동적 가중치 공식(${isSafe ? '체결강도 10% + 이격도 20% + 공매도 30% + 수급 20% + 재무안전성 20%' : '체결강도 40% + 이격도 20% + 공매도 10% + 수급 30%'} = 100점 만점) 기준으로 정렬되어 있습니다.
+        점수가 높은 종목일수록 현재 가중치 모드 하에서 가장 합리적이고 안전한 종목입니다.
         ${scoredCandidatesCtx}
 
         [최신 뉴스 데이터]
