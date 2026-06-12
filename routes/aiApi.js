@@ -1274,6 +1274,51 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         console.log(`📡 [Pulse] 상위 25개 후보 종목의 실시간 퀀트 지표 수집 시작...`);
         const metricsMap = await fetchMultipleStockQuantMetrics(symbols);
 
+        // 📊 [오답 노트 조기 갱신] 과거 추천 종목 백테스팅 데이터 실시간 업데이트 및 파일 저장
+        console.log(`📊 [Pulse] 과거 추천 종목 백테스팅 업데이트 및 성과 분석 중...`);
+        const diary = await getRagDiary();
+        await updateBacktestData(diary);
+        try {
+            fs.writeFileSync(ragDiaryPath, JSON.stringify(diary, null, 2), 'utf8');
+        } catch (fsErr) {
+            console.error("Failed to write updated diary to path:", fsErr.message);
+        }
+
+        // 백테스트 실패에 따른 하드 패널티 계산 함수
+        const calculateBacktestPenalty = (symbol) => {
+            let penalty = 0;
+            // 최근 15개 추천 기록만 분석 (최근 1~2주일치 피드백 반영)
+            const recentPicks = diary.slice(0, 15).filter(entry => entry.symbol === symbol);
+            
+            recentPicks.forEach(entry => {
+                const b = entry.backtest;
+                if (!b) return;
+                
+                // 1. 단기 1일 성과가 음수인 경우 감점 (-5점)
+                if (b.day1Yield !== null && b.day1Yield < 0) {
+                    penalty += 5;
+                    console.log(`📉 [Backtest Penalty] ${entry.prediction?.stock || symbol} - 1일 뒤 수익률 음수(${b.day1Yield}%)로 퀀트 점수 5점 감점`);
+                }
+                // 2. 3일 성과가 음수인 경우 감점 (-5점)
+                if (b.day3Yield !== null && b.day3Yield < 0) {
+                    penalty += 5;
+                    console.log(`📉 [Backtest Penalty] ${entry.prediction?.stock || symbol} - 3일 뒤 수익률 음수(${b.day3Yield}%)로 퀀트 점수 5점 감점`);
+                }
+                // 3. 5일 성과가 음수인 경우 감점 (-5점)
+                if (b.day5Yield !== null && b.day5Yield < 0) {
+                    penalty += 5;
+                    console.log(`📉 [Backtest Penalty] ${entry.prediction?.stock || symbol} - 5일 뒤 수익률 음수(${b.day5Yield}%)로 퀀트 점수 5점 감점`);
+                }
+                // 4. 손절 기준을 강하게 터치한 경우 추가 감점 (수익률 -5% 이하일 시 추가 -5점)
+                if (b.day1Yield !== null && b.day1Yield <= -5) penalty += 5;
+                if (b.day3Yield !== null && b.day3Yield <= -5) penalty += 5;
+                if (b.day5Yield !== null && b.day5Yield <= -5) penalty += 5;
+            });
+            
+            // 최대 감점 한도 30점으로 제한
+            return Math.min(penalty, 30);
+        };
+
         // 각 종목별 100점 만점 퀀트 스코어 계산 및 상세 점수표 구축
         const scoredCandidates = candidatePool.map(c => {
             const m = metricsMap[c.code] || { price: c.price, disparity5: 100, disparity20: 100, strength: 100, shortRatio: 0, investor5D: { foreign: 0, organ: 0, personal: 0 } };
@@ -1323,7 +1368,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 supplyScore = 0; // 양매도 & 개인 순매도 등
             }
 
-            const totalScore = strengthScore + disparityScore + shortScore + supplyScore;
+            const backtestPenalty = calculateBacktestPenalty(c.code);
+            const rawTotalScore = strengthScore + disparityScore + shortScore + supplyScore;
+            const totalScore = Math.max(-50, rawTotalScore - backtestPenalty); // 하한선 -50점
 
             return {
                 name: c.name,
@@ -1342,7 +1389,8 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     strengthScore,
                     disparityScore,
                     shortScore,
-                    supplyScore
+                    supplyScore,
+                    backtestPenalty
                 },
                 totalScore
             };
@@ -1489,24 +1537,20 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
             const fitTagText = c.fitTags && c.fitTags.length > 0 ? ` [시스템 판정: ${c.fitTags.join(' / ')}]` : '';
             const antHellBadge = c.isAntHell ? ` ⚠️ [수급 위험: 개미지옥 패턴 감점 -30점]` : '';
+            const penaltyBadge = c.scores.backtestPenalty > 0 ? ` 📉 [백테스트 누적 감점: -${c.scores.backtestPenalty}점]` : '';
 
-            return `[${idx + 1}위] ${c.name} (${c.code})${excludeBadge}${fitTagText}${antHellBadge} - 퀀트 종합점수: ${c.totalScore}점 / 100점
+            return `[${idx + 1}위] ${c.name} (${c.code})${excludeBadge}${fitTagText}${antHellBadge}${penaltyBadge} - 퀀트 종합점수: ${c.totalScore}점 / 100점
     - [20일 이격도] 수치: ${c.metrics.disparity20}% ➡️ 점수: ${c.scores.disparityScore}점 / 20점
     - [체결강도] 수치: ${c.metrics.strength}% ➡️ 점수: ${c.scores.strengthScore}점 / 30점
     - [공매도 비중] 수치: ${c.metrics.shortRatio}% ➡️ 점수: ${c.scores.shortScore}점 / 20점
     - [수급 점수] ➡️ 점수: ${c.scores.supplyScore}점 / 30점
+    - [과거 백테스트 감점] ➡️ 감점: -${c.scores.backtestPenalty}점 (최근 마이너스 성적 누적)
     - [5일 누적 수급] ${supplyText}
     - [재무 및 밸류에이션] ${finText}
     - 현재가: ${c.price.toLocaleString()}원 (전일대비: ${c.change > 0 ? '+' : ''}${c.change}%)`;
         }).join('\n\n');
 
-        const diary = await getRagDiary();
         const patterns = getPatternInsights();
-
-        // 1. 과거 추천 종목 백테스팅 데이터 실시간 업데이트 및 파일 저장
-        console.log(`📊 [Pulse] 과거 추천 종목 백테스팅 업데이트 및 성과 분석 중...`);
-        await updateBacktestData(diary);
-        fs.writeFileSync(ragDiaryPath, JSON.stringify(diary, null, 2), 'utf8');
 
         // 2. 성과 분석 리포트 컴파일
         const performanceReport = compilePerformanceReport(diary);
