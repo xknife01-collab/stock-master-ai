@@ -13,6 +13,8 @@ import portfolioApi from './routes/portfolioApi.js';
 import cron from 'node-cron';
 import { executeHourlyPulse } from './routes/aiApi.js';
 import { runStopLossMonitor } from './lib/marketMonitor.js';
+import { startStockSync } from './lib/stockSync.js';
+
 
 dotenv.config();
 
@@ -89,6 +91,14 @@ setTimeout(runStopLossMonitor, 5000);
 // Server Start
 app.listen(PORT, () => {
     console.log(`🚀 Modular Stock Proxy Server running at http://localhost:${PORT}`);
+    
+    // 8. 백그라운드 실시간 KIS 캐시 동기화 엔진 가동
+    try {
+        startStockSync();
+    } catch (syncErr) {
+        console.error('❌ Failed to start stock background sync:', syncErr.message);
+    }
 }).on('error', (err) => {
     console.error('❌ Server failed to start:', err.message);
 });
+

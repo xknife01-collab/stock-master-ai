@@ -7,6 +7,9 @@ import { aiModel, vertexModel } from '../lib/ai.js';
 import { getAccessToken, KIS_BASE_URL, getKisHeaders, fetchStockPrice, fetchStockAnalytics, fetchStockInvestorTrend, fetchMarketRankings, fetchConditionResult, fetchMultipleStockQuantMetrics, fetchStockFinancialsForVeto, fetchIndexDailyHistory, initKisStockMaster, fetchStockIntradayInvestorEstimate } from '../lib/kisCore.js';
 import { fetchMacroIndicators } from './macroApi.js';
 import { getSupplyCache, saveSupplyCache } from '../lib/supplyCache.js';
+import supabase from '../lib/supabaseClient.js';
+import { syncSingleStock } from '../lib/stockSync.js';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1272,7 +1275,88 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         // 상위 25개 종목에 대한 실시간 퀀트 지표 (체결강도, 이격도, 공매도 비중) 수집
         console.log(`📡 [Pulse] 상위 25개 후보 종목의 실시간 퀀트 지표 수집 시작...`);
-        const metricsMap = await fetchMultipleStockQuantMetrics(symbols);
+        let metricsMap = {};
+        let cachedRows = [];
+        
+        if (supabase) {
+            try {
+                const { data, error } = await supabase
+                    .from('stock_detail_cache')
+                    .select('*')
+                    .in('symbol', symbols);
+                
+                if (!error && data) {
+                    cachedRows = data;
+                    data.forEach(row => {
+                        metricsMap[row.symbol] = {
+                            price: row.fundamental?.price || 0,
+                            disparity5: parseFloat(row.advanced?.disparity5) || 100,
+                            disparity20: parseFloat(row.advanced?.disparity20) || 100,
+                            strength: parseFloat(row.advanced?.strength) || 100,
+                            shortRatio: parseFloat(row.advanced?.shortRatio) || 0,
+                            investor1D: {
+                                foreign: row.advanced?.investor?.foreign1D || 0,
+                                organ: row.advanced?.investor?.organ1D || 0,
+                                personal: row.advanced?.investor?.personal1D || 0
+                            },
+                            investor5D: {
+                                foreign: row.advanced?.investor?.foreign5D || 0,
+                                organ: row.advanced?.investor?.organ5D || 0,
+                                personal: row.advanced?.investor?.personal5D || 0
+                            }
+                        };
+                    });
+                    console.log(`⚡ [Pulse] Supabase 캐시로부터 ${data.length}개 종목의 퀀트 지표 일괄 로드 완료 (0.01초).`);
+                } else {
+                    console.error('❌ [Pulse] Failed to load metrics from Supabase cache:', error?.message);
+                }
+            } catch (cacheErr) {
+                console.error('❌ [Pulse] Exception loading metrics from Supabase cache:', cacheErr.message);
+            }
+        }
+
+        // 캐시에 없는 종목들은 KIS API를 통해 실시간 조회 수행 (폴백 및 동기화 자가학습 트리거)
+        for (const symbol of symbols) {
+            if (!metricsMap[symbol]) {
+                console.log(`📡 [Pulse Fallback] Cache miss for ${symbol}. Fetching live...`);
+                const fresh = await syncSingleStock(symbol);
+                if (fresh) {
+                    metricsMap[symbol] = {
+                        price: fresh.fundamental?.price || 0,
+                        disparity5: parseFloat(fresh.advanced?.disparity5) || 100,
+                        disparity20: parseFloat(fresh.advanced?.disparity20) || 100,
+                        strength: parseFloat(fresh.advanced?.strength) || 100,
+                        shortRatio: parseFloat(fresh.advanced?.shortRatio) || 0,
+                        investor1D: {
+                            foreign: fresh.advanced?.investor?.foreign1D || 0,
+                            organ: fresh.advanced?.investor?.organ1D || 0,
+                            personal: fresh.advanced?.investor?.personal1D || 0
+                        },
+                        investor5D: {
+                            foreign: fresh.advanced?.investor?.foreign5D || 0,
+                            organ: fresh.advanced?.investor?.organ5D || 0,
+                            personal: fresh.advanced?.investor?.personal5D || 0
+                        }
+                    };
+                    cachedRows.push({
+                        symbol,
+                        fundamental: fresh.fundamental,
+                        advanced: fresh.advanced
+                    });
+                } else {
+                    metricsMap[symbol] = {
+                        price: 0,
+                        disparity5: 100,
+                        disparity20: 100,
+                        strength: 100,
+                        shortRatio: 0,
+                        investor1D: { foreign: 0, organ: 0, personal: 0 },
+                        investor5D: { foreign: 0, organ: 0, personal: 0 }
+                    };
+                }
+            }
+        }
+
 
         // 📊 [오답 노트 조기 갱신] 과거 추천 종목 백테스팅 데이터 실시간 업데이트 및 파일 저장
         console.log(`📊 [Pulse] 과거 추천 종목 백테스팅 업데이트 및 성과 분석 중...`);
@@ -1365,13 +1449,17 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 else if (sr >= 12 && sr < 15) shortScore = 0;
                 else shortScore = -25; // 공매도 폭탄 강력 감점
 
-                // 4. 수급 (Max 20점) - 1일 수급 70% + 5일 수급 30% 반영
+                // 4. 수급 (Max 20점) - 1일 수급 70% + 5일 수급 30% 반영 (가집계 미존재 시 5일 수급 100% 반영)
                 const inv1D = m.investor1D || { foreign: 0, organ: 0, personal: 0 };
                 const inv5D = m.investor5D || { foreign: 0, organ: 0, personal: 0 };
                 
                 const score1D = getSupplyPoints(inv1D.foreign, inv1D.organ, inv1D.personal, 20);
                 const score5D = getSupplyPoints(inv5D.foreign, inv5D.organ, inv5D.personal, 20);
-                supplyScore = Math.round(score1D * 0.7 + score5D * 0.3);
+                if (inv1D.foreign === 0 && inv1D.organ === 0) {
+                    supplyScore = score5D;
+                } else {
+                    supplyScore = Math.round(score1D * 0.7 + score5D * 0.3);
+                }
             } else {
                 // [상승장/안정기 모드 (Normal Mode)]
                 // 1. 체결강도 (Max 40점) - 모멘텀 극우대
@@ -1397,13 +1485,17 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 else if (sr >= 12 && sr < 15) shortScore = 0;
                 else shortScore = -15;
 
-                // 4. 수급 (Max 30점) - 1일 수급 70% + 5일 수급 30% 반영
+                // 4. 수급 (Max 30점) - 1일 수급 70% + 5일 수급 30% 반영 (가집계 미존재 시 5일 수급 100% 반영)
                 const inv1D = m.investor1D || { foreign: 0, organ: 0, personal: 0 };
                 const inv5D = m.investor5D || { foreign: 0, organ: 0, personal: 0 };
                 
                 const score1D = getSupplyPoints(inv1D.foreign, inv1D.organ, inv1D.personal, 30);
                 const score5D = getSupplyPoints(inv5D.foreign, inv5D.organ, inv5D.personal, 30);
-                supplyScore = Math.round(score1D * 0.7 + score5D * 0.3);
+                if (inv1D.foreign === 0 && inv1D.organ === 0) {
+                    supplyScore = score5D;
+                } else {
+                    supplyScore = Math.round(score1D * 0.7 + score5D * 0.3);
+                }
             }
 
             const backtestPenalty = calculateBacktestPenalty(c.code);
@@ -1448,8 +1540,21 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         for (let i = 0; i < Math.min(15, sortedScored.length); i++) {
             const c = sortedScored[i];
             try {
-                // 재무 데이터 조회
-                const fin = await fetchStockFinancialsForVeto(c.code);
+                // 재무 데이터 조회 (Supabase 캐시에서 우선 추출)
+                const cachedRow = cachedRows.find(row => row.symbol === c.code);
+                let fin = null;
+                if (cachedRow && cachedRow.fundamental) {
+                    fin = {
+                        roe: cachedRow.fundamental.roe !== '-' ? parseFloat(cachedRow.fundamental.roe) : null,
+                        per: cachedRow.fundamental.per !== '-' ? parseFloat(cachedRow.fundamental.per) : null,
+                        pbr: cachedRow.fundamental.pbr !== '-' ? parseFloat(cachedRow.fundamental.pbr) : null,
+                        opProfits: (cachedRow.fundamental.finance || []).map(f => f.profit),
+                        debtRatio: cachedRow.fundamental.debtRatio !== '-' ? parseFloat(cachedRow.fundamental.debtRatio) : null
+                    };
+                } else {
+                    console.log(`📡 [Pulse Financial Fallback] Cache miss for financials of ${c.name}. Fetching live...`);
+                    fin = await fetchStockFinancialsForVeto(c.code);
+                }
                 c.financials = fin;
 
                 if (fin) {
@@ -1616,6 +1721,31 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     const inv5D = c.metrics.investor5D || { foreign: 0, organ: 0, personal: 0 };
                     const score5D = getSupplyPointsLocal(inv5D.foreign, inv5D.organ, inv5D.personal, maxSupplyScore);
                     const newSupplyScore = Math.round(score1D * 0.7 + score5D * 0.3);
+
+                    const oldSupplyScore = c.scores.supplyScore || 0;
+                    c.scores.supplyScore = newSupplyScore;
+                    c.totalScore = c.totalScore - oldSupplyScore + newSupplyScore;
+
+                    // 원본 리스트(finalSortedScored) 객체 점수도 동기화
+                    const origItem = finalSortedScored.find(item => item.code === c.code);
+                    if (origItem) {
+                        origItem.scores.supplyScore = newSupplyScore;
+                        origItem.totalScore = c.totalScore;
+                    }
+                } else {
+                    // 장중 가집계 미존재 종목 (상위 30위 밖): 5일 수급 점수 100% 반영하여 수급 점수 및 총점 재산정
+                    const maxSupplyScore = isSafe ? 20 : 30;
+                    const getSupplyPointsLocal = (f, o, p, maxS) => {
+                        const isAnt = f < 0 && o < 0 && p > 0;
+                        if (isAnt) return -30;
+                        if (f > 0 && o > 0) return maxS;
+                        if (f + o > 0) return maxS === 20 ? 15 : 20;
+                        if (f > 0 || o > 0) return 10;
+                        return 0;
+                    };
+
+                    const inv5D = c.metrics.investor5D || { foreign: 0, organ: 0, personal: 0 };
+                    const newSupplyScore = getSupplyPointsLocal(inv5D.foreign, inv5D.organ, inv5D.personal, maxSupplyScore);
 
                     const oldSupplyScore = c.scores.supplyScore || 0;
                     c.scores.supplyScore = newSupplyScore;
@@ -1840,27 +1970,59 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         console.log(`🔍 [Pulse] 선정된 후보 종목군 중 상위 ${topCandidates.length}개 종목 심층 데이터(뉴스/수급/재무) 수집 시작...`);
         for (const c of topCandidates) {
             try {
-                const [newsResult, supplyResult, analyticsResult] = await Promise.all([
+                const [newsResult, supplyResult, analyticsResult, intradayResult] = await Promise.all([
                     fetchNaverNews(`${c.n} 주식 전망 공시 뉴스`),
                     fetchStockInvestorTrend(c.s),
-                    fetchStockAnalytics(c.s)
+                    fetchStockAnalytics(c.s),
+                    fetchStockIntradayInvestorEstimate(c.s)
                 ]);
                 
-                const poolItem = candidatePool.find(p => p.code === c.s);
+                let stats = supplyResult?.stats || null;
+                let rawSummary = supplyResult?.rawSummary || "정보 없음";
+
+                if (stats && intradayResult) {
+                    if (stats.foreign1D === 0 && stats.organ1D === 0) {
+                        stats.foreign1D = intradayResult.foreign;
+                        stats.organ1D = intradayResult.organ;
+                        stats.personal1D = intradayResult.personal;
+                        rawSummary = `[장중 가집계 포함] 외인:${intradayResult.foreign.toLocaleString()}주, 기관:${intradayResult.organ.toLocaleString()}주, 개인:${intradayResult.personal.toLocaleString()}주 | ` + rawSummary;
+                    }
+                } else if (intradayResult) {
+                    stats = {
+                        foreign1D: intradayResult.foreign,
+                        organ1D: intradayResult.organ,
+                        personal1D: intradayResult.personal,
+                        foreign5D: intradayResult.foreign,
+                        organ5D: intradayResult.organ,
+                        personal5D: intradayResult.personal,
+                        foreign20D: intradayResult.foreign,
+                        organ20D: intradayResult.organ,
+                        personal20D: intradayResult.personal,
+                        foreignConsecutiveDays: 0,
+                        foreignConsecutiveVolume: 0,
+                        organConsecutiveDays: 0,
+                        organConsecutiveVolume: 0,
+                        personalConsecutiveDays: 0,
+                        personalConsecutiveVolume: 0
+                    };
+                    rawSummary = `[장중 가집계] 외인:${intradayResult.foreign.toLocaleString()}주, 기관:${intradayResult.organ.toLocaleString()}주, 개인:${intradayResult.personal.toLocaleString()}주`;
+                }
+
+                const metrics = metricsMap[c.s];
                 detailedCandidatesData.push({
                     name: c.n,
                     code: c.s,
                     news: newsResult?.text || "데이터 부족",
                     newsSentiment: newsResult?.sentiment || null,
-                    supply: supplyResult?.rawSummary || "정보 없음",
-                    supplyStats: supplyResult?.stats || null,
+                    supply: rawSummary,
+                    supplyStats: stats,
                     finance: analyticsResult?.financeData || null,
                     technical: analyticsResult?.technicalIndicators || null,
                     priceData: analyticsResult?.priceData || null,
                     strength: analyticsResult?.strength || null,
                     shortRatio: analyticsResult?.shortRatio || null,
-                    atr: poolItem ? poolItem.atr : null,
-                    atrPercent: poolItem ? poolItem.atrPercent : null
+                    atr: metrics ? metrics.atr : null,
+                    atrPercent: metrics ? metrics.atrPercent : null
                 });
                 
                 await sleep(150); // API 부하 조절

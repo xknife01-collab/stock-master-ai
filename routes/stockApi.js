@@ -1,6 +1,8 @@
 import express from 'express';
 import axios from 'axios';
-import { KIS_BASE_URL, ensureToken, getKisHeaders, fetchStockInvestorTrend, kisRequest } from '../lib/kisCore.js';
+import { KIS_BASE_URL, ensureToken, getKisHeaders, fetchStockInvestorTrend, kisRequest, fetchStockIntradayInvestorEstimate } from '../lib/kisCore.js';
+import supabase from '../lib/supabaseClient.js';
+import { syncSingleStock, registerActiveSymbol } from '../lib/stockSync.js';
 
 const router = express.Router();
 
@@ -237,147 +239,71 @@ router.get('/history/:symbol', ensureToken, async (req, res) => {
 // 3. 종목 상세 펀더멘털 정보 조회
 router.get('/detail/:symbol', ensureToken, async (req, res) => {
     const { symbol } = req.params;
-    const commonHeaders = getKisHeaders(''); // tr_id는 개별 호출에서 설정
+    
+    try {
+        // 1. Supabase 캐시 우선 조회
+        if (supabase) {
+            const { data, error } = await supabase
+                .from('stock_detail_cache')
+                .select('*')
+                .eq('symbol', symbol)
+                .single();
 
-    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-    const pricePromise = kisRequest({
-        method: 'get',
-        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-price`,
-        params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol },
-        headers: { ...commonHeaders, 'tr_id': 'FHKST01010100' }
-    });
-    await delay(120);
-
-    const ratioPromise = kisRequest({
-        method: 'get',
-        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/finance/financial-ratio`,
-        params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol, FID_DIV_CLS_CODE: '0' },
-        headers: { ...commonHeaders, 'tr_id': 'FHKST66430300' }
-    });
-    await delay(120);
-
-    const consensusPromise = kisRequest({
-        method: 'get',
-        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/estimate-perform`,
-        params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol, SHT_CD: symbol },
-        headers: { ...commonHeaders, 'tr_id': 'HHKST668300C0' }
-    });
-    await delay(120);
-
-    const incomePromise = kisRequest({
-        method: 'get',
-        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/finance/income-statement`,
-        params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol, FID_DIV_CLS_CODE: '0' },
-        headers: { ...commonHeaders, 'tr_id': 'FHKST66430200' }
-    });
-    await delay(120);
-
-    const ccnlPromise = kisRequest({
-        method: 'get',
-        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-ccnl`,
-        params: { FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol },
-        headers: { ...commonHeaders, 'tr_id': 'FHKST01010300' }
-    });
-    await delay(120);
-
-    const shortPromise = kisRequest({
-        method: 'get',
-        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/daily-short-sale`,
-        params: {
-            FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol,
-            FID_INPUT_DATE_1: new Date(Date.now() - 60 * 86400000).toISOString().slice(0,10).replace(/-/g,''),
-            FID_INPUT_DATE_2: new Date().toISOString().slice(0,10).replace(/-/g,'')
-        },
-        headers: { ...commonHeaders, 'tr_id': 'FHPST04830000' }
-    });
-    await delay(120);
-
-    const creditPromise = kisRequest({
-        method: 'get',
-        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/daily-credit-balance`,
-        params: {
-            FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol,
-            FID_INPUT_DATE_1: new Date(Date.now() - 60 * 86400000).toISOString().slice(0,10).replace(/-/g,''),
-            FID_INPUT_DATE_2: new Date().toISOString().slice(0,10).replace(/-/g,''),
-            FID_COND_SCR_DIV_CODE: '20476'
-        },
-        headers: { ...commonHeaders, 'tr_id': 'FHPST04760000' }
-    });
-    await delay(120);
-
-    const dailyPromise = kisRequest({
-        method: 'get',
-        url: `${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice`,
-        params: {
-            FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol,
-            FID_INPUT_DATE_1: new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10).replace(/-/g,''),
-            FID_INPUT_DATE_2: new Date().toISOString().slice(0,10).replace(/-/g,''),
-            FID_PERIOD_DIV_CODE: 'D', FID_ORG_ADJ_PRC: '1'
-        },
-        headers: { ...commonHeaders, 'tr_id': 'FHKST03010100' }
-    });
-    await delay(120);
-
-    const investorPromise = fetchStockInvestorTrend(symbol);
-
-    const [priceResult, ratioResult, consensusResult, incomeResult, ccnlResult, shortResult, creditResult, dailyResult, investorResult] = await Promise.allSettled([
-        pricePromise, ratioPromise, consensusPromise, incomePromise, ccnlPromise, shortPromise, creditPromise, dailyPromise, investorPromise
-    ]);
-
-    const val = (result) => result.status === 'fulfilled' ? result.value : null;
-    const priceRes = val(priceResult);
-    const ratioRes = val(ratioResult);
-    const consensusRes = val(consensusResult);
-    const incomeRes = val(incomeResult);
-    const ccnlRes = val(ccnlResult);
-    const shortRes = val(shortResult);
-    const creditRes = val(creditResult);
-    const dailyRes = val(dailyResult);
-    const investorRes = val(investorResult); // 투자자 수급 꺼내기
-
-    const currentPrice = parseInt(priceRes?.data?.output?.stck_prpr || '0');
-    const dailyPrices = (dailyRes?.data?.output2 || []);
-    const calcMA = (prices, n) => {
-        const slice = prices.slice(0, n).map(it => parseInt(it.stck_clpr || '0')).filter(v => v > 0);
-        return slice.length === 0 ? 0 : slice.reduce((a, b) => a + b, 0) / slice.length;
-    };
-    const disparity5 = calcMA(dailyPrices, 5) > 0 ? ((currentPrice / calcMA(dailyPrices, 5)) * 100).toFixed(2) : '-';
-    const disparity20 = calcMA(dailyPrices, 20) > 0 ? ((currentPrice / calcMA(dailyPrices, 20)) * 100).toFixed(2) : '-';
-
-    let strengthVal = priceRes?.data?.output?.tday_rltv || ccnlRes?.data?.output?.[0]?.tday_rltv || '-';
-
-    const fundamental = {
-        per: priceRes?.data?.output?.per || '-',
-        pbr: priceRes?.data?.output?.pbr || '-',
-        roe: ratioRes?.data?.output?.[0]?.roe_val || '-',
-        yield: priceRes?.data?.output?.dps || '-', 
-        consensus: consensusRes?.data?.output1
-            ? [{
-                date: consensusRes.data.output1.estdate || '-',
-                target: '-',
-                opinion: consensusRes.data.output1.rcmd_name || '-'
-              }]
-            : (consensusRes?.data?.output || []).map(it => ({
-                date: it.stck_bsop_date || it.estdate || '-',
-                target: it.hts_goal_prc || it.stck_hgpr || '-',
-                opinion: it.invt_opnn || it.rcmd_name || '-'
-              })),
-        finance: (incomeRes?.data?.output || []).slice(0, 3).map(it => ({ 
-            year: it.stac_yymm, 
-            revenue: parseFloat(it.sale_account) || 0, 
-            profit: parseFloat(it.op_prfi) || 0 
-        })).reverse(),
-        advanced: {
-            strength: strengthVal,
-            disparity5,
-            disparity20,
-            shortRatio: shortRes?.data?.output?.[0]?.ssts_vol_rlim || (Math.random() * 5 + 0.5).toFixed(2),
-            creditBalance: creditRes?.data?.output?.[0]?.whol_loan_rmnd_rate || (Math.random() * 2 + 0.1).toFixed(2),
-            investor: investorRes?.stats || null
+            // 캐시가 존재하고 15분 이내에 갱신되었다면 즉시 반환 (sub-0.1초!)
+            if (!error && data) {
+                const ageMs = Date.now() - new Date(data.updated_at).getTime();
+                const isFresh = ageMs < 15 * 60 * 1000;
+                
+                if (isFresh && data.fundamental) {
+                    // 동적으로 활성 동기화 리스트에 등록
+                    registerActiveSymbol(symbol);
+                    
+                    const fundamental = {
+                        ...data.fundamental,
+                        advanced: data.advanced
+                    };
+                    return res.json({ fundamental });
+                }
+            }
         }
-    };
-    res.json({ fundamental });
+
+        // 2. 캐시가 없거나 오래된 경우, 실시간 KIS 조회 및 업서트 (On-Demand Caching)
+        console.log(`📡 [On-Demand Detail] Fetching fresh details for: ${symbol}`);
+        const freshData = await syncSingleStock(symbol);
+        
+        if (freshData && freshData.fundamental && freshData.advanced) {
+            registerActiveSymbol(symbol);
+
+            const fundamental = {
+                ...freshData.fundamental,
+                advanced: freshData.advanced
+            };
+            return res.json({ fundamental });
+        }
+
+        // 3. KIS API 장애 시 Stale 캐시라도 폴백 반환
+        if (supabase) {
+            const { data } = await supabase
+                .from('stock_detail_cache')
+                .select('*')
+                .eq('symbol', symbol)
+                .single();
+
+            if (data && data.fundamental) {
+                console.log(`⚠️ [On-Demand Detail] Serving stale cache as fallback for ${symbol}`);
+                const fundamental = {
+                    ...data.fundamental,
+                    advanced: data.advanced
+                };
+                return res.json({ fundamental });
+            }
+        }
+
+        res.status(500).json({ error: '상세 정보 조회에 실패했습니다.' });
+    } catch (e) {
+        console.error(`❌ [Detail API Error] Exception for ${symbol}:`, e.message);
+        res.status(500).json({ error: e.message });
+    }
 });
 
 export default router;

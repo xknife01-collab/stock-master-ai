@@ -184,7 +184,9 @@ const StockPopup = ({ item, onClose }) => {
                     <div className="w-1 h-3 bg-[#7000ff] rounded-full"></div>
                     3대 주체별 1일 수급 분석
                   </div>
-                  <span className="text-[9px] text-gray-400 font-normal">(당일 기준)</span>
+                  <span className={`text-[9px] font-bold ${stockDetail.advanced?.investor?.isRealtime ? 'text-emerald-500' : 'text-amber-500'}`}>
+                    {stockDetail.advanced?.investor?.isRealtime ? '● 당일 실시간' : '● 전 영업일 기준'}
+                  </span>
                 </div>
 
                 {/* 🚨 개미지옥 경보 사이렌 (Retail Absorption Veto Warning) */}
@@ -192,7 +194,8 @@ const StockPopup = ({ item, onClose }) => {
                   const fVal = stockDetail.advanced.investor.foreign1D !== undefined ? stockDetail.advanced.investor.foreign1D : stockDetail.advanced.investor.foreign5D;
                   const oVal = stockDetail.advanced.investor.organ1D !== undefined ? stockDetail.advanced.investor.organ1D : stockDetail.advanced.investor.organ5D;
                   const pVal = stockDetail.advanced.investor.personal1D !== undefined ? stockDetail.advanced.investor.personal1D : stockDetail.advanced.investor.personal5D;
-                  return pVal > 0 && fVal < 0 && oVal < 0;
+                  const isRealtime = stockDetail.advanced.investor.isRealtime;
+                  return isRealtime && pVal > 0 && fVal < 0 && oVal < 0;
                 })() && (
                   <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5 shadow-[0_2px_8px_rgba(239,68,68,0.08)] animate-pulse">
                     <span className="text-lg">🚨</span>
