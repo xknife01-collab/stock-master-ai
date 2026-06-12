@@ -1426,7 +1426,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     disparity20: m.disparity20,
                     strength: m.strength,
                     shortRatio: m.shortRatio,
-                    investor5D: m.investor5D
+                    investor5D: m.investor5D,
+                    atr: m.atr,
+                    atrPercent: m.atrPercent
                 },
                 scores: {
                     strengthScore,
@@ -1691,6 +1693,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
     - [5일 누적 수급] ${supplyText}
     - [장중 가집계 수급] ${intradayText}
     - [재무 및 밸류에이션] ${finText}
+    - [20일 평균 변동성(ATR)] 수치: ${c.metrics.atrPercent}% (평균 일일 변동폭: ${c.metrics.atr ? c.metrics.atr.toLocaleString() + '원' : '정보 없음'})
     - 현재가: ${c.price.toLocaleString()}원 (전일대비: ${c.change > 0 ? '+' : ''}${c.change}%)`;
         }).join('\n\n');
 
@@ -1818,6 +1821,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     fetchStockAnalytics(c.s)
                 ]);
                 
+                const poolItem = candidatePool.find(p => p.code === c.s);
                 detailedCandidatesData.push({
                     name: c.n,
                     code: c.s,
@@ -1829,7 +1833,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     technical: analyticsResult?.technicalIndicators || null,
                     priceData: analyticsResult?.priceData || null,
                     strength: analyticsResult?.strength || null,
-                    shortRatio: analyticsResult?.shortRatio || null
+                    shortRatio: analyticsResult?.shortRatio || null,
+                    atr: poolItem ? poolItem.atr : null,
+                    atrPercent: poolItem ? poolItem.atrPercent : null
                 });
                 
                 await sleep(150); // API 부하 조절
@@ -1875,6 +1881,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         ${priceDataStr}
 
         5. 기술적 분석 및 거래 지표 (정량 데이터):
+        - 20일 평균 변동성(ATR): ${d.atrPercent || "정보 없음"}% (평균 일일 변동폭: ${d.atr !== null && d.atr !== undefined ? d.atr.toLocaleString() + '원' : '정보 없음'})
         - RSI (14일 상대강도지수): ${d.technical?.rsi || "정보 없음"} (참고: 70 이상 과열, 30 이하 과매도)
         - 5일 이동평균선 이격도: ${d.technical?.disparity5 || "정보 없음"}%
         - 20일 이동평균선 이격도: ${d.technical?.disparity20 || "정보 없음"}%
@@ -1949,7 +1956,13 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         13. **누적 수급 및 연속 순매수 분석 적용:** 제공된 외국인/기관/개인의 5일/20일 누적 순매수 수량 및 연속 순매수 일수를 분석에 긴밀히 반영해. 외인 또는 기관이 3일 이상 연속 순매수 중이거나 5일/20일 누적 순매수 유입이 큰 종목은 세력 수급의 신뢰도가 높은 주도주로 적극 반영해. 반면 외인/기관이 대량 순매도하고 있는 폭탄을 개인이 온몸으로 받아내는 형국(즉, 개인 5일/20일 누적 순매수가 비정상적으로 급증하고 외인/기관이 마이너스인 상태)이 포착되면 전형적인 '개미 지옥 및 설거지 종목'으로 판단하여 TOP PICK(메인 추천) 선정에서 강력히 배제(VETO)하고 리스크 경고를 기술해.
         14. **뉴스 감성 스코어(Sentiment Score) 분석 적용:** 제공된 시장/테마/종목별 '뉴스 감성 지수(호재%, 악재%)'를 리스크 판별 및 목표가 설정에 적극적으로 연계해. 만약 특정 종목이나 테마의 호재성 뉴스 비율이 70% 이상이면 시장 관심도가 매우 뜨거운 상태로 보아 'shortTermPicks' 진입 시 가산점을 부여하되, 악재성 뉴스 비율이 30% 이상이거나 갑작스럽게 악재 뉴스가 증가한 경우에는 단기 리스크가 급증한 것으로 판단해 'VETO RULE(추천 배제)' 또는 손절선(sl)을 타이트하게 조절해. 감정적 편향을 억제하고 이 계량 지표를 우선 신뢰해.
         15. **수급 요약 정보(sp) 강제 탑재:** 'shortTermPicks' 및 'longTermPicks'의 각 종목 객체에 'sp' 필드를 추가해. 'sp'에는 제공된 [분석 후보]의 5일 누적 수급을 활용해 '외+OO만/기-OO만/개-OO만' 형태(예: '외+12만/기-4.5만/개-7.5만', 만원 미만 단위면 '외+3천/기-500/개+2.5천')로 15자 내외의 5일 누적 수급 현황 요약을 반드시 채워줘. 만약 정보가 없으면 '정보없음'으로 기재해.
-        16. JSON 형식으로만 응답해.
+        16. **ATR 기반 동적 목표가(tp)/손절가(sl) 산출 방식 적용 (강제):**
+            - 각 종목에 제공된 [20일 평균 변동성(ATR)] 및 [20일 평균 변동성(ATR)%] 수치를 기준으로 목표가(tp)와 손절가(sl)를 기계적/수학적으로 계산해서 설정해.
+            - **단기 투자 (shortTermPicks):** 손절가(sl)는 현재가 대비 약 **-1.5배의 ATR%** 수준으로 넉넉하게 산정해 휩소(속임수 하락)에 털리지 않게 방지하고, 목표가(tp)는 약 **+3.0배의 ATR%** 수준으로 산정해 손익비를 좋게 만들어.
+              (예: 현재가 10만원, ATR%가 4.0%라면 단기 손절가는 10만원 - (10만원 * 4.0% * 1.5) = 94,000원, 목표가는 10만원 + (10만원 * 4.0% * 3) = 112,000원으로 기산)
+            - **중장기 투자 (longTermPicks):** 손절가(sl)는 현재가 대비 약 **-2.0배의 ATR%** 수준으로 넉넉히 설정하고, 목표가(tp)는 약 **+4.0배의 ATR%** 수준으로 크게 가져가.
+            - 종목의 고유 변동성에 맞는 동적 리스크 관리를 반드시 실천해줘.
+        17. JSON 형식으로만 응답해.
 
         [출력 양식]
         {
