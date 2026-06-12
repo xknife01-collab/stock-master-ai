@@ -1469,6 +1469,20 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                         c.vetoReason = '3분기 연속 영업손실';
                     }
 
+                    // (3) 부채비율 200% 이상 기업 제외 Veto Rule
+                    if (fin.debtRatio !== null && fin.debtRatio >= 200) {
+                        console.log(`❌ [Financial Veto] ${c.name} (${c.code}) - 부채비율 과다(${fin.debtRatio}%)로 후보군에서 원천 제외`);
+                        c.isVetoed = true;
+                        c.vetoReason = `부채비율 과다 (${fin.debtRatio}%)`;
+                    }
+
+                    // (4) 고PBR 10배 이상 버블 기업 제외 Veto Rule
+                    if (fin.pbr !== null && fin.pbr >= 10) {
+                        console.log(`❌ [Financial Veto] ${c.name} (${c.code}) - 고PBR 버블(${fin.pbr}배)로 후보군에서 원천 제외`);
+                        c.isVetoed = true;
+                        c.vetoReason = `고PBR 버블 (${fin.pbr}배)`;
+                    }
+
                     if (!c.isVetoed) {
                         // 재무 점수 계산 (Max 20점, 하락장/안전 모드일 때만 적용)
                         let financialScore = 0;
@@ -1622,7 +1636,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             
             const fin = c.financials;
             const finText = fin ? 
-                `➡️ 재무: ROE: ${fin.roe !== null ? fin.roe + '%' : '정보 없음'} / PER: ${fin.per !== null ? fin.per + '배' : '정보 없음'} / PBR: ${fin.pbr !== null ? fin.pbr + '배' : '정보 없음'}` : 
+                `➡️ 재무: ROE: ${fin.roe !== null ? fin.roe + '%' : '정보 없음'} / PER: ${fin.per !== null ? fin.per + '배' : '정보 없음'} / PBR: ${fin.pbr !== null ? fin.pbr + '배' : '정보 없음'} / 부채비율: ${fin.debtRatio !== null ? fin.debtRatio + '%' : '정보 없음'}` : 
                 `➡️ 재무: (조회 대기 상태)`;
 
             const excludeBadge = c.isLongTermExcluded ? 
@@ -1663,10 +1677,11 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         **분석 가이드라인 및 필수 제약사항 (VETO RULES)**
         1. **TOP PICK 선정 규칙**: 최종 추천 종목의 첫 번째 종목(TOP PICK, candidates[0])은 반드시 아래 [실시간 시장 포착 후보 종목 및 퀀트 점수표]에서 **퀀트 스코어가 높은 상위권(1위~5위 이내) 종목** 중에서만 골라야 해.
         2. **절대 진입 금지 필터**: 퀀트 스코어가 **40점 이하**이거나, 20일 이격도 점수에서 **음수 감점(-10점)**을 받아 가격 부담이 극도로 심한 종목(예: 20일 이격도 107% 초과로 과열)은 **절대 TOP PICK으로 선정할 수 없어**. 뉴스 호재가 아무리 강력하고 거래량이 많아도 이 룰은 예외 없이 적용해.
-        3. **정렬 순서**: 추천 종목 'candidates' 배열의 정렬 순서는 퀀트 종합 점수(totalScore)가 높은 종목이 맨 앞으로 오도록 내림차순 정렬해야 해.
-        4. [최신 뉴스]를 분석할 때, 발행 시각이 분석일(${krNow.getUTCFullYear()}-${krNow.getUTCMonth()+1}-${krNow.getUTCDate()})로부터 '24시간 이내'인 뉴스를 최우선 가중치(20%)로 반영해.
-        5. 외인/기관 수급: 40%, 거시경제(매크로) 지표: 20%, 최신 뉴스 및 공시: 20%, 과거 피드백 및 장기 기억: 20%
-        6. **후보군 리스트 매칭 엄수 (핵심)**: 'candidates' 배열에는 반드시 아래 [실시간 시장 포착 후보 종목 및 퀀트 점수표]에 명시된 한글 종목명과 **완벽히 동일한 이름**만 담아야 해. 임의로 새로운 종목명을 지어내거나, 설명식 문구(예: 'HBM 선두주자', '전력반도체', 'AI 반도체 설계', '전력 인프라 대장')를 종목명 대신 넣어서는 절대 안 돼. 만약 후보군 리스트에 테마와 연관된 종목이 부족하다면, 억지로 채우지 말고 연관된 종목들만(예: 3~5개) 반환해.
+        3. **재무 건전성 필터 (VETO)**: ROE 적자 기업, 최근 3분기 연속 영업이익 적자 기업, 부채비율 200% 이상인 한계 기업, 또는 PBR 10배 이상의 고평가 버블 종목은 계량 시스템에 의해 원천 제외되거나 AI 추천에서 배제되어야 해.
+        4. **정렬 순서**: 추천 종목 'candidates' 배열의 정렬 순서는 퀀트 종합 점수(totalScore)가 높은 종목이 맨 앞으로 오도록 내림차순 정렬해야 해.
+        5. [최신 뉴스]를 분석할 때, 발행 시각이 분석일(${krNow.getUTCFullYear()}-${krNow.getUTCMonth()+1}-${krNow.getUTCDate()})로부터 '24시간 이내'인 뉴스를 최우선 가중치(20%)로 반영해.
+        6. 외인/기관 수급: 40%, 거시경제(매크로) 지표: 20%, 최신 뉴스 및 공시: 20%, 과거 피드백 및 장기 기억: 20%
+        7. **후보군 리스트 매칭 엄수 (핵심)**: 'candidates' 배열에는 반드시 아래 [실시간 시장 포착 후보 종목 및 퀀트 점수표]에 명시된 한글 종목명과 **완벽히 동일한 이름**만 담아야 해. 임의로 새로운 종목명을 지어내거나, 설명식 문구(예: 'HBM 선두주자', '전력반도체', 'AI 반도체 설계', '전력 인프라 대장')를 종목명 대신 넣어서는 절대 안 돼. 만약 후보군 리스트에 테마와 연관된 종목이 부족하다면, 억지로 채우지 말고 연관된 종목들만(예: 3~5개) 반환해.
 
         [현재 매크로 상황]
         ${macroCtx}
