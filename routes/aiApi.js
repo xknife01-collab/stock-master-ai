@@ -1321,7 +1321,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         // 각 종목별 100점 만점 퀀트 스코어 계산 및 상세 점수표 구축
         const scoredCandidates = candidatePool.map(c => {
-            const m = metricsMap[c.code] || { price: c.price, disparity5: 100, disparity20: 100, strength: 100, shortRatio: 0, investor5D: { foreign: 0, organ: 0, personal: 0 } };
+            const m = metricsMap[c.code] || { price: c.price, disparity5: 100, disparity20: 100, strength: 100, shortRatio: 0, investor1D: { foreign: 0, organ: 0, personal: 0 }, investor5D: { foreign: 0, organ: 0, personal: 0 } };
             
             let strengthScore = 0;
             let disparityScore = 0;
@@ -1415,7 +1415,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 code: c.code,
                 price: m.price || c.price,
                 change: c.change,
-                isAntHell: m.investor5D ? (m.investor5D.foreign < 0 && m.investor5D.organ < 0 && m.investor5D.personal > 0) : false,
+                isAntHell: m.investor1D ? (m.investor1D.foreign < 0 && m.investor1D.organ < 0 && m.investor1D.personal > 0) : false,
                 metrics: {
                     disparity5: m.disparity5,
                     disparity20: m.disparity20,

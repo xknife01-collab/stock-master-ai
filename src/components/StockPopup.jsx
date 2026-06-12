@@ -182,16 +182,18 @@ const StockPopup = ({ item, onClose }) => {
                 <div className="text-[11px] font-bold text-gray-500 mb-4 flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <div className="w-1 h-3 bg-[#7000ff] rounded-full"></div>
-                    3대 주체별 5일 누적 수급 분석
+                    3대 주체별 1일 수급 분석
                   </div>
-                  <span className="text-[9px] text-gray-400 font-normal">(5거래일 합계)</span>
+                  <span className="text-[9px] text-gray-400 font-normal">(당일 기준)</span>
                 </div>
 
                 {/* 🚨 개미지옥 경보 사이렌 (Retail Absorption Veto Warning) */}
-                {stockDetail.advanced?.investor && 
-                 stockDetail.advanced.investor.personal5D > 0 && 
-                 stockDetail.advanced.investor.foreign5D < 0 && 
-                 stockDetail.advanced.investor.organ5D < 0 && (
+                {stockDetail.advanced?.investor && (() => {
+                  const fVal = stockDetail.advanced.investor.foreign1D !== undefined ? stockDetail.advanced.investor.foreign1D : stockDetail.advanced.investor.foreign5D;
+                  const oVal = stockDetail.advanced.investor.organ1D !== undefined ? stockDetail.advanced.investor.organ1D : stockDetail.advanced.investor.organ5D;
+                  const pVal = stockDetail.advanced.investor.personal1D !== undefined ? stockDetail.advanced.investor.personal1D : stockDetail.advanced.investor.personal5D;
+                  return pVal > 0 && fVal < 0 && oVal < 0;
+                })() && (
                   <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5 shadow-[0_2px_8px_rgba(239,68,68,0.08)] animate-pulse">
                     <span className="text-lg">🚨</span>
                     <div className="flex-1">
@@ -203,9 +205,9 @@ const StockPopup = ({ item, onClose }) => {
 
                 {/* 📊 수급 힘겨루기 가로 Bar 차트 (양방향 힘겨루기 세력선) */}
                 {stockDetail.advanced?.investor ? (() => {
-                  const fVal = stockDetail.advanced.investor.foreign5D;
-                  const oVal = stockDetail.advanced.investor.organ5D;
-                  const pVal = stockDetail.advanced.investor.personal5D;
+                  const fVal = stockDetail.advanced.investor.foreign1D !== undefined ? stockDetail.advanced.investor.foreign1D : stockDetail.advanced.investor.foreign5D;
+                  const oVal = stockDetail.advanced.investor.organ1D !== undefined ? stockDetail.advanced.investor.organ1D : stockDetail.advanced.investor.organ5D;
+                  const pVal = stockDetail.advanced.investor.personal1D !== undefined ? stockDetail.advanced.investor.personal1D : stockDetail.advanced.investor.personal5D;
 
                   // 3대 주체 중 가장 강력한 절대치를 100% 기준으로 삼아 스케일링
                   const maxAbs = Math.max(Math.abs(fVal), Math.abs(oVal), Math.abs(pVal), 1);
