@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { aiModel, vertexModel } from '../lib/ai.js';
-import { getAccessToken, KIS_BASE_URL, getKisHeaders, fetchStockPrice, fetchStockAnalytics, fetchStockInvestorTrend, fetchMarketRankings, fetchConditionResult, fetchMultipleStockQuantMetrics, fetchStockFinancialsForVeto, fetchIndexDailyHistory, initKisStockMaster } from '../lib/kisCore.js';
+import { getAccessToken, KIS_BASE_URL, getKisHeaders, fetchStockPrice, fetchStockAnalytics, fetchStockInvestorTrend, fetchMarketRankings, fetchConditionResult, fetchMultipleStockQuantMetrics, fetchStockFinancialsForVeto, fetchIndexDailyHistory, initKisStockMaster, fetchStockIntradayInvestorEstimate } from '../lib/kisCore.js';
 import { fetchMacroIndicators } from './macroApi.js';
 import { getSupplyCache, saveSupplyCache } from '../lib/supplyCache.js';
 
@@ -1581,14 +1581,40 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     await sleep(160);
                 }
 
-                // 2. 수급 데이터 조회
+                // 2. 수급 데이터 조회 (기존 5일 수급)
                 const supplyRes = await fetchStockInvestorTrend(c.code);
                 if (supplyRes && supplyRes.stats) {
                     c.supplyStats = supplyRes.stats;
                 }
                 await sleep(160);
 
-                filteredCandidates.push(c);
+                // 3. 당일 실시간 장중 가집계 투자자별 매매동향 조회 (오늘 1일치)
+                const intradayEstimate = await fetchStockIntradayInvestorEstimate(c.code);
+                if (intradayEstimate) {
+                    c.intradayEstimate = intradayEstimate;
+                    
+                    // 장중 개미지옥 패턴 검증 (오늘 외인 순매도 && 기관 순매도 && 개인 순매수)
+                    const isIntradayAntHell = intradayEstimate.foreign < 0 && intradayEstimate.organ < 0 && intradayEstimate.personal > 0;
+                    c.isIntradayAntHell = isIntradayAntHell;
+
+                    if (isIntradayAntHell) {
+                        console.log(`❌ [Intraday Veto] ${c.name} (${c.code}) - 당일 장중 기관/외인 쌍끌이 이탈 및 개미지옥 패턴 감지되어 원천 제외`);
+                        c.isVetoed = true;
+                        c.vetoReason = '장중 기관/외인 쌍끌이 매도';
+                    }
+                }
+                await sleep(160);
+
+                if (!c.isVetoed) {
+                    filteredCandidates.push(c);
+                } else {
+                    // technicallyFiltered 혹은 finalSortedScored에서도 제외 여부 동기화
+                    const origItem = finalSortedScored.find(item => item.code === c.code);
+                    if (origItem) {
+                        origItem.isVetoed = true;
+                        origItem.vetoReason = '장중 기관/외인 쌍끌이 매도';
+                    }
+                }
             } catch (err) {
                 console.error(`⚠️ [Pulse] ${c.name} 추가 수급 분석 중 에러:`, err.message);
                 filteredCandidates.push(c);
@@ -1643,11 +1669,19 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 ` ⚠️ [중장기 가치주 제외 대상 - 사유: ${c.longTermExcludeReason}]` : 
                 '';
 
+            const intradayVetoBadge = c.isVetoed && c.vetoReason === '장중 기관/외인 쌍끌이 매도' ? 
+                ` ❌ [장중 수급 필터 제외 - 사유: ${c.vetoReason}]` : 
+                '';
+
             const fitTagText = c.fitTags && c.fitTags.length > 0 ? ` [시스템 판정: ${c.fitTags.join(' / ')}]` : '';
             const antHellBadge = c.isAntHell ? ` ⚠️ [수급 위험: 개미지옥 패턴 감점 -30점]` : '';
             const penaltyBadge = c.scores.backtestPenalty > 0 ? ` 📉 [백테스트 누적 감점: -${c.scores.backtestPenalty}점]` : '';
 
-            return `[${idx + 1}위] ${c.name} (${c.code})${excludeBadge}${fitTagText}${antHellBadge}${penaltyBadge} - 퀀트 종합점수: ${c.totalScore}점 / 100점
+            const intradayText = c.intradayEstimate ?
+                `➡️ 장중 가집계 수급 (오늘): 외인 순매수 추정 ${c.intradayEstimate.foreign > 0 ? '+' : ''}${c.intradayEstimate.foreign.toLocaleString()}주 / 기관 순매수 추정 ${c.intradayEstimate.organ > 0 ? '+' : ''}${c.intradayEstimate.organ.toLocaleString()}주 / 개인 순매수 추정 ${c.intradayEstimate.personal > 0 ? '+' : ''}${c.intradayEstimate.personal.toLocaleString()}주` :
+                `➡️ 장중 가집계 수급 (오늘): (조회 대기 상태)`;
+
+            return `[${idx + 1}위] ${c.name} (${c.code})${excludeBadge}${intradayVetoBadge}${fitTagText}${antHellBadge}${penaltyBadge} - 퀀트 종합점수: ${c.totalScore}점 / 100점
     - [20일 이격도] 수치: ${c.metrics.disparity20}% ➡️ 점수: ${c.scores.disparityScore}점 / 20점
     - [체결강도] 수치: ${c.metrics.strength}% ➡️ 점수: ${c.scores.strengthScore}점 / ${isSafe ? 10 : 40}점
     - [공매도 비중] 수치: ${c.metrics.shortRatio}% ➡️ 점수: ${c.scores.shortScore}점 / ${isSafe ? 30 : 10}점
@@ -1655,6 +1689,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
     - [재무 안전성 점수] ➡️ 점수: ${c.scores.financialScore || 0}점 / 20점 ${isSafe ? '(하락장 적용)' : '(상승장 비활성화)'}
     - [과거 백테스트 감점] ➡️ 감점: -${c.scores.backtestPenalty}점 (최근 마이너스 성적 누적)
     - [5일 누적 수급] ${supplyText}
+    - [장중 가집계 수급] ${intradayText}
     - [재무 및 밸류에이션] ${finText}
     - 현재가: ${c.price.toLocaleString()}원 (전일대비: ${c.change > 0 ? '+' : ''}${c.change}%)`;
         }).join('\n\n');
@@ -1678,10 +1713,11 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         1. **TOP PICK 선정 규칙**: 최종 추천 종목의 첫 번째 종목(TOP PICK, candidates[0])은 반드시 아래 [실시간 시장 포착 후보 종목 및 퀀트 점수표]에서 **퀀트 스코어가 높은 상위권(1위~5위 이내) 종목** 중에서만 골라야 해.
         2. **절대 진입 금지 필터**: 퀀트 스코어가 **40점 이하**이거나, 20일 이격도 점수에서 **음수 감점(-10점)**을 받아 가격 부담이 극도로 심한 종목(예: 20일 이격도 107% 초과로 과열)은 **절대 TOP PICK으로 선정할 수 없어**. 뉴스 호재가 아무리 강력하고 거래량이 많아도 이 룰은 예외 없이 적용해.
         3. **재무 건전성 필터 (VETO)**: ROE 적자 기업, 최근 3분기 연속 영업이익 적자 기업, 부채비율 200% 이상인 한계 기업, 또는 PBR 10배 이상의 고평가 버블 종목은 계량 시스템에 의해 원천 제외되거나 AI 추천에서 배제되어야 해.
-        4. **정렬 순서**: 추천 종목 'candidates' 배열의 정렬 순서는 퀀트 종합 점수(totalScore)가 높은 종목이 맨 앞으로 오도록 내림차순 정렬해야 해.
-        5. [최신 뉴스]를 분석할 때, 발행 시각이 분석일(${krNow.getUTCFullYear()}-${krNow.getUTCMonth()+1}-${krNow.getUTCDate()})로부터 '24시간 이내'인 뉴스를 최우선 가중치(20%)로 반영해.
-        6. 외인/기관 수급: 40%, 거시경제(매크로) 지표: 20%, 최신 뉴스 및 공시: 20%, 과거 피드백 및 장기 기억: 20%
-        7. **후보군 리스트 매칭 엄수 (핵심)**: 'candidates' 배열에는 반드시 아래 [실시간 시장 포착 후보 종목 및 퀀트 점수표]에 명시된 한글 종목명과 **완벽히 동일한 이름**만 담아야 해. 임의로 새로운 종목명을 지어내거나, 설명식 문구(예: 'HBM 선두주자', '전력반도체', 'AI 반도체 설계', '전력 인프라 대장')를 종목명 대신 넣어서는 절대 안 돼. 만약 후보군 리스트에 테마와 연관된 종목이 부족하다면, 억지로 채우지 말고 연관된 종목들만(예: 3~5개) 반환해.
+        4. **장중 수급 필터 (VETO)**: 당일 실시간 장중 가집계 투자자별 매매동향에서 외인/기관 쌍끌이 순매도 및 개인 순매수의 '장중 개미지옥 패턴'이 감지된 종목은 계량 시스템에 의해 VETO 처리(후보 제외)되거나 AI 추천에서 완벽히 배제해야 해.
+        5. **정렬 순서**: 추천 종목 'candidates' 배열의 정렬 순서는 퀀트 종합 점수(totalScore)가 높은 종목이 맨 앞으로 오도록 내림차순 정렬해야 해.
+        6. [최신 뉴스]를 분석할 때, 발행 시각이 분석일(${krNow.getUTCFullYear()}-${krNow.getUTCMonth()+1}-${krNow.getUTCDate()})로부터 '24시간 이내'인 뉴스를 최우선 가중치(20%)로 반영해.
+        7. 외인/기관 수급: 40%, 거시경제(매크로) 지표: 20%, 최신 뉴스 및 공시: 20%, 과거 피드백 및 장기 기억: 20%
+        8. **후보군 리스트 매칭 엄수 (핵심)**: 'candidates' 배열에는 반드시 아래 [실시간 시장 포착 후보 종목 및 퀀트 점수표]에 명시된 한글 종목명과 **완벽히 동일한 이름**만 담아야 해. 임의로 새로운 종목명을 지어내거나, 설명식 문구(예: 'HBM 선두주자', '전력반도체', 'AI 반도체 설계', '전력 인프라 대장')를 종목명 대신 넣어서는 절대 안 돼. 만약 후보군 리스트에 테마와 연관된 종목이 부족하다면, 억지로 채우지 말고 연관된 종목들만(예: 3~5개) 반환해.
 
         [현재 매크로 상황]
         ${macroCtx}
