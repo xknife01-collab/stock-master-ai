@@ -24,7 +24,6 @@ const patternInsightsPath = path.join(__dirname, '../pattern_insights.json');
 // ==========================================
 // 🔧 [상장코드 환각 방지] Supabase 연동 인메모리 캐시 & 교정기
 // ==========================================
-import supabase from '../lib/supabaseClient.js';
 
 const stockMasterCache = {};
 
@@ -1286,8 +1285,24 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     .in('symbol', symbols);
                 
                 if (!error && data) {
-                    cachedRows = data;
-                    data.forEach(row => {
+                    const now = new Date();
+                    const freshData = data.filter(row => {
+                        if (!row.updated_at) return false;
+                        const updatedAt = new Date(row.updated_at);
+                        const diffMins = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
+                        if (diffMins > 60) return false;
+                        
+                        // ⚙️ [Schema Self-Healing] 캐시에 ATR 또는 ATRPercent가 누락된 경우 스키마 마이그레이션을 위해 만료 처리
+                        if (!row.advanced || row.advanced.atr === undefined || row.advanced.atrPercent === undefined) {
+                            console.log(`♻️ [Schema Self-Healing] ${row.symbol} 캐시에 ATR 지표가 없습니다. 즉시 Live 동기화를 트리거합니다.`);
+                            return false;
+                        }
+                        
+                        return true;
+                    });
+
+                    cachedRows = freshData;
+                    freshData.forEach(row => {
                         metricsMap[row.symbol] = {
                             price: row.fundamental?.price || 0,
                             disparity5: parseFloat(row.advanced?.disparity5) || 100,
@@ -1303,10 +1318,12 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                                 foreign: row.advanced?.investor?.foreign5D || 0,
                                 organ: row.advanced?.investor?.organ5D || 0,
                                 personal: row.advanced?.investor?.personal5D || 0
-                            }
+                            },
+                            atr: row.advanced?.atr !== undefined ? parseFloat(row.advanced?.atr) : null,
+                            atrPercent: row.advanced?.atrPercent !== undefined ? parseFloat(row.advanced?.atrPercent) : null
                         };
                     });
-                    console.log(`⚡ [Pulse] Supabase 캐시로부터 ${data.length}개 종목의 퀀트 지표 일괄 로드 완료 (0.01초).`);
+                    console.log(`⚡ [Pulse] Supabase 캐시로부터 ${freshData.length}개 종목의 유효한(1시간 이내) 퀀트 지표 로드 완료 (총 ${data.length}개 중 ${data.length - freshData.length}개 만료됨).`);
                 } else {
                     console.error('❌ [Pulse] Failed to load metrics from Supabase cache:', error?.message);
                 }
@@ -1336,7 +1353,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                             foreign: fresh.advanced?.investor?.foreign5D || 0,
                             organ: fresh.advanced?.investor?.organ5D || 0,
                             personal: fresh.advanced?.investor?.personal5D || 0
-                        }
+                        },
+                        atr: fresh.advanced?.atr !== undefined ? parseFloat(fresh.advanced?.atr) : null,
+                        atrPercent: fresh.advanced?.atrPercent !== undefined ? parseFloat(fresh.advanced?.atrPercent) : null
                     };
                     cachedRows.push({
                         symbol,
@@ -1351,9 +1370,12 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                         strength: 100,
                         shortRatio: 0,
                         investor1D: { foreign: 0, organ: 0, personal: 0 },
-                        investor5D: { foreign: 0, organ: 0, personal: 0 }
+                        investor5D: { foreign: 0, organ: 0, personal: 0 },
+                        atr: null,
+                        atrPercent: null
                     };
                 }
+                await sleep(300); // KIS API 과부하 및 TPS 제한 방지를 위해 300ms 대기 추가
             }
         }
 
@@ -1579,9 +1601,10 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                         c.vetoReason = `부채비율 과다 (${fin.debtRatio}%)`;
                     }
 
-                    // (4) 고PBR 10배 이상 버블 기업 제외 Veto Rule
-                    if (fin.pbr !== null && fin.pbr >= 10) {
-                        console.log(`❌ [Financial Veto] ${c.name} (${c.code}) - 고PBR 버블(${fin.pbr}배)로 후보군에서 원천 제외`);
+                    // (4) 고PBR 10배 이상 버블 기업 제외 Veto Rule (ROE >= 20% 우량 성장주는 15배로 임계값 완화)
+                    const pbrThreshold = (fin.roe !== null && fin.roe >= 20) ? 15 : 10;
+                    if (fin.pbr !== null && fin.pbr >= pbrThreshold) {
+                        console.log(`❌ [Financial Veto] ${c.name} (${c.code}) - 고PBR 버블(${fin.pbr}배, 기준: ${pbrThreshold}배)로 후보군에서 원천 제외`);
                         c.isVetoed = true;
                         c.vetoReason = `고PBR 버블 (${fin.pbr}배)`;
                     }
@@ -1697,11 +1720,14 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     c.intradayEstimate = intradayEstimate;
                     
                     // 장중 개미지옥 패턴 검증 (오늘 외인 순매도 && 기관 순매도 && 개인 순매수)
-                    const isIntradayAntHell = intradayEstimate.foreign < 0 && intradayEstimate.organ < 0 && intradayEstimate.personal > 0;
+                    // 장중 개미지옥 패턴 검증 (오늘 외인 순매도 && 기관 순매도 && 개인 순매수)
+                    // 단순 소량 매도가 아닌 유의미한 수급 이탈(외인 <-10000, 기관 <-10000, 개인 >20000)일 때만 감지
+                    // Safe Mode일 때만 VETO(원천 제외) 처리하고, Normal Mode일 때는 감점(score1D = -30)으로 제어
+                    const isIntradayAntHell = intradayEstimate.foreign < -10000 && intradayEstimate.organ < -10000 && intradayEstimate.personal > 20000;
                     c.isIntradayAntHell = isIntradayAntHell;
 
-                    if (isIntradayAntHell) {
-                        console.log(`❌ [Intraday Veto] ${c.name} (${c.code}) - 당일 장중 기관/외인 쌍끌이 이탈 및 개미지옥 패턴 감지되어 원천 제외`);
+                    if (isIntradayAntHell && isSafe) {
+                        console.log(`❌ [Intraday Veto] ${c.name} (${c.code}) - 당일 장중 기관/외인 대량 쌍끌이 이탈 및 개미지옥 패턴 감지되어 원천 제외`);
                         c.isVetoed = true;
                         c.vetoReason = '장중 기관/외인 쌍끌이 매도';
                     }

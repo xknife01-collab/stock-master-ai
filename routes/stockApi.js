@@ -242,33 +242,42 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
     
     try {
         // 1. Supabase 캐시 우선 조회
+        let cachedData = null;
         if (supabase) {
             const { data, error } = await supabase
                 .from('stock_detail_cache')
                 .select('*')
                 .eq('symbol', symbol)
                 .single();
-
-            // 캐시가 존재하고 15분 이내에 갱신되었다면 즉시 반환 (sub-0.1초!)
             if (!error && data) {
-                const ageMs = Date.now() - new Date(data.updated_at).getTime();
-                const isFresh = ageMs < 15 * 60 * 1000;
-                
-                if (isFresh && data.fundamental) {
-                    // 동적으로 활성 동기화 리스트에 등록
-                    registerActiveSymbol(symbol);
-                    
-                    const fundamental = {
-                        ...data.fundamental,
-                        advanced: data.advanced
-                    };
-                    return res.json({ fundamental });
-                }
+                cachedData = data;
             }
         }
 
-        // 2. 캐시가 없거나 오래된 경우, 실시간 KIS 조회 및 업서트 (On-Demand Caching)
-        console.log(`📡 [On-Demand Detail] Fetching fresh details for: ${symbol}`);
+        if (cachedData && cachedData.fundamental) {
+            // 캐시가 존재하면 즉시 반환 (0.1초 만에 완료!)
+            registerActiveSymbol(symbol);
+            
+            const ageMs = Date.now() - new Date(cachedData.updated_at).getTime();
+            const isFresh = ageMs < 15 * 60 * 1000;
+            
+            if (!isFresh) {
+                // 캐시가 오래되었다면 백그라운드에서 비동기로 갱신 (클라이언트는 블로킹되지 않음)
+                console.log(`🔄 [Stale-While-Revalidate] Cache stale (${(ageMs/60000).toFixed(1)}m old) for ${symbol}. Triggering background refresh...`);
+                syncSingleStock(symbol).catch(err => {
+                    console.error(`⚠️ [Stale-While-Revalidate Background Sync Failed] ${symbol}:`, err.message);
+                });
+            }
+            
+            const fundamental = {
+                ...cachedData.fundamental,
+                advanced: cachedData.advanced
+            };
+            return res.json({ fundamental });
+        }
+
+        // 2. 캐시가 완전히 없는 경우에만 블로킹 실시간 KIS 조회 및 업서트 (On-Demand Caching)
+        console.log(`📡 [On-Demand Detail] No cache found. Fetching fresh details for: ${symbol}`);
         const freshData = await syncSingleStock(symbol);
         
         if (freshData && freshData.fundamental && freshData.advanced) {
@@ -279,24 +288,6 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
                 advanced: freshData.advanced
             };
             return res.json({ fundamental });
-        }
-
-        // 3. KIS API 장애 시 Stale 캐시라도 폴백 반환
-        if (supabase) {
-            const { data } = await supabase
-                .from('stock_detail_cache')
-                .select('*')
-                .eq('symbol', symbol)
-                .single();
-
-            if (data && data.fundamental) {
-                console.log(`⚠️ [On-Demand Detail] Serving stale cache as fallback for ${symbol}`);
-                const fundamental = {
-                    ...data.fundamental,
-                    advanced: data.advanced
-                };
-                return res.json({ fundamental });
-            }
         }
 
         res.status(500).json({ error: '상세 정보 조회에 실패했습니다.' });
