@@ -297,5 +297,49 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
     }
 });
 
+// Temporary debug endpoint to check env configuration on production
+router.get('/debug/check-env', async (req, res) => {
+    try {
+        const hasUrl = !!process.env.SUPABASE_URL;
+        const hasKey = !!process.env.SUPABASE_KEY;
+        const hasServiceKey = !!process.env.SUPABASE_SERVICE_KEY;
+        const hasKisKey = !!process.env.VITE_KIS_APP_KEY;
+        const hasKisSecret = !!process.env.VITE_KIS_APP_SECRET;
+        
+        let supabaseClientStatus = 'not initialized';
+        let supabasePingResult = null;
+        
+        const { default: supabase } = await import('../lib/supabaseClient.js');
+        
+        if (supabase) {
+            supabaseClientStatus = 'initialized successfully';
+            try {
+                const { count, error } = await supabase
+                    .from('stock_detail_cache')
+                    .select('*', { count: 'exact', head: true });
+                if (error) {
+                    supabasePingResult = `Error: ${error.message}`;
+                } else {
+                    supabasePingResult = `Success, cached items: ${count}`;
+                }
+            } catch (pingErr) {
+                supabasePingResult = `Exception: ${pingErr.message}`;
+            }
+        }
+        
+        res.json({
+            supabaseUrlConfigured: hasUrl,
+            supabaseKeyConfigured: hasKey,
+            supabaseServiceKeyConfigured: hasServiceKey,
+            kisKeyConfigured: hasKisKey,
+            kisSecretConfigured: hasKisSecret,
+            supabaseClientStatus,
+            supabasePingResult
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 export default router;
  // RESTART TRIGGER 1774927645021
