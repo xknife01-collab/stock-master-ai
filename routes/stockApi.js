@@ -144,7 +144,7 @@ router.get('/history/:symbol', ensureToken, async (req, res) => {
                 FID_INPUT_DATE_2: new Date().toISOString().slice(0,10).replace(/-/g,''),
                 FID_PERIOD_DIV_CODE: 'D',
                 FID_ORG_ADJ_PRC: '0',
-                FID_ETC_CLS_CODE: ''
+                ...(isIndex ? { FID_ETC_CLS_CODE: '' } : {})
             };
 
             const response = await kisRequest({

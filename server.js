@@ -14,7 +14,7 @@ import cron from 'node-cron';
 import { executeHourlyPulse } from './routes/aiApi.js';
 import { runStopLossMonitor } from './lib/marketMonitor.js';
 import { startStockSync } from './lib/stockSync.js';
-import { runStartupGuard } from './lib/startupGuard.js';
+import { runStartupGuard, startStartupGuardDaemon } from './lib/startupGuard.js';
 
 
 dotenv.config();
@@ -95,6 +95,7 @@ app.listen(PORT, async () => {
     
     // 8. KIS API 규격 및 정합성 자가진단(Startup Guard) 실행
     await runStartupGuard();
+    startStartupGuardDaemon();
     
     // 9. 백그라운드 실시간 KIS 캐시 동기화 엔진 가동
     try {
