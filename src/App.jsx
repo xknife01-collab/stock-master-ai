@@ -267,7 +267,7 @@ const App = () => {
         />
 
         {/* 2. Market Overview (Dashboard) */}
-        <MarketDashboard />
+        <MarketDashboard dashboardData={dashboardData} />
 
         {/* 3. AI Analysis Section */}
         <AISignalSection 

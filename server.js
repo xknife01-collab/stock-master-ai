@@ -5,7 +5,7 @@ import { aiModel } from './lib/ai.js';
 import stockApi from './routes/stockApi.js';
 import aiApi from './routes/aiApi.js';
 import newsApi from './routes/newsApi.js';
-import dashboardApi, { setupDashboardApi } from './routes/dashboardApi.js';
+import dashboardApi, { setupDashboardApi, startDashboardSync } from './routes/dashboardApi.js';
 import conditionApi, { setupConditionApi } from './routes/conditionApi.js';
 import macroApi from './routes/macroApi.js';
 import authApi from './routes/authApi.js';
@@ -93,16 +93,29 @@ setTimeout(runStopLossMonitor, 5000);
 app.listen(PORT, async () => {
     console.log(`🚀 Modular Stock Proxy Server running at http://localhost:${PORT}`);
     
-    // 8. KIS API 규격 및 정합성 자가진단(Startup Guard) 실행
-    await runStartupGuard();
-    startStartupGuardDaemon();
-    
-    // 9. 백그라운드 실시간 KIS 캐시 동기화 엔진 가동
+    // 1. 백그라운드 대시보드 실시간 동기화 데몬 가동 (캐시 즉시 로드 및 동기화 시작)
+    try {
+        startDashboardSync();
+    } catch (dbSyncErr) {
+        console.error('❌ Failed to start dashboard background sync:', dbSyncErr.message);
+    }
+
+    // 2. 백그라운드 실시간 KIS 캐시 동기화 엔진 가동
     try {
         startStockSync();
     } catch (syncErr) {
         console.error('❌ Failed to start stock background sync:', syncErr.message);
     }
+
+    // 3. KIS API 규격 및 정합성 자가진단(Startup Guard) 실행 (비차단 비동기 실행)
+    console.log('🛡️ [Startup Guard] Initiating KIS API and Data Integrity self-test in background...');
+    runStartupGuard()
+        .then(() => {
+            startStartupGuardDaemon();
+        })
+        .catch(err => {
+            console.error('❌ Startup Guard self-test failed:', err.message);
+        });
 }).on('error', (err) => {
     console.error('❌ Server failed to start:', err.message);
 });

@@ -3,7 +3,7 @@ import { ChartLine, Activity } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { API_URL } from '../../config.js';
 
-const MarketDashboard = () => {
+const MarketDashboard = ({ dashboardData }) => {
   const [chartIndex, setChartIndex] = useState(0);
   const [timeRange, setTimeRange] = useState('1D');
   const [history, setHistory] = useState([]);
@@ -13,7 +13,23 @@ const MarketDashboard = () => {
 
   const chartSymbols = ['KOSPI', 'KOSDAQ', 'KOSPI200'];
 
-  // 차트 히스토리 갱신 (1D이면 1분마다 자동 갱신)
+  // 1. 대시보드 캐시 데이터로부터 실시간 지수/등락률 동기화 (한투 실시간 정합성 보장)
+  useEffect(() => {
+    if (dashboardData && Array.isArray(dashboardData.sectors)) {
+      const prices = { 'KOSPI': '0', 'KOSDAQ': '0', 'KOSPI200': '0' };
+      const changes = { 'KOSPI': null, 'KOSDAQ': null, 'KOSPI200': null };
+      dashboardData.sectors.forEach(s => {
+        if (s.name === 'KOSPI' || s.name === 'KOSDAQ' || s.name === 'KOSPI200') {
+          prices[s.name] = s.price;
+          changes[s.name] = s.change;
+        }
+      });
+      setIndexPrices(prices);
+      setIndexChanges(changes);
+    }
+  }, [dashboardData]);
+
+  // 2. 차트 히스토리 갱신 (1D이면 1분마다 자동 갱신)
   useEffect(() => {
     const symbol = chartSymbols[chartIndex];
     const fetchHistory = (isInitial = false) => {
@@ -23,7 +39,11 @@ const MarketDashboard = () => {
         .then(data => {
           setHistory(data);
           if (data.length > 0) {
-            setIndexPrices(prev => ({ ...prev, [symbol]: data[data.length - 1].price }));
+            setIndexPrices(prev => {
+              // 이미 대시보드에서 실시간 가격을 받았으면 덮어쓰지 않음
+              if (prev[symbol] && prev[symbol] !== '0') return prev;
+              return { ...prev, [symbol]: data[data.length - 1].price };
+            });
           }
         })
         .catch(e => console.error('Index history load fail', e))
@@ -44,30 +64,6 @@ const MarketDashboard = () => {
       if (interval) clearInterval(interval);
     };
   }, [chartIndex, timeRange]);
-
-  // 모든 지수 현재가 1분마다 실시간 갱신 (Market Sentiment 패널)
-  useEffect(() => {
-    const fetchAllPrices = () => {
-      chartSymbols.forEach(symbol => {
-        fetch(`${API_URL}/api/stock/history/${symbol}?range=1D`)
-          .then(res => res.json())
-          .then(data => {
-            if (data.length > 0) {
-              const latest = data[data.length - 1].price;
-              const first = data[0].price;
-              const change = first > 0 ? (((latest - first) / first) * 100).toFixed(2) : null;
-              setIndexPrices(prev => ({ ...prev, [symbol]: latest }));
-              setIndexChanges(prev => ({ ...prev, [symbol]: change }));
-            }
-          })
-          .catch(() => {});
-      });
-    };
-
-    fetchAllPrices();
-    const priceInterval = setInterval(fetchAllPrices, 60000);
-    return () => clearInterval(priceInterval);
-  }, []);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
