@@ -132,13 +132,18 @@ export const setupDashboardApi = () => {
                     },
                     headers: getKisHeaders('FHPST01710000')
                 });
-                if (volRes.data.rt_cd === '0' && volRes.data.output) {
+                if (volRes.data.rt_cd === '0' && volRes.data.output && volRes.data.output.length > 0) {
                     topStocks[0] = volRes.data.output.slice(0, 10).map(it => ({
                         n: it.hts_kor_isnm, s: it.mksc_shrn_iscd, p: it.stck_prpr, pct: it.prdy_ctrt + '%'
                     }));
+                    saveSupplyCache('dashboard_volume_rank', topStocks[0]);
+                } else {
+                    console.warn(`[Dashboard Volume Rank] KIS returned error rt_cd: ${volRes.data.rt_cd}, msg: ${volRes.data.msg1}. Fallback to cache.`);
+                    topStocks[0] = getSupplyCache('dashboard_volume_rank') || [];
                 }
             } catch (volError) {
-                console.warn('[Dashboard Volume Rank Error] Failed to fetch volume rank:', volError.message);
+                console.warn('[Dashboard Volume Rank Error] Failed to fetch volume rank, using cache fallback:', volError.message);
+                topStocks[0] = getSupplyCache('dashboard_volume_rank') || [];
             }
 
             try {
@@ -154,13 +159,18 @@ export const setupDashboardApi = () => {
                     },
                     headers: getKisHeaders('FHPST01720000')
                 });
-                if (gainerRes.data.rt_cd === '0' && gainerRes.data.output) {
+                if (gainerRes.data.rt_cd === '0' && gainerRes.data.output && gainerRes.data.output.length > 0) {
                     topStocks[1] = gainerRes.data.output.slice(0, 10).map(it => ({
                         n: it.hts_kor_isnm, s: it.mksc_shrn_iscd, p: it.stck_prpr, pct: it.prdy_ctrt + '%'
                     }));
+                    saveSupplyCache('dashboard_fluctuation_rank', topStocks[1]);
+                } else {
+                    console.warn(`[Dashboard Fluctuation] KIS returned error rt_cd: ${gainerRes.data.rt_cd}, msg: ${gainerRes.data.msg1}. Fallback to cache.`);
+                    topStocks[1] = getSupplyCache('dashboard_fluctuation_rank') || [];
                 }
             } catch (gainerError) {
-                console.warn('[Dashboard Fluctuation Error] Failed to fetch fluctuations:', gainerError.message);
+                console.warn('[Dashboard Fluctuation Error] Failed to fetch fluctuations, using cache fallback:', gainerError.message);
+                topStocks[1] = getSupplyCache('dashboard_fluctuation_rank') || [];
             }
 
             const result = { topStocks, foreign: [fBuy, fSell], inst: [iBuy, iSell], sectors, themes };
