@@ -1087,6 +1087,42 @@ const calculateBondStress = (us10yData) => {
         changePercent
     };
 };
+const getSupplyPointsCombined = (fQty, oQty, pQty, fMoney, oMoney, pMoney, maxS) => {
+    const isAntQty = fQty < 0 && oQty < 0 && pQty > 0;
+    const isAntMoney = fMoney < 0 && oMoney < 0 && pMoney > 0;
+    if (isAntQty || isAntMoney) return -30;
+    
+    let qtyScore = 0;
+    if (fQty > 0 && oQty > 0) {
+        qtyScore = maxS;
+    } else if (fQty + oQty > 0) {
+        qtyScore = maxS === 20 ? 15 : 20;
+    } else if (fQty > 0 || oQty > 0) {
+        qtyScore = 10;
+    }
+    
+    let moneyScore = 0;
+    if (fMoney > 0 && oMoney > 0) {
+        const totalMoney = fMoney + oMoney;
+        if (totalMoney >= 50) moneyScore = maxS;
+        else if (totalMoney >= 20) moneyScore = Math.round(maxS * 0.9);
+        else if (totalMoney >= 10) moneyScore = Math.round(maxS * 0.8);
+        else moneyScore = Math.round(maxS * 0.7);
+    } else if (fMoney + oMoney > 0) {
+        const totalMoney = fMoney + oMoney;
+        if (totalMoney >= 50) moneyScore = Math.round(maxS * 0.8);
+        else if (totalMoney >= 20) moneyScore = Math.round(maxS * 0.75);
+        else if (totalMoney >= 10) moneyScore = Math.round(maxS * 0.65);
+        else moneyScore = Math.round(maxS * 0.5);
+    } else if (fMoney > 0 || oMoney > 0) {
+        const singleMax = Math.max(fMoney, oMoney);
+        if (singleMax >= 30) moneyScore = Math.round(maxS * 0.6);
+        else if (singleMax >= 10) moneyScore = Math.round(maxS * 0.5);
+        else moneyScore = Math.round(maxS * 0.3);
+    }
+    
+    return Math.round(qtyScore * 0.5 + moneyScore * 0.5);
+};
 
 const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
     const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -1267,13 +1303,12 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 if (b.count !== a.count) return b.count - a.count;
                 if (b.value !== a.value) return b.value - a.value;
                 return Math.abs(b.change) - Math.abs(a.change);
-            })
-            .slice(0, 25);
+            });
 
         const symbols = candidatePool.map(c => c.code);
 
-        // 상위 25개 종목에 대한 실시간 퀀트 지표 (체결강도, 이격도, 공매도 비중) 수집
-        console.log(`📡 [Pulse] 상위 25개 후보 종목의 실시간 퀀트 지표 수집 시작...`);
+        // 전체 후보 종목에 대한 실시간 퀀트 지표 (체결강도, 이격도, 공매도 비중) 수집
+        console.log(`📡 [Pulse] 전체 후보 종목(${candidatePool.length}개)의 실시간 퀀트 지표 수집 시작...`);
         let metricsMap = {};
         let cachedRows = [];
         
@@ -1319,8 +1354,16 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                                 organ: row.advanced?.investor?.organ5D || 0,
                                 personal: row.advanced?.investor?.personal5D || 0
                             },
+                            investorMoney5D: {
+                                foreign: row.advanced?.investor?.foreignMoney5D || 0,
+                                organ: row.advanced?.investor?.organMoney5D || 0,
+                                personal: row.advanced?.investor?.personalMoney5D || 0
+                            },
                             atr: row.advanced?.atr !== undefined ? parseFloat(row.advanced?.atr) : null,
-                            atrPercent: row.advanced?.atrPercent !== undefined ? parseFloat(row.advanced?.atrPercent) : null
+                            atrPercent: row.advanced?.atrPercent !== undefined ? parseFloat(row.advanced?.atrPercent) : null,
+                            transactionValue: row.advanced?.transactionValue !== undefined ? parseFloat(row.advanced.transactionValue) : 0,
+                            creditBalance: row.advanced?.creditBalance !== undefined ? parseFloat(row.advanced.creditBalance) : 0,
+                            sector: row.fundamental?.sector || '기타'
                         };
                     });
                     console.log(`⚡ [Pulse] Supabase 캐시로부터 ${freshData.length}개 종목의 유효한(1시간 이내) 퀀트 지표 로드 완료 (총 ${data.length}개 중 ${data.length - freshData.length}개 만료됨).`);
@@ -1332,10 +1375,13 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             }
         }
 
-        // 캐시에 없는 종목들은 KIS API를 통해 실시간 조회 수행 (폴백 및 동기화 자가학습 트리거)
-        for (const symbol of symbols) {
+        // 캐시에 없는 종목들은 KIS API를 통해 실시간 조회 수행
+        // 단, 과도한 API 호출 방지를 위해 상위 40위 이내 후보이면서 캐시 미스난 경우에만 실시간 조회 수행
+        const topCandidatesForLiveSync = candidatePool.slice(0, 40);
+        for (const c of topCandidatesForLiveSync) {
+            const symbol = c.code;
             if (!metricsMap[symbol]) {
-                console.log(`📡 [Pulse Fallback] Cache miss for ${symbol}. Fetching live...`);
+                console.log(`📡 [Pulse Fallback] Top candidate cache miss for ${symbol}. Fetching live...`);
                 const fresh = await syncSingleStock(symbol);
                 if (fresh) {
                     metricsMap[symbol] = {
@@ -1354,28 +1400,46 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                             organ: fresh.advanced?.investor?.organ5D || 0,
                             personal: fresh.advanced?.investor?.personal5D || 0
                         },
+                        investorMoney5D: {
+                            foreign: fresh.advanced?.investor?.foreignMoney5D || 0,
+                            organ: fresh.advanced?.investor?.organMoney5D || 0,
+                            personal: fresh.advanced?.investor?.personalMoney5D || 0
+                        },
                         atr: fresh.advanced?.atr !== undefined ? parseFloat(fresh.advanced?.atr) : null,
-                        atrPercent: fresh.advanced?.atrPercent !== undefined ? parseFloat(fresh.advanced?.atrPercent) : null
+                        atrPercent: fresh.advanced?.atrPercent !== undefined ? parseFloat(fresh.advanced?.atrPercent) : null,
+                        transactionValue: fresh.advanced?.transactionValue !== undefined ? parseFloat(fresh.advanced.transactionValue) : 0,
+                        creditBalance: fresh.advanced?.creditBalance !== undefined ? parseFloat(fresh.advanced.creditBalance) : 0,
+                        sector: fresh.fundamental?.sector || '기타'
                     };
                     cachedRows.push({
                         symbol,
                         fundamental: fresh.fundamental,
                         advanced: fresh.advanced
                     });
-                } else {
-                    metricsMap[symbol] = {
-                        price: 0,
-                        disparity5: 100,
-                        disparity20: 100,
-                        strength: 100,
-                        shortRatio: 0,
-                        investor1D: { foreign: 0, organ: 0, personal: 0 },
-                        investor5D: { foreign: 0, organ: 0, personal: 0 },
-                        atr: null,
-                        atrPercent: null
-                    };
                 }
-                await sleep(300); // KIS API 과부하 및 TPS 제한 방지를 위해 300ms 대기 추가
+                await sleep(150); // 한투 API 부하 관리
+            }
+        }
+
+        // 상위 40위 밖의 캐시 미스 종목들은 기본 디폴트 설정으로 채워서 API 호출 과부하 방지
+        for (const c of candidatePool) {
+            const symbol = c.code;
+            if (!metricsMap[symbol]) {
+                metricsMap[symbol] = {
+                    price: c.price || 0,
+                    disparity5: 100,
+                    disparity20: 100,
+                    strength: 100,
+                    shortRatio: 0,
+                    investor1D: { foreign: 0, organ: 0, personal: 0 },
+                    investor5D: { foreign: 0, organ: 0, personal: 0 },
+                    investorMoney5D: { foreign: 0, organ: 0, personal: 0 },
+                    atr: null,
+                    atrPercent: null,
+                    transactionValue: 0,
+                    creditBalance: 0,
+                    sector: '기타'
+                };
             }
         }
 
@@ -1427,23 +1491,27 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         // 각 종목별 100점 만점 퀀트 스코어 계산 및 상세 점수표 구축
         const scoredCandidates = candidatePool.map(c => {
-            const m = metricsMap[c.code] || { price: c.price, disparity5: 100, disparity20: 100, strength: 100, shortRatio: 0, investor1D: { foreign: 0, organ: 0, personal: 0 }, investor5D: { foreign: 0, organ: 0, personal: 0 } };
+            const m = metricsMap[c.code] || { price: c.price, disparity5: 100, disparity20: 100, strength: 100, shortRatio: 0, investor1D: { foreign: 0, organ: 0, personal: 0 }, investor5D: { foreign: 0, organ: 0, personal: 0 }, investorMoney5D: { foreign: 0, organ: 0, personal: 0 }, transactionValue: 0, creditBalance: 0, sector: '기타' };
             
+            // --- Pre-VETO 필터링 ---
+            const txVal = m.transactionValue || 0;
+            const credBal = m.creditBalance || 0;
+            const forceRecommend = process.env.FORCE_RECOMMEND === 'true';
+
+            const isVetoedByCredit = credBal > 6;
+            const isVetoedByLiquidity = txVal < 20000000000;
+
+            if (!forceRecommend && (isVetoedByCredit || isVetoedByLiquidity)) {
+                console.log(`🛡️ [Pre-VETO 필터링 제외] ${c.name} (${c.code}) - 신용잔고율: ${credBal}%, 거래대금: ${Math.round(txVal/100000000)}억원`);
+                return null;
+            }
+
             let strengthScore = 0;
             let disparityScore = 0;
             let shortScore = 0;
             let supplyScore = 0;
 
             const isSafe = marketStress.safeMode;
-            
-            const getSupplyPoints = (f, o, p, maxS) => {
-                const isAnt = f < 0 && o < 0 && p > 0;
-                if (isAnt) return -30;
-                if (f > 0 && o > 0) return maxS;
-                if (f + o > 0) return maxS === 20 ? 15 : 20;
-                if (f > 0 || o > 0) return 10;
-                return 0;
-            };
             
             // --- 동적 가중치 공식 배분 ---
             if (isSafe) {
@@ -1471,12 +1539,17 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 else if (sr >= 12 && sr < 15) shortScore = 0;
                 else shortScore = -25; // 공매도 폭탄 강력 감점
 
-                // 4. 수급 (Max 20점) - 1일 수급 70% + 5일 수급 30% 반영 (가집계 미존재 시 5일 수급 100% 반영)
+                // 4. 수급 (Max 20점) - 1일 수급 70% + 5일 수급 30% 반영
                 const inv1D = m.investor1D || { foreign: 0, organ: 0, personal: 0 };
                 const inv5D = m.investor5D || { foreign: 0, organ: 0, personal: 0 };
-                
-                const score1D = getSupplyPoints(inv1D.foreign, inv1D.organ, inv1D.personal, 20);
-                const score5D = getSupplyPoints(inv5D.foreign, inv5D.organ, inv5D.personal, 20);
+                const invMoney5D = m.investorMoney5D || { foreign: 0, organ: 0, personal: 0 };
+
+                const fMoney1D = Math.round((inv1D.foreign * m.price) / 100000000);
+                const oMoney1D = Math.round((inv1D.organ * m.price) / 100000000);
+                const pMoney1D = Math.round((inv1D.personal * m.price) / 100000000);
+
+                const score1D = getSupplyPointsCombined(inv1D.foreign, inv1D.organ, inv1D.personal, fMoney1D, oMoney1D, pMoney1D, 20);
+                const score5D = getSupplyPointsCombined(inv5D.foreign, inv5D.organ, inv5D.personal, invMoney5D.foreign, invMoney5D.organ, invMoney5D.personal, 20);
                 if (inv1D.foreign === 0 && inv1D.organ === 0) {
                     supplyScore = score5D;
                 } else {
@@ -1507,12 +1580,17 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 else if (sr >= 12 && sr < 15) shortScore = 0;
                 else shortScore = -15;
 
-                // 4. 수급 (Max 30점) - 1일 수급 70% + 5일 수급 30% 반영 (가집계 미존재 시 5일 수급 100% 반영)
+                // 4. 수급 (Max 30점) - 1일 수급 70% + 5일 수급 30% 반영
                 const inv1D = m.investor1D || { foreign: 0, organ: 0, personal: 0 };
                 const inv5D = m.investor5D || { foreign: 0, organ: 0, personal: 0 };
-                
-                const score1D = getSupplyPoints(inv1D.foreign, inv1D.organ, inv1D.personal, 30);
-                const score5D = getSupplyPoints(inv5D.foreign, inv5D.organ, inv5D.personal, 30);
+                const invMoney5D = m.investorMoney5D || { foreign: 0, organ: 0, personal: 0 };
+
+                const fMoney1D = Math.round((inv1D.foreign * m.price) / 100000000);
+                const oMoney1D = Math.round((inv1D.organ * m.price) / 100000000);
+                const pMoney1D = Math.round((inv1D.personal * m.price) / 100000000);
+
+                const score1D = getSupplyPointsCombined(inv1D.foreign, inv1D.organ, inv1D.personal, fMoney1D, oMoney1D, pMoney1D, 30);
+                const score5D = getSupplyPointsCombined(inv5D.foreign, inv5D.organ, inv5D.personal, invMoney5D.foreign, invMoney5D.organ, invMoney5D.personal, 30);
                 if (inv1D.foreign === 0 && inv1D.organ === 0) {
                     supplyScore = score5D;
                 } else {
@@ -1537,8 +1615,12 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     shortRatio: m.shortRatio,
                     investor1D: m.investor1D,
                     investor5D: m.investor5D,
+                    investorMoney5D: m.investorMoney5D,
                     atr: m.atr,
-                    atrPercent: m.atrPercent
+                    atrPercent: m.atrPercent,
+                    transactionValue: m.transactionValue,
+                    creditBalance: m.creditBalance,
+                    sector: m.sector
                 },
                 scores: {
                     strengthScore,
@@ -1550,16 +1632,16 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 },
                 totalScore
             };
-        });
+        }).filter(Boolean);
 
         // 1차 정렬
         const sortedScored = [...scoredCandidates].sort((a, b) => b.totalScore - a.totalScore);
 
-        // 2) 상위 15개 후보군에 대하여 재무 데이터를 조회하여 Veto 심사 및 하락장 재무 점수(Max 20점) 부여
-        console.log(`📡 [Pulse] 상위 15개 후보 종목의 재무 데이터 및 VETO 요건 심사 시작...`);
+        // 2) 상위 40개 후보군에 대하여 재무 데이터를 조회하여 Veto 심사 및 하락장 재무 점수(Max 20점) 부여
+        console.log(`📡 [Pulse] 상위 40개 후보 종목의 재무 데이터 및 VETO 요건 심사 시작...`);
         const isSafe = marketStress.safeMode;
         
-        for (let i = 0; i < Math.min(15, sortedScored.length); i++) {
+        for (let i = 0; i < Math.min(40, sortedScored.length); i++) {
             const c = sortedScored[i];
             try {
                 // 재무 데이터 조회 (Supabase 캐시에서 우선 추출)
@@ -1659,8 +1741,8 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             await sleep(160); // API 레이트 리밋 방지
         }
 
-        // 재무 점수가 합산된 최종 점수 기준으로 재정렬
-        const finalSortedScored = [...sortedScored].sort((a, b) => b.totalScore - a.totalScore);
+        // 재무 점수가 합산된 최종 점수 기준으로 재정렬 및 상위 40개 선정
+        const finalSortedScored = [...sortedScored].sort((a, b) => b.totalScore - a.totalScore).slice(0, 40);
 
         // 🛡️ [최고의 투자자 Dual-Engine 이원화 필터 적용]
         const technicallyFiltered = finalSortedScored.filter(c => {
@@ -2035,6 +2117,19 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 }
 
                 const metrics = metricsMap[c.s];
+                if (stats && metrics && metrics.price) {
+                    const price = metrics.price;
+                    if (stats.foreign5D !== undefined && stats.foreignMoney5D === undefined) {
+                        stats.foreignMoney5D = Math.round((stats.foreign5D * price) / 100000000);
+                    }
+                    if (stats.organ5D !== undefined && stats.organMoney5D === undefined) {
+                        stats.organMoney5D = Math.round((stats.organ5D * price) / 100000000);
+                    }
+                    if (stats.personal5D !== undefined && stats.personalMoney5D === undefined) {
+                        stats.personalMoney5D = Math.round((stats.personal5D * price) / 100000000);
+                    }
+                }
+
                 detailedCandidatesData.push({
                     name: c.n,
                     code: c.s,
@@ -2048,7 +2143,10 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     strength: analyticsResult?.strength || null,
                     shortRatio: analyticsResult?.shortRatio || null,
                     atr: metrics ? metrics.atr : null,
-                    atrPercent: metrics ? metrics.atrPercent : null
+                    atrPercent: metrics ? metrics.atrPercent : null,
+                    sector: metrics ? metrics.sector : '기타',
+                    transactionValue: metrics ? metrics.transactionValue : 0,
+                    creditBalance: metrics ? metrics.creditBalance : 0
                 });
                 
                 await sleep(150); // API 부하 조절
@@ -2071,15 +2169,20 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 "최근 가격 추이 정보 없음";
                 
             return `[분석 후보 ${idx + 1}위: ${d.name} (${d.code})]
+        0. 업종 및 유동성/레버리지:
+        - 업종/섹터: ${d.sector || '기타'}
+        - 당일 거래대금: ${d.transactionValue ? (d.transactionValue / 100000000).toFixed(1) + '억원' : '정보 없음'}
+        - 신용잔고율: ${d.creditBalance !== undefined ? d.creditBalance + '%' : '정보 없음'}
+
         1. 종목별 최신 뉴스/공시:
         ${d.news}
         - 종목 뉴스 감성 지수: 호재(Bullish) ${d.newsSentiment?.bullishPercent || 0}%, 악재(Bearish) ${d.newsSentiment?.bearishPercent || 0}%, 중립(Neutral) ${d.newsSentiment?.neutralPercent || 0}%
         
         2. 외국인/기관/개인 수급 추이 (3일):
         ${d.supply}
-        - 외국인 5일 누적 순매수 수량: ${d.supplyStats?.foreign5D !== undefined ? d.supplyStats.foreign5D.toLocaleString() + '주' : '정보 없음'}
-        - 기관 5일 누적 순매수 수량: ${d.supplyStats?.organ5D !== undefined ? d.supplyStats.organ5D.toLocaleString() + '주' : '정보 없음'}
-        - 개인 5일 누적 순매수 수량: ${d.supplyStats?.personal5D !== undefined ? d.supplyStats.personal5D.toLocaleString() + '주' : '정보 없음'}
+        - 외국인 5일 누적 순매수 수량: ${d.supplyStats?.foreign5D !== undefined ? d.supplyStats.foreign5D.toLocaleString() + '주' : '정보 없음'} (누적 금액: ${d.supplyStats?.foreignMoney5D !== undefined ? d.supplyStats.foreignMoney5D.toLocaleString() + '억원' : '정보 없음'})
+        - 기관 5일 누적 순매수 수량: ${d.supplyStats?.organ5D !== undefined ? d.supplyStats.organ5D.toLocaleString() + '주' : '정보 없음'} (누적 금액: ${d.supplyStats?.organMoney5D !== undefined ? d.supplyStats.organMoney5D.toLocaleString() + '억원' : '정보 없음'})
+        - 개인 5일 누적 순매수 수량: ${d.supplyStats?.personal5D !== undefined ? d.supplyStats.personal5D.toLocaleString() + '주' : '정보 없음'} (누적 금액: ${d.supplyStats?.personalMoney5D !== undefined ? d.supplyStats.personalMoney5D.toLocaleString() + '억원' : '정보 없음'})
         - 외국인 20일 누적 순매수 수량: ${d.supplyStats?.foreign20D !== undefined ? d.supplyStats.foreign20D.toLocaleString() + '주' : '정보 없음'}
         - 기관 20일 누적 순매수 수량: ${d.supplyStats?.organ20D !== undefined ? d.supplyStats.organ20D.toLocaleString() + '주' : '정보 없음'}
         - 개인 20일 누적 순매수 수량: ${d.supplyStats?.personal20D !== undefined ? d.supplyStats.personal20D.toLocaleString() + '주' : '정보 없음'}

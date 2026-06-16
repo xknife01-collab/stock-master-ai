@@ -254,8 +254,15 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
             }
         }
 
-        if (cachedData && cachedData.fundamental) {
-            // 캐시가 존재하면 즉시 반환 (0.1초 만에 완료!)
+        const isCacheValid = cachedData && 
+                             cachedData.fundamental && 
+                             cachedData.advanced && 
+                             cachedData.advanced.transactionValue !== undefined && 
+                             cachedData.advanced.transactionValue !== null && 
+                             cachedData.advanced.transactionValue !== 0;
+
+        if (isCacheValid) {
+            // 캐시가 존재하고 정합성이 맞으면 즉시 반환 (0.1초 만에 완료!)
             registerActiveSymbol(symbol);
             
             const ageMs = Date.now() - new Date(cachedData.updated_at).getTime();
@@ -276,8 +283,8 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
             return res.json({ fundamental });
         }
 
-        // 2. 캐시가 완전히 없는 경우에만 블로킹 실시간 KIS 조회 및 업서트 (On-Demand Caching)
-        console.log(`📡 [On-Demand Detail] No cache found. Fetching fresh details for: ${symbol}`);
+        // 2. 캐시가 완전히 없거나 유효하지 않은(과거 포맷) 경우에만 블로킹 실시간 KIS 조회 및 업서트 (On-Demand Caching)
+        console.log(`📡 [On-Demand Detail] No cache or invalid cache found. Fetching fresh details for: ${symbol}`);
         const freshData = await syncSingleStock(symbol);
         
         if (freshData && freshData.fundamental && freshData.advanced) {

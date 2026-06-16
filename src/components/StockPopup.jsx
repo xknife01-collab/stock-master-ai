@@ -250,14 +250,21 @@ const StockPopup = ({ item, onClose }) => {
                             />
                           )}
                         </div>
-                        <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right">
-                          외인 {stockDetail.advanced.investor.foreignConsecutiveDays}일 연속 순매수
-                          {stockDetail.advanced.investor.foreignConsecutiveVolume > 0 && 
-                            ` (총 ${stockDetail.advanced.investor.foreignConsecutiveVolume.toLocaleString()}주)`
-                          }
+                        <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right flex justify-between items-center">
+                          <span>
+                            5일 누적 순매수 금액: <strong className={stockDetail.advanced.investor.foreignMoney5D >= 0 ? 'text-red-500' : 'text-blue-500'}>
+                              {stockDetail.advanced.investor.foreignMoney5D !== undefined ? `${stockDetail.advanced.investor.foreignMoney5D > 0 ? '+' : ''}${stockDetail.advanced.investor.foreignMoney5D}억원` : '정보 없음'}
+                            </strong>
+                          </span>
+                          <span>
+                            외인 {stockDetail.advanced.investor.foreignConsecutiveDays}일 연속 순매수
+                            {stockDetail.advanced.investor.foreignConsecutiveVolume > 0 && 
+                              ` (총 ${stockDetail.advanced.investor.foreignConsecutiveVolume.toLocaleString()}주)`
+                            }
+                          </span>
                         </div>
                       </div>
-
+ 
                       {/* 🔵 기관 포지션 바 */}
                       <div className="mb-4">
                         <div className="flex justify-between text-[10px] font-black mb-1">
@@ -280,14 +287,21 @@ const StockPopup = ({ item, onClose }) => {
                             />
                           )}
                         </div>
-                        <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right">
-                          기관 {stockDetail.advanced.investor.organConsecutiveDays}일 연속 순매수
-                          {stockDetail.advanced.investor.organConsecutiveVolume > 0 && 
-                            ` (총 ${stockDetail.advanced.investor.organConsecutiveVolume.toLocaleString()}주)`
-                          }
+                        <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right flex justify-between items-center">
+                          <span>
+                            5일 누적 순매수 금액: <strong className={stockDetail.advanced.investor.organMoney5D >= 0 ? 'text-red-500' : 'text-blue-500'}>
+                              {stockDetail.advanced.investor.organMoney5D !== undefined ? `${stockDetail.advanced.investor.organMoney5D > 0 ? '+' : ''}${stockDetail.advanced.investor.organMoney5D}억원` : '정보 없음'}
+                            </strong>
+                          </span>
+                          <span>
+                            기관 {stockDetail.advanced.investor.organConsecutiveDays}일 연속 순매수
+                            {stockDetail.advanced.investor.organConsecutiveVolume > 0 && 
+                              ` (총 ${stockDetail.advanced.investor.organConsecutiveVolume.toLocaleString()}주)`
+                            }
+                          </span>
                         </div>
                       </div>
-
+ 
                       {/* 🟢 개인 포지션 바 */}
                       <div className="mb-1">
                         <div className="flex justify-between text-[10px] font-black mb-1">
@@ -310,11 +324,18 @@ const StockPopup = ({ item, onClose }) => {
                             />
                           )}
                         </div>
-                        <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right">
-                          개인 {stockDetail.advanced.investor.personalConsecutiveDays}일 연속 순매수
-                          {stockDetail.advanced.investor.personalConsecutiveVolume > 0 && 
-                            ` (총 ${stockDetail.advanced.investor.personalConsecutiveVolume.toLocaleString()}주)`
-                          }
+                        <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right flex justify-between items-center">
+                          <span>
+                            5일 누적 순매수 금액: <strong className={stockDetail.advanced.investor.personalMoney5D >= 0 ? 'text-red-500' : 'text-blue-500'}>
+                              {stockDetail.advanced.investor.personalMoney5D !== undefined ? `${stockDetail.advanced.investor.personalMoney5D > 0 ? '+' : ''}${stockDetail.advanced.investor.personalMoney5D}억원` : '정보 없음'}
+                            </strong>
+                          </span>
+                          <span>
+                            개인 {stockDetail.advanced.investor.personalConsecutiveDays}일 연속 순매수
+                            {stockDetail.advanced.investor.personalConsecutiveVolume > 0 && 
+                              ` (총 ${stockDetail.advanced.investor.personalConsecutiveVolume.toLocaleString()}주)`
+                            }
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -327,7 +348,7 @@ const StockPopup = ({ item, onClose }) => {
                     </span>
                   </div>
                 )}
-
+ 
                 <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-3">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-[11px] font-black text-gray-600 uppercase tracking-wider">체결강도</span>
@@ -347,24 +368,107 @@ const StockPopup = ({ item, onClose }) => {
                     </p>
                   </div>
                 </div>
-
+ 
                 <div className="grid grid-cols-2 gap-3">
+                  {/* Card 1: 20일 이격도 */}
                   <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex flex-col justify-between">
                     <div>
-                      <span className="text-[10px] font-black text-gray-500 uppercase">이격도 (5일)</span>
-                      <div className="text-xl font-black text-gray-900 font-mono mt-1">{stockDetail.advanced?.disparity5}{stockDetail.advanced?.disparity5 !== '-' ? '%' : ''}</div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-[10px] font-black text-gray-500 uppercase">이격도 (20일)</span>
+                        {stockDetail.advanced?.disparity20 !== undefined && stockDetail.advanced?.disparity20 !== '-' && (
+                          <span className={`text-[8px] px-1.5 py-0.5 rounded font-black ${
+                            parseFloat(stockDetail.advanced?.disparity20) > 106 
+                              ? 'bg-red-50 text-red-600 border border-red-100' 
+                              : parseFloat(stockDetail.advanced?.disparity20) >= 98 && parseFloat(stockDetail.advanced?.disparity20) <= 104
+                                ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                                : 'bg-gray-50 text-gray-600 border border-gray-100'
+                          }`}>
+                            {parseFloat(stockDetail.advanced?.disparity20) > 106 ? '단기 과열' : parseFloat(stockDetail.advanced?.disparity20) >= 98 && parseFloat(stockDetail.advanced?.disparity20) <= 104 ? '안정 수렴' : '관망/조정'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xl font-black text-gray-900 font-mono mt-1">
+                        {stockDetail.advanced?.disparity20 !== undefined ? `${stockDetail.advanced.disparity20}%` : '-'}
+                      </div>
                     </div>
                     <p className="text-[9px] text-gray-400 leading-normal mt-2 pt-2 border-t border-gray-50">
-                      5일 이동평균선과 현재가의 괴리율(100% 기준). <strong>107% 이상</strong>은 단기 과열 구간이므로 추격 매수에 주의해야 합니다.
+                      20일 이동평균선과 현재가의 괴리율. <strong>98%~104%</strong> 안정이 진입 적기이며, 106% 초과 시 리스크 관리가 필요합니다.
                     </p>
                   </div>
+ 
+                  {/* Card 2: 공매도 비중 */}
                   <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex flex-col justify-between">
                     <div>
-                      <span className="text-[10px] font-black text-gray-500 uppercase">공매도 비중</span>
-                      <div className="text-xl font-black text-red-500 font-mono mt-1">{stockDetail.advanced?.shortRatio}{stockDetail.advanced?.shortRatio !== '-' ? '%' : ''}</div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-[10px] font-black text-gray-500 uppercase">공매도 비중</span>
+                        {stockDetail.advanced?.shortRatio !== undefined && stockDetail.advanced?.shortRatio !== '-' && (
+                          <span className={`text-[8px] px-1.5 py-0.5 rounded font-black ${
+                            parseFloat(stockDetail.advanced?.shortRatio) >= 10 
+                              ? 'bg-red-50 text-red-600 border border-red-100' 
+                              : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                          }`}>
+                            {parseFloat(stockDetail.advanced?.shortRatio) >= 10 ? '공매도 과열' : '공매도 안전'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xl font-black text-[#ff3d68] font-mono mt-1">
+                        {stockDetail.advanced?.shortRatio !== undefined ? `${stockDetail.advanced.shortRatio}%` : '-'}
+                      </div>
                     </div>
                     <p className="text-[9px] text-gray-400 leading-normal mt-2 pt-2 border-t border-gray-50">
-                      최근 거래대금 대비 공매도 비중. <strong>10% 미만</strong>이 안전구간이며, 10% 초과 시 하방 압력이 커집니다.
+                      당일 총 거래대금 대비 공매도 비중. <strong>10% 미만</strong>이 안전구간이며, 10% 초과 시 하방 압력이 강합니다.
+                    </p>
+                  </div>
+ 
+                  {/* Card 3: 당일 거래대금 */}
+                  <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-[10px] font-black text-gray-500 uppercase">당일 거래대금</span>
+                        {stockDetail.advanced?.transactionValue !== undefined && (
+                          <span className={`text-[8px] px-1.5 py-0.5 rounded font-black ${
+                            stockDetail.advanced.transactionValue < 20000000000 
+                              ? 'bg-amber-50 text-amber-600 border border-amber-100' 
+                              : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
+                          }`}>
+                            {stockDetail.advanced.transactionValue < 20000000000 ? '소외주 (VETO)' : '거래 활발'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xl font-black text-gray-900 font-mono mt-1">
+                        {stockDetail.advanced?.transactionValue !== undefined 
+                          ? `${Math.round(stockDetail.advanced.transactionValue / 100000000).toLocaleString()}억원` 
+                          : '-'}
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-gray-400 leading-normal mt-2 pt-2 border-t border-gray-50">
+                      당일 시장에서 거래된 총 대금. 기관/외인의 원활한 진입을 위해 <strong>200억원 이상</strong> 우량 유동성이 필수적입니다.
+                    </p>
+                  </div>
+ 
+                  {/* Card 4: 신용잔고율 */}
+                  <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-[10px] font-black text-gray-500 uppercase">신용잔고율</span>
+                        {stockDetail.advanced?.creditBalance !== undefined && (
+                          <span className={`text-[8px] px-1.5 py-0.5 rounded font-black ${
+                            parseFloat(stockDetail.advanced.creditBalance) > 6 
+                              ? 'bg-red-50 text-red-600 border border-red-100' 
+                              : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                          }`}>
+                            {parseFloat(stockDetail.advanced.creditBalance) > 6 ? '경고 (VETO)' : '레버리지 안전'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xl font-black text-gray-900 font-mono mt-1">
+                        {stockDetail.advanced?.creditBalance !== undefined 
+                          ? `${stockDetail.advanced.creditBalance}%` 
+                          : '-'}
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-gray-400 leading-normal mt-2 pt-2 border-t border-gray-50">
+                      자기자본 대비 신용 융자 비율. <strong>6% 초과</strong>인 종목은 반대매매 리스크와 매물 폭탄 우려로 투자 대상에서 즉각 배제됩니다.
                     </p>
                   </div>
                 </div>
