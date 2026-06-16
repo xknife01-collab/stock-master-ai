@@ -1919,7 +1919,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         finalSortedScored.sort((a, b) => b.totalScore - a.totalScore);
 
-        const scoredCandidatesCtx = finalSortedScored.map((c, idx) => {
+        const scoredCandidatesCtx = technicallyFiltered.map((c, idx) => {
             const mInv = c.metrics.investor5D || { foreign: 0, organ: 0, personal: 0 };
             const supplyText = c.supplyStats ? 
                 `➡️ 수급: 외인 5일 누적 ${c.supplyStats.foreign5D > 0 ? '+' : ''}${c.supplyStats.foreign5D.toLocaleString()}주 / 기관 5일 누적 ${c.supplyStats.organ5D > 0 ? '+' : ''}${c.supplyStats.organ5D.toLocaleString()}주 / 개인 5일 누적 ${c.supplyStats.personal5D > 0 ? '+' : ''}${c.supplyStats.personal5D.toLocaleString()}주` : 
@@ -2028,19 +2028,14 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             if (!name || typeof name !== 'string') return null;
             const cleanedName = name.replace(/\s+/g, '');
             
-            // 1차: 실시간 수집 후보군 풀에서 최우선 매칭
-            const poolMatch = candidatePool.find(p => p.name && p.name.replace(/\s+/g, '') === cleanedName);
+            // 1차: 기술적 필터 통과 종목 풀에서 최우선 매칭 (비통과 종목 추천 절대 원천 차단)
+            const poolMatch = technicallyFiltered.find(p => p.name && p.name.replace(/\s+/g, '') === cleanedName);
             if (poolMatch) {
                 return { n: poolMatch.name, s: poolMatch.code };
             }
             
-            // 2차: Supabase 누적 마스터 캐시에서 대조
-            if (stockMasterCache[cleanedName]) {
-                return { n: name, s: stockMasterCache[cleanedName] };
-            }
-            
-            // 3차: 매핑 데이터가 전혀 없는 종목은 환각 방지를 위해 제외
-            console.warn(`🚨 [원천 차단] 1차 매칭 실패 종목 제외: ${name}`);
+            // 기술적 필터를 통과하지 못한 종목은 추천 후보에서 제외하여 VETO 규정을 실시간 강제 적용
+            console.warn(`🚨 [원천 차단] 기술적 필터 미통과 종목 추천 제외: ${name}`);
             return null;
         }).filter(Boolean);
 
