@@ -51,7 +51,9 @@ export const syncDashboardData = async () => {
             console.error('❌ [Dashboard Sync] 토큰 갱신 실패:', authErr.message);
         }
 
-        const fetchKisIndex = async (item) => {
+        const sectors = [];
+        for (const item of sectorCodes) {
+            let fetched = null;
             try {
                 const response = await axios.get(`${KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-index-price`, {
                     params: { 
@@ -60,27 +62,38 @@ export const syncDashboardData = async () => {
                         FID_ETC_CLS_CODE: ''
                     },
                     headers: getKisHeaders('FHPUP02100000'),
-                    timeout: 2500 // 2.5초 타임아웃 제한
+                    timeout: 2500
                 });
-                const d = response.data.output;
+                const d = response.data?.output;
                 const pct = d?.bstp_nmix_prdy_ctrt;
-                if (!pct) return null;
-                return {
-                    name: item.name, code: item.code,
-                    price: d.bstp_nmix_prpr || '0',
-                    change: (parseFloat(pct) >= 0 ? '+' : '') + pct + '%',
-                    width: Math.min(Math.abs(parseFloat(pct)) * 20, 100) + '%'
-                };
-            } catch (e) { return null; }
-        };
+                if (pct) {
+                    fetched = {
+                        name: item.name, code: item.code,
+                        price: d.bstp_nmix_prpr || '0',
+                        change: (parseFloat(pct) >= 0 ? '+' : '') + pct + '%',
+                        width: Math.min(Math.abs(parseFloat(pct)) * 20, 100) + '%'
+                    };
+                }
+            } catch (err) {
+                console.warn(`⚠️ [Dashboard Sync] Failed to fetch index ${item.name}:`, err.message);
+            }
 
-        let sectors = await Promise.all(sectorCodes.map(fetchKisIndex));
-        sectors = sectors.filter(s => s !== null);
-        
-        // 🛡️ 한투 장애 시 기존 캐시 보존
-        if (sectors.length === 0 && cachedDashboard?.sectors && cachedDashboard.sectors.length > 0) {
-            console.log('🛡️ [Dashboard Sync] Sectors fetch failed, restoring cached sectors.');
-            sectors = cachedDashboard.sectors;
+            if (fetched) {
+                sectors.push(fetched);
+            } else {
+                // 특정 지수 조회 실패 시 기존 캐시 개별 복원 (전체 0 방지)
+                const existingIndex = cachedDashboard?.sectors?.find(s => s.code === item.code);
+                if (existingIndex) {
+                    console.log(`🛡️ [Dashboard Sync] Restoring cached index data for ${item.name} (${item.code})`);
+                    sectors.push(existingIndex);
+                } else {
+                    sectors.push({
+                        name: item.name, code: item.code,
+                        price: '0', change: '+0.00%', width: '0%'
+                    });
+                }
+            }
+            await sleep(150); // TPS 초과 방지 딜레이
         }
 
         let themes = [];
