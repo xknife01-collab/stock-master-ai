@@ -163,23 +163,16 @@ const savePatternInsights = (newInsight) => {
 };
 
 const getRagDiary = async () => {
-    let localData = [];
-    if (fs.existsSync(ragDiaryPath)) {
-        try { return JSON.parse(fs.readFileSync(ragDiaryPath, 'utf8')); } catch (e) { localData = []; }
-    }
-    
-    // 로컬 데이터가 공백이거나 비어있을 때 Supabase 데이터베이스 조회
-    if ((!localData || localData.length === 0) && supabase) {
+    // 1. Supabase 클라우드 조회 우선 (서버리스 환경에서 로컬 파일 유실/초기화 방지)
+    if (supabase) {
         try {
-            // 메모리 캐시 우선 확인
             if (stockMasterCache['__rag_diary__']) {
                 const dbData = JSON.parse(stockMasterCache['__rag_diary__']);
                 if (Array.isArray(dbData) && dbData.length > 0) {
-                    localData = dbData;
-                    try { fs.writeFileSync(ragDiaryPath, JSON.stringify(localData, null, 2), 'utf8'); } catch (fsErr) {}
+                    try { fs.writeFileSync(ragDiaryPath, JSON.stringify(dbData, null, 2), 'utf8'); } catch (fsErr) {}
+                    return dbData;
                 }
             } else {
-                // DB에서 직접 조회
                 const { data, error } = await supabase
                     .from('stock_master_map')
                     .select('code')
@@ -189,9 +182,9 @@ const getRagDiary = async () => {
                 if (!error && data && data.code) {
                     const dbData = JSON.parse(data.code);
                     if (Array.isArray(dbData) && dbData.length > 0) {
-                        localData = dbData;
                         stockMasterCache['__rag_diary__'] = data.code;
-                        try { fs.writeFileSync(ragDiaryPath, JSON.stringify(localData, null, 2), 'utf8'); } catch (fsErr) {}
+                        try { fs.writeFileSync(ragDiaryPath, JSON.stringify(dbData, null, 2), 'utf8'); } catch (fsErr) {}
+                        return dbData;
                     }
                 }
             }
@@ -199,7 +192,16 @@ const getRagDiary = async () => {
             console.error('❌ Failed to restore rag_diary from Supabase:', e.message);
         }
     }
-    return localData;
+
+    // 2. 클라우드 조회 실패 시 로컬 파일 폴백
+    if (fs.existsSync(ragDiaryPath)) {
+        try {
+            return JSON.parse(fs.readFileSync(ragDiaryPath, 'utf8'));
+        } catch (e) {
+            console.error('Error reading local rag diary:', e.message);
+        }
+    }
+    return [];
 };
 
 const saveRagDiary = async (news, signal) => {
@@ -258,19 +260,14 @@ const saveRagDiary = async (news, signal) => {
 
 
 const getAiCache = async () => {
-    let localCache = null;
-    if (fs.existsSync(aiCachePath)) {
-        try { localCache = JSON.parse(fs.readFileSync(aiCachePath, 'utf8')); } catch (e) { localCache = null; }
-    }
-    
-    // 로컬 캐시가 없거나 유실된 상태일 때 Supabase 캐시 확인
-    if ((!localCache || !localCache.pulse) && supabase) {
+    // 1. Supabase 클라우드 캐시 조회 우선 (서버리스 환경 대비)
+    if (supabase) {
         try {
             if (stockMasterCache['__ai_cache__']) {
                 const dbCache = JSON.parse(stockMasterCache['__ai_cache__']);
                 if (dbCache && dbCache.pulse) {
-                    localCache = dbCache;
-                    try { fs.writeFileSync(aiCachePath, JSON.stringify(localCache, null, 2), 'utf8'); } catch (fsErr) {}
+                    try { fs.writeFileSync(aiCachePath, JSON.stringify(dbCache, null, 2), 'utf8'); } catch (fsErr) {}
+                    return dbCache;
                 }
             } else {
                 const { data, error } = await supabase
@@ -282,9 +279,9 @@ const getAiCache = async () => {
                 if (!error && data && data.code) {
                     const dbCache = JSON.parse(data.code);
                     if (dbCache && dbCache.pulse) {
-                        localCache = dbCache;
                         stockMasterCache['__ai_cache__'] = data.code;
-                        try { fs.writeFileSync(aiCachePath, JSON.stringify(localCache, null, 2), 'utf8'); } catch (fsErr) {}
+                        try { fs.writeFileSync(aiCachePath, JSON.stringify(dbCache, null, 2), 'utf8'); } catch (fsErr) {}
+                        return dbCache;
                     }
                 }
             }
@@ -292,8 +289,17 @@ const getAiCache = async () => {
             console.error('❌ Failed to restore ai_cache from Supabase:', e.message);
         }
     }
+
+    // 2. 클라우드 조회 실패 시 로컬 파일 폴백
+    if (fs.existsSync(aiCachePath)) {
+        try {
+            return JSON.parse(fs.readFileSync(aiCachePath, 'utf8'));
+        } catch (e) {
+            console.error('Error reading local ai cache:', e.message);
+        }
+    }
     
-    return localCache || { signal: null, hourKey: null };
+    return { signal: null, hourKey: null };
 };
 
 const saveAiCache = (pulseData, hourKey, savedTime = null) => {
