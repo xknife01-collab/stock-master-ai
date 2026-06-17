@@ -148,7 +148,7 @@ router.get('/history/:symbol', async (req, res) => {
             if (range === '1D' && Array.isArray(cachedData)) {
                 const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
                 const curHHMM = krNow.getUTCHours().toString().padStart(2, '0') + ":" + krNow.getUTCMinutes().toString().padStart(2, '0');
-                cachedData = cachedData.filter(p => p.date <= krNow);
+                cachedData = cachedData.filter(p => p.date <= curHHMM);
             }
             return res.json(cachedData);
         }
@@ -160,6 +160,17 @@ router.get('/history/:symbol', async (req, res) => {
         if (pendingHistoryPromises.has(cacheKey)) {
             return pendingHistoryPromises.get(cacheKey).then(data => res.json(data)).catch(err => res.status(500).json({ error: err.message }));
         }
+
+        const getIndexCurrentPrice = (sym) => {
+            if (cachedDashboard && Array.isArray(cachedDashboard.sectors)) {
+                const sec = cachedDashboard.sectors.find(s => s.name === sym);
+                if (sec && sec.price && sec.price !== '0') {
+                    const parsed = parseFloat(sec.price.replace(/,/g, ''));
+                    if (!isNaN(parsed) && parsed > 0) return parsed;
+                }
+            }
+            return null;
+        };
 
         const fetchPromise = (async () => {
             try {
@@ -213,7 +224,8 @@ router.get('/history/:symbol', async (req, res) => {
                 }
 
                 if (finalHistory.length === 0 || finalHistory.every(p => p.price === 0)) {
-                    let fallbackBase = (symbol === 'KOSPI' ? 2680 : (symbol === 'KOSDAQ' ? 760 : (symbol === 'KOSPI200' ? 360 : (queryPrice || 50000))));
+                    const currentPrice = getIndexCurrentPrice(symbol);
+                    let fallbackBase = currentPrice || (symbol === 'KOSPI' ? 2680 : (symbol === 'KOSDAQ' ? 760 : (symbol === 'KOSPI200' ? 360 : (queryPrice || 50000))));
                     return generateMockChart(fallbackBase, range);
                 }
 
@@ -231,7 +243,8 @@ router.get('/history/:symbol', async (req, res) => {
                 return finalData;
             } catch (e) {
                 console.error(`❌ [KIS Index Error] ${symbol}:`, e.message);
-                let fPrice = (symbol === 'KOSPI' ? 2680 : (symbol === 'KOSDAQ' ? 760 : (symbol === 'KOSPI200' ? 360 : (queryPrice || 50000))));
+                const currentPrice = getIndexCurrentPrice(symbol);
+                let fPrice = currentPrice || (symbol === 'KOSPI' ? 2680 : (symbol === 'KOSDAQ' ? 760 : (symbol === 'KOSPI200' ? 360 : (queryPrice || 50000))));
                 return generateMockChart(fPrice, range);
             } finally {
                 pendingHistoryPromises.delete(cacheKey);
