@@ -1352,20 +1352,34 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         const values = mapDashboardCache(cachedValues);
         const supplyList = cachedSupply;
         
-        const htsGolden = [
-            { code: '005930', name: '삼성전자' },
-            { code: '000660', name: 'SK하이닉스' },
-            { code: '042700', name: '한미반도체' },
-            { code: '007660', name: '이수페타시스' },
-            { code: '403870', name: 'HPSP' }
-        ];
-        const htsVolume = [
-            { code: '089030', name: '테크윙' },
-            { code: '058470', name: '리노공업' },
-            { code: '000990', name: 'DB하이텍' },
-            { code: '352820', name: '솔브레인' },
-            { code: '067310', name: '하나마이크론' }
-        ];
+        let htsGolden = [];
+        let htsVolume = [];
+        try {
+            console.log(`📡 [Pulse] Fetching dynamic condition candidates (Golden Cross & Volume) from KIS...`);
+            const [goldenRes, volumeRes] = await Promise.all([
+                fetchConditionResult('0'),
+                fetchConditionResult('1')
+            ]);
+            htsGolden = goldenRes || [];
+            htsVolume = volumeRes || [];
+            console.log(`📡 [Pulse] Dynamic condition search loaded ${htsGolden.length} golden cross & ${htsVolume.length} volume spike stocks.`);
+        } catch (condErr) {
+            console.error('⚠️ [Condition Search] Failed to fetch condition results, falling back to static lists:', condErr.message);
+            htsGolden = [
+                { code: '005930', name: '삼성전자' },
+                { code: '000660', name: 'SK하이닉스' },
+                { code: '042700', name: '한미반도체' },
+                { code: '007660', name: '이수페타시스' },
+                { code: '403870', name: 'HPSP' }
+            ];
+            htsVolume = [
+                { code: '089030', name: '테크윙' },
+                { code: '058470', name: '리노공업' },
+                { code: '000990', name: 'DB하이텍' },
+                { code: '352820', name: '솔브레인' },
+                { code: '067310', name: '하나마이크론' }
+            ];
+        }
 
         const isEtfOrIndex = (name) => {
             const keywords = ["KODEX", "TIGER", "SOL", "RISE", "KBSTAR", "ACE", "HANARO", "KOSEF", "ARIRANG", "ETN", "인버스", "레버리지", "선물", "국채", "달러", "고배당", "MSCI", "ESG", "active", "액티브", "로우볼", "밸류", "모멘텀"];
@@ -1506,7 +1520,8 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                             sector: row.fundamental?.sector || '기타',
                             isSelfHealed: row.advanced?.isSelfHealed || false,
                             selfHealedReasons: row.advanced?.selfHealedReasons || [],
-                            isDefaultFallback: false
+                            isDefaultFallback: false,
+                            chartHistory: row.advanced?.chartHistory || {}
                         };
                     });
                     console.log(`⚡ [Pulse] Supabase 캐시로부터 ${freshData.length}개 종목의 유효한(1시간 이내) 퀀트 지표 로드 완료 (총 ${data.length}개 중 ${data.length - freshData.length}개 만료됨).`);
@@ -1531,7 +1546,11 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             if (!metricsMap[symbol]) {
                 const staleRow = (cacheData || []).find(row => row.symbol === symbol);
                 if (staleRow) {
-                    console.log(`♻️ [Graceful Fallback] ${c.name} (${symbol}) - 실시간 동기화 실패/미수행으로 만료된 기존 캐시 데이터를 폴백으로 공급합니다.`);
+                    console.log(`♻️ [Graceful Fallback] ${c.name} (${symbol}) - 만료된 캐시 데이터를 임시 공급하고 백그라운드 갱신을 트리거합니다.`);
+                    
+                    // Trigger background cache self-healing (fire-and-forget)
+                    syncSingleStock(symbol).catch(err => console.error(`❌ [Self-Healing] Failed for ${symbol}:`, err.message));
+                    
                     metricsMap[symbol] = {
                         price: staleRow.fundamental?.price || 0,
                         disparity5: parseNum(staleRow.advanced?.disparity5, 100),
@@ -1562,9 +1581,15 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                         sector: staleRow.fundamental?.sector || '기타',
                         isSelfHealed: staleRow.advanced?.isSelfHealed || false,
                         selfHealedReasons: staleRow.advanced?.selfHealedReasons || [],
-                        isDefaultFallback: false
+                        isDefaultFallback: false,
+                        chartHistory: staleRow.advanced?.chartHistory || {}
                     };
                 } else {
+                    console.log(`⚠️ [Default Fallback] ${c.name} (${symbol}) - 캐시가 전무하여 디폴트 값을 지정하고 백그라운드 동기화를 트리거합니다.`);
+                    
+                    // Trigger background cache self-healing (fire-and-forget)
+                    syncSingleStock(symbol).catch(err => console.error(`❌ [Self-Healing] Failed for ${symbol}:`, err.message));
+                    
                     metricsMap[symbol] = {
                         price: c.price || 0,
                         disparity5: 100,
@@ -1583,7 +1608,8 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                         sector: '기타',
                         isSelfHealed: false,
                         selfHealedReasons: [],
-                        isDefaultFallback: true
+                        isDefaultFallback: true,
+                        chartHistory: {}
                     };
                 }
             }
@@ -1688,7 +1714,8 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 else if (disp > 100 && disp <= 103) disparityScore = 6;
                 else if (disp < 95 && disp >= 90) disparityScore = 8; // 낙폭 과대 지지선
                 else if (disp > 103 && disp <= 105) disparityScore = 2;
-                else disparityScore = 0; // 과열 감점 페널티 제거 (0점 처리)
+                else if (disp > 105) disparityScore = -15; // 과열 페널티 부활
+                else disparityScore = -10; // 과매도 페널티
 
                 // 3. 공매도 비중 (Max 30점) - 숏포지션 방어 극우대
                 const sr = m.shortRatio;
@@ -1729,8 +1756,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 if (disp >= 98 && disp <= 104) disparityScore = 10;
                 else if (disp > 104 && disp <= 106) disparityScore = 7;
                 else if (disp < 98) disparityScore = 4;
-                else if (disp > 106 && disp < 107) disparityScore = 0;
-                else disparityScore = 0; // 과열 감점 페널티 제거 (0점 처리)
+                else if (disp > 106 && disp <= 107) disparityScore = 0;
+                else if (disp > 107) disparityScore = -15; // 과열 페널티 부활
+                else disparityScore = -10; // 과매도 페널티
 
                 // 3. 공매도 비중 (Max 10점)
                 const sr = m.shortRatio;
@@ -1761,6 +1789,50 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             const rawTotalScore = strengthScore + disparityScore + shortScore + supplyScore;
             const totalScore = Math.max(-50, rawTotalScore - backtestPenalty); // 하한선 -50점
 
+            // --- Hard VETO 판정 (기술적 과열 및 장중 하락 추세 감지) ---
+            let isVetoed = false;
+            let vetoReason = '';
+
+            const disp20 = parseFloat(m.disparity20) || 100;
+            const disp5 = parseFloat(m.disparity5) || 100;
+            const rsiVal = (m.technical && m.technical.rsi !== '-') ? parseFloat(m.technical.rsi) : null;
+            
+            const limitDisp20 = isSafe ? 105 : 107;
+            const limitRsi = isSafe ? 75 : 78;
+
+            if (disp20 > limitDisp20) {
+                isVetoed = true;
+                vetoReason = `20일 이격도 과열 (${disp20}%, 기준: ${limitDisp20}% 초과)`;
+            } else if (disp5 > 108) {
+                isVetoed = true;
+                vetoReason = `5일 이격도 과열 (${disp5}%, 기준: 108% 초과)`;
+            } else if (rsiVal !== null && rsiVal >= limitRsi) {
+                isVetoed = true;
+                vetoReason = `RSI 과매수 과열 (${rsiVal}, 기준: ${limitRsi} 이상)`;
+            }
+
+            // 단기 가격 하락 추세 검출 (30분/1시간 전 대비)
+            if (!isVetoed && m.chartHistory && Array.isArray(m.chartHistory['1D']) && m.chartHistory['1D'].length > 0) {
+                const chart1D = m.chartHistory['1D'];
+                const priceNow = m.price || c.price || 0;
+                const len = chart1D.length;
+                if (len >= 35) {
+                    const price30m = chart1D[len - 30]?.price || 0;
+                    const price60m = len >= 65 ? (chart1D[len - 60]?.price || 0) : (chart1D[0]?.price || 0);
+                    
+                    if (price30m > 0 && price60m > 0) {
+                        const change30m = (priceNow - price30m) / price30m;
+                        if (priceNow < price30m && price30m < price60m) {
+                            isVetoed = true;
+                            vetoReason = `단기 주가 계단식 하락 추세 감지 (${price60m}원 -> ${price30m}원 -> ${priceNow}원)`;
+                        } else if (change30m <= -0.015) {
+                            isVetoed = true;
+                            vetoReason = `단기 주가 급락 감지 (30분 전 대비 ${(change30m * 100).toFixed(2)}% 하락)`;
+                        }
+                    }
+                }
+            }
+
             return {
                 name: c.name,
                 code: c.code,
@@ -1770,6 +1842,8 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 isSelfHealed: m.isSelfHealed || false,
                 selfHealedReasons: m.selfHealedReasons || [],
                 isDefaultFallback: m.isDefaultFallback || false,
+                isVetoed,
+                vetoReason,
                 metrics: {
                     disparity5: m.disparity5,
                     disparity20: m.disparity20,
@@ -1782,7 +1856,8 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     atrPercent: m.atrPercent,
                     transactionValue: m.transactionValue,
                     creditBalance: m.creditBalance,
-                    sector: m.sector
+                    sector: m.sector,
+                    rsi: rsiVal
                 },
                 scores: {
                     strengthScore,
@@ -1904,6 +1979,11 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         // 재무 점수가 합산된 최종 점수 기준으로 재정렬 및 상위 40개 선정
         const finalSortedScored = [...sortedScored].sort((a, b) => b.totalScore - a.totalScore).slice(0, 40);
+
+        console.log("📊 [Pulse] 후보 종목 최종 상태 및 스코어 (최대 40개):");
+        finalSortedScored.forEach(c => {
+            console.log(`   👉 ${c.name} (${c.code}): 총점 ${c.totalScore.toFixed(1)} | VETO 여부: ${c.isVetoed ? '❌ YES (' + c.vetoReason + ')' : '✅ NO'}`);
+        });
 
         // 🛡️ [최고의 투자자 Dual-Engine 이원화 필터 적용]
         const technicallyFiltered = finalSortedScored.filter(c => {
@@ -2382,6 +2462,18 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     }));
                 }
 
+                // 7) 단기(30분/60분 전) 가격 정보 추출
+                let price30m = null;
+                let price60m = null;
+                if (advanced.chartHistory?.['1D'] && Array.isArray(advanced.chartHistory['1D'])) {
+                    const chart1D = advanced.chartHistory['1D'];
+                    const len = chart1D.length;
+                    if (len >= 35) {
+                        price30m = chart1D[len - 30]?.price || null;
+                        price60m = len >= 65 ? (chart1D[len - 60]?.price || null) : (chart1D[0]?.price || null);
+                    }
+                }
+
                 detailedCandidatesData.push({
                     name: c.n,
                     code: c.s,
@@ -2392,6 +2484,8 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     finance: financeData.length > 0 ? financeData : null,
                     technical: technicalIndicators,
                     priceData: priceData.length > 0 ? priceData : null,
+                    price30m,
+                    price60m,
                     strength: advanced.strength || '-',
                     shortRatio: advanced.shortRatio || '-',
                     atr: metrics ? metrics.atr : null,
@@ -2419,6 +2513,10 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             const priceDataStr = d.priceData && d.priceData.length > 0 ?
                 d.priceData.slice(0, 5).map(p => `- ${p.date}: 종가 ${p.close}원, 거래량 ${p.vol}주`).join('\n        ') :
                 "최근 가격 추이 정보 없음";
+            
+            const intradayTrendStr = (d.price30m !== null && d.price60m !== null) ?
+                `- 30분 전 가격: ${d.price30m.toLocaleString()}원 / 60분 전 가격: ${d.price60m.toLocaleString()}원 (현재가 대비 흐름 모니터링)` :
+                `- 단기 가격 정보: 캐시 데이터 부족 (분석 불가)`;
                 
             return `[분석 후보 ${idx + 1}위: ${d.name} (${d.code})]
         0. 업종 및 유동성/레버리지:
@@ -2447,6 +2545,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         4. 최근 주가/거래량 추이:
         ${priceDataStr}
+        ${intradayTrendStr}
 
         5. 기술적 분석 및 거래 지표 (정량 데이터):
         - 20일 평균 변동성(ATR): ${d.atrPercent || "정보 없음"}% (평균 일일 변동폭: ${d.atr !== null && d.atr !== undefined ? d.atr.toLocaleString() + '원' : '정보 없음'})

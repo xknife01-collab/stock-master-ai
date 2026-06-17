@@ -94,7 +94,7 @@ const MarketDashboard = ({ dashboardData }) => {
         </div>
         <div className="w-full flex-1" style={{ minHeight: '320px', height: '320px', position: 'relative', overflow: 'hidden', minWidth: 0 }}>
           {!loadingHistory && history && history.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={320}>
               <AreaChart data={history} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                 <defs><linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#00ffab" stopOpacity={0.3}/><stop offset="95%" stopColor="#00ffab" stopOpacity={0}/></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />

@@ -117,7 +117,7 @@ const StockPopup = ({ item, onClose }) => {
           
           <div className="w-full font-sans" style={{ minHeight: '320px', height: '320px', position: 'relative' }}>
             {!loadingPopup && popupHistory && popupHistory.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={320}>
                 <AreaChart data={popupHistory} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
                   <defs><linearGradient id="colorPopup" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ed3738" stopOpacity={0.2}/><stop offset="95%" stopColor="#ed3738" stopOpacity={0}/></linearGradient></defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
@@ -493,7 +493,7 @@ const StockPopup = ({ item, onClose }) => {
                 </div>
                 <div className="w-full bg-gray-50/30 rounded-xl p-2 mt-2" style={{ height: '160px', position: 'relative' }}>
                   {stockDetail.finance && stockDetail.finance.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={160}>
                       <BarChart data={stockDetail.finance} margin={{top: 10, right: 10, left: 10, bottom: 5}}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                         <XAxis dataKey="year" fontSize={9} tickLine={false} axisLine={false} tick={{fill: '#94a3b8'}} />
