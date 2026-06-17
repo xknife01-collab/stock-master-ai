@@ -4,7 +4,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { KIS_BASE_URL, getKisHeaders, getAccessToken } from '../lib/kisCore.js';
-import { getSupplyCache, saveSupplyCache } from '../lib/supplyCache.js';
+import { getSupplyCache, saveSupplyCache, restoreSupplyCacheFromCloud } from '../lib/supplyCache.js';
+import supabase from '../lib/supabaseClient.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -154,10 +155,14 @@ export const syncDashboardData = async () => {
             }
         };
 
-        const [fBuy, fSell, iBuy, iSell] = await Promise.all([
-            fetchRankings('9000', 'buy'), fetchRankings('9000', 'sell'),
-            fetchRankings('1000', 'buy'), fetchRankings('1000', 'sell')
-        ]);
+        const fBuy = await fetchRankings('9000', 'buy');
+        await sleep(150);
+        const fSell = await fetchRankings('9000', 'sell');
+        await sleep(150);
+        const iBuy = await fetchRankings('1000', 'buy');
+        await sleep(150);
+        const iSell = await fetchRankings('1000', 'sell');
+        await sleep(150);
 
         let topStocks = Array.from({length: 8}, () => []);
         try {
@@ -222,6 +227,27 @@ export const syncDashboardData = async () => {
         
         fs.writeFileSync(cacheFilePath, JSON.stringify(result, null, 2), 'utf8');
         console.log('✅ [Dashboard Sync] 백그라운드 동기화 및 파일 캐싱 완료.');
+
+        // 🛡️ Supabase 클라우드 백업 (비동기로 진행하여 동기화 블로킹 방지)
+        if (supabase) {
+            supabase.from('stock_detail_cache')
+                .upsert({
+                    symbol: '__DASH__',
+                    fundamental: result,
+                    advanced: {},
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'symbol' })
+                .then(({ error }) => {
+                    if (error) {
+                        console.error("⚠️ [Dashboard Sync] Cloud backup failed:", error.message);
+                    } else {
+                        console.log("💾 [Dashboard Sync] Cloud backup succeeded.");
+                    }
+                })
+                .catch(err => {
+                    console.error("⚠️ [Dashboard Sync] Cloud backup exception:", err.message);
+                });
+        }
     } catch (e) {
         console.error('❌ [Dashboard Sync] 동기화 중 에러 발생:', e.message);
     } finally {
@@ -230,15 +256,45 @@ export const syncDashboardData = async () => {
 };
 
 // ⏰ 백그라운드 동기화 타이머 시작 데몬
-export const startDashboardSync = () => {
-    // 서버 구동 시 기존 캐시 파일 로드 시도
+export const startDashboardSync = async () => {
+    // 📡 1. 클라우드로부터 수급 캐시 및 대시보드 캐시 복원 수행
     try {
-        if (fs.existsSync(cacheFilePath)) {
-            cachedDashboard = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
-            console.log('💾 [Dashboard Sync] 로컬 파일로부터 대시보드 캐시 로드 완료.');
-        }
+        await restoreSupplyCacheFromCloud();
     } catch (err) {
-        console.warn('⚠️ [Dashboard Sync] 대시보드 캐시 파일 로드 실패:', err.message);
+        console.warn('⚠️ [Dashboard Sync] Failed to restore supply cache from cloud:', err.message);
+    }
+
+    if (supabase) {
+        try {
+            console.log("📡 [Dashboard Sync] Restoring dashboard cache from Supabase cloud...");
+            const { data, error } = await supabase
+                .from('stock_detail_cache')
+                .select('fundamental')
+                .eq('symbol', '__DASH__')
+                .maybeSingle();
+
+            if (!error && data && data.fundamental) {
+                cachedDashboard = data.fundamental;
+                fs.writeFileSync(cacheFilePath, JSON.stringify(data.fundamental, null, 2), 'utf8');
+                console.log("✅ [Dashboard Sync] Successfully restored dashboard cache from Supabase cloud.");
+            } else if (error) {
+                console.warn('⚠️ [Dashboard Sync] Cloud dashboard cache restore query failed:', error.message);
+            }
+        } catch (e) {
+            console.warn("⚠️ [Dashboard Sync] Exception during cloud dashboard restore:", e.message);
+        }
+    }
+
+    // 💾 2. 클라우드 복원 실패 시 로컬 파일로부터 대시보드 캐시 로드 시도 (폴백)
+    if (!cachedDashboard) {
+        try {
+            if (fs.existsSync(cacheFilePath)) {
+                cachedDashboard = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
+                console.log('💾 [Dashboard Sync] 로컬 파일로부터 대시보드 캐시 로드 완료.');
+            }
+        } catch (err) {
+            console.warn('⚠️ [Dashboard Sync] 대시보드 캐시 파일 로드 실패:', err.message);
+        }
     }
 
     // 서버 구동 3초 후 최초 1회 즉시 실행
