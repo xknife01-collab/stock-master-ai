@@ -1445,7 +1445,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         updateStockMasterFromList(htsVolume);
         updateStockMasterFromList(parseSupplyStocks(supplyList));
 
-        // 상위 30개 종목 압축 선정 (ETF 및 인덱스 펀드류 제거)
+        // 상위 25개 종목 압축 선정 (ETF 및 인덱스 펀드류 제거)
         // 정렬 기준: 1. 포착 횟수 내림차순, 2. 거래대금 내림차순, 3. 절대 등락률 내림차순
         const candidatePool = Array.from(candidateOccurrence.values())
             .filter(c => !isEtfOrIndex(c.name))
@@ -1453,7 +1453,8 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 if (b.count !== a.count) return b.count - a.count;
                 if (b.value !== a.value) return b.value - a.value;
                 return Math.abs(b.change) - Math.abs(a.change);
-            });
+            })
+            .slice(0, 25);
 
         const symbols = candidatePool.map(c => c.code);
 
@@ -1538,10 +1539,95 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             }
         }
 
-        // ⚡ [Pulse Cache First] 후보 종목에 대한 실시간 KIS API 개별 조회 및 동기화를 비활성화합니다.
-        // 모든 후보 종목 데이터는 Supabase 캐시 및 백그라운드 동기화 엔진(stockSync.js)에만 의존하며,
-        // 캐시 미스 시 기존 stale 데이터 또는 기본값으로 폴백하여 대기시간을 0으로 만듭니다.
-        console.log("⚡ [Pulse Cache First] Live KIS sync disabled for candidates. Relying strictly on Supabase cache.");
+        // 📡 [Targeted Live Sync] 상위 12개 후보 종목에 대해 실시간 KIS 데이터 강제 동기화 (최근 1분 이내 데이터가 없는 경우)
+        console.log(`📡 [Pulse] 상위 12개 후보 종목에 대한 실시간 KIS 데이터 강제 동기화 검증 시작...`);
+        const now = new Date();
+        
+        // KIS API 과부하 방지 및 순차 조회를 위해 동기 루프로 순회
+        for (let i = 0; i < Math.min(12, candidatePool.length); i++) {
+            const c = candidatePool[i];
+            const cachedRow = (cacheData || []).find(row => row.symbol === c.code);
+            let needsSync = true;
+            
+            if (cachedRow && cachedRow.updated_at) {
+                const updatedAt = new Date(cachedRow.updated_at);
+                const diffSecs = (now.getTime() - updatedAt.getTime()) / 1000;
+                // 1분(60초) 이내 데이터가 있으면 캐시를 신뢰하고 API 호출 건너뜀
+                if (diffSecs < 60) {
+                    needsSync = false;
+                    console.log(`⏭️ [Targeted Live Sync] ${c.name} (${c.code}) 은 최근 1분 이내에 동기화됨 (${Math.round(diffSecs)}초 전). 실시간 조회를 생략합니다.`);
+                }
+            }
+            
+            if (needsSync) {
+                console.log(`📡 [Targeted Live Sync] ${c.name} (${c.code}) 최신 데이터가 없거나 1분을 경과했습니다. 실시간 API 동기화 실행...`);
+                try {
+                    const syncResult = await syncSingleStock(c.code);
+                    if (syncResult) {
+                        const row = syncResult;
+                        metricsMap[c.code] = {
+                            price: row.fundamental?.price || 0,
+                            disparity5: parseNum(row.advanced?.disparity5, 100),
+                            disparity20: parseNum(row.advanced?.disparity20, 100),
+                            strength: parseNum(row.advanced?.strength, 100),
+                            shortRatio: parseNum(row.advanced?.shortRatio, 0),
+                            investor1D: {
+                                foreign: parseNum(row.advanced?.investor?.foreign1D, 0),
+                                organ: parseNum(row.advanced?.investor?.organ1D, 0),
+                                personal: parseNum(row.advanced?.investor?.personal1D, 0)
+                            },
+                            investor5D: {
+                                foreign: parseNum(row.advanced?.investor?.foreign5D, 0),
+                                organ: parseNum(row.advanced?.investor?.organ5D, 0),
+                                personal: parseNum(row.advanced?.investor?.personal5D, 0)
+                            },
+                            investorMoney5D: {
+                                foreign: parseNum(row.advanced?.investor?.foreignMoney5D, 0),
+                                organ: parseNum(row.advanced?.investor?.organMoney5D, 0),
+                                personal: parseNum(row.advanced?.investor?.personalMoney5D, 0)
+                            },
+                            atr: row.advanced?.atr !== undefined ? parseNum(row.advanced?.atr, null) : null,
+                            atrPercent: row.advanced?.atrPercent !== undefined ? parseNum(row.advanced?.atrPercent, null) : null,
+                            transactionValue: parseNum(row.advanced?.transactionValue, 0),
+                            prevTransactionValue: parseNum(row.advanced?.prevTransactionValue, 0),
+                            volumeRate: parseNum(row.advanced?.volumeRate, 100),
+                            creditBalance: parseNum(row.advanced?.creditBalance, 0),
+                            sector: row.fundamental?.sector || '기타',
+                            isSelfHealed: row.advanced?.isSelfHealed || false,
+                            selfHealedReasons: row.advanced?.selfHealedReasons || [],
+                            isDefaultFallback: false,
+                            chartHistory: row.advanced?.chartHistory || {}
+                        };
+                        
+                        // cacheData & cachedRows 의 해당 row 교체 (이후 재무 데이터 조회 루프 등에서 사용됨)
+                        const updatedRowObj = {
+                            symbol: c.code,
+                            fundamental: row.fundamental,
+                            advanced: row.advanced,
+                            updated_at: new Date().toISOString()
+                        };
+                        
+                        const cIdx = cachedRows.findIndex(r => r.symbol === c.code);
+                        if (cIdx !== -1) {
+                            cachedRows[cIdx] = updatedRowObj;
+                        } else {
+                            cachedRows.push(updatedRowObj);
+                        }
+
+                        const dIdx = cacheData.findIndex(r => r.symbol === c.code);
+                        if (dIdx !== -1) {
+                            cacheData[dIdx] = updatedRowObj;
+                        } else {
+                            cacheData.push(updatedRowObj);
+                        }
+                    }
+                    // KIS API 스로틀링 예방을 위한 아주 짧은 딜레이
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                } catch (syncErr) {
+                    console.error(`❌ [Targeted Live Sync] ${c.name} (${c.code}) 동기화 실패:`, syncErr.message);
+                }
+            }
+        }
 
         // 상위 40위 밖의 캐시 미스 및 실시간 조회 실패 종목들은
         // 1. 기존 DB에 있던 stale 캐시(시간 무관)가 있다면 그것을 우선 사용 (Graceful Fallback)
@@ -1756,13 +1842,18 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 else if (str >= 90) strengthScore = 10;
                 else strengthScore = 0;
 
-                // 2. 20일 이격도 (Max 10점) - 돌파 매매 관대
+                // 2. 20일 이격도 (Max 10점) - 돌파 매매 관대 (외인/기관 쌍끌이 및 고체결강도 시 과열 기준 완화)
+                const isDualBuy = m.investor1D && m.investor1D.foreign > 0 && m.investor1D.organ > 0;
+                const hasStrongStrength = str >= 115;
+                const isStrongBreakout = isDualBuy && hasStrongStrength;
+                const limitDispNormal = isStrongBreakout ? 112 : 107;
+
                 const disp = m.disparity20;
                 if (disp >= 98 && disp <= 104) disparityScore = 10;
                 else if (disp > 104 && disp <= 106) disparityScore = 7;
                 else if (disp < 98) disparityScore = 4;
-                else if (disp > 106 && disp <= 107) disparityScore = 0;
-                else if (disp > 107) disparityScore = -15; // 과열 페널티 부활
+                else if (disp > 106 && disp <= limitDispNormal) disparityScore = 3;
+                else if (disp > limitDispNormal) disparityScore = -15; // 과열 페널티 부활
                 else disparityScore = -10; // 과매도 페널티
 
                 // 3. 공매도 비중 (Max 10점)
@@ -1802,10 +1893,15 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             const disp5 = parseFloat(m.disparity5) || 100;
             const rsiVal = (m.technical && m.technical.rsi !== '-') ? parseFloat(m.technical.rsi) : null;
             
-            // 상승장 또는 강제 추천일 때 기술적 제한 임계값 완화
-            let limitDisp20 = isSafe ? 105 : (isBullMarket ? 112 : 107);
-            let limitDisp5 = forceRecommend ? 120 : 108;
-            let limitRsi = isSafe ? 75 : (isBullMarket ? 85 : 78);
+            // 외인/기관 쌍끌이 매수 + 고체결강도 돌파 판단
+            const isDualBuy = m.investor1D && m.investor1D.foreign > 0 && m.investor1D.organ > 0;
+            const hasStrongStrength = m.strength >= 115;
+            const isStrongBreakout = isDualBuy && hasStrongStrength;
+
+            // 상승장, 강제 추천, 또는 강력한 쌍끌이 돌파형일 때 기술적 제한 임계값 완화
+            let limitDisp20 = isSafe ? 105 : ((isBullMarket || isStrongBreakout) ? 112 : 107);
+            let limitDisp5 = forceRecommend ? 120 : (isStrongBreakout ? 112 : 108);
+            let limitRsi = isSafe ? 75 : ((isBullMarket || isStrongBreakout) ? 85 : 78);
 
             if (forceRecommend) {
                 limitDisp20 = 120;
@@ -1974,7 +2070,15 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                         // (3) 중장기 가치주 배제 태깅 (ROE < 5% 이거나 PER > 100배 혹은 PER < 0배인 극단적 밸류에이션 종목)
                         let isLongTermExcluded = false;
                         const reason = [];
-                        if (fin.roe !== null && fin.roe < 5) {
+
+                        const isDualBuy = c.metrics.investor1D && c.metrics.investor1D.foreign > 0 && c.metrics.investor1D.organ > 0;
+                        const hasStrongStrength = c.metrics.strength >= 115;
+                        const isStrongBreakout = isDualBuy && hasStrongStrength;
+                        const isSamsung = c.code === '005930';
+
+                        if ((isStrongBreakout || isSamsung) && fin.roe !== null && fin.roe >= 0) {
+                            // 돌파형 주도주 및 삼성전자는 수급 전환의 특수성을 감안해 ROE 5% 미만 배제 룰 예외 적용
+                        } else if (fin.roe !== null && fin.roe < 5) {
                             isLongTermExcluded = true;
                             reason.push(`ROE 5% 미만 (${fin.roe}%)`);
                         }
@@ -2003,9 +2107,13 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         const technicallyFiltered = finalSortedScored.filter(c => {
             if (c.isVetoed) return false;
 
-            // 상승장 또는 강제 추천일 때 이격도 기준 완화
-            const maxShortDisp20 = forceRecommend ? 120 : (isBullMarket ? 112 : 107);
-            const maxLongDisp20 = forceRecommend ? 120 : (isBullMarket ? 108 : 105);
+            const isDualBuy = c.metrics.investor1D && c.metrics.investor1D.foreign > 0 && c.metrics.investor1D.organ > 0;
+            const hasStrongStrength = c.metrics.strength >= 115;
+            const isStrongBreakout = isDualBuy && hasStrongStrength;
+
+            // 상승장, 강제 추천, 또는 강력한 쌍끌이 돌파형일 때 이격도 기준 완화
+            const maxShortDisp20 = forceRecommend ? 120 : ((isBullMarket || isStrongBreakout) ? 112 : 107);
+            const maxLongDisp20 = forceRecommend ? 120 : ((isBullMarket || isStrongBreakout) ? 108 : 105);
 
             // 1) 단타 (shortTermPicks) 안전 필터 기준 (추세 돌파형)
             const passedShort = isSafe ? 
@@ -2321,9 +2429,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
         **분석 가이드라인 및 필수 제약사항 (VETO RULES)**
         1. **TOP PICK 선정 규칙**: 최종 추천 종목의 첫 번째 종목(TOP PICK, candidates[0])은 반드시 아래 [실시간 시장 포착 후보 종목 및 퀀트 점수표]에서 **퀀트 스코어가 높은 상위권(1위~5위 이내) 종목** 중에서만 골라야 해.
-        2. **절대 진입 금지 필터**: 퀀트 스코어가 **40점 이하**이거나, 20일 이격도 점수에서 **음수 감점(-10점)**을 받아 가격 부담이 극도로 심한 종목(예: 20일 이격도 107% 초과로 과열)은 **절대 TOP PICK으로 선정할 수 없어**. 뉴스 호재가 아무리 강력하고 거래량이 많아도 이 룰은 예외 없이 적용해.
+        2. **절대 진입 금지 필터**: 퀀트 스코어가 **40점 이하**이거나, 20일 이격도 점수에서 **음수 감점(-10점 이하)**을 받아 가격 부담이 극도로 심한 종목(예: 일반 종목 20일 이격도 107% 초과, 혹은 외인/기관 쌍끌이 돌파 종목 112% 초과로 과열)은 **절대 TOP PICK으로 선정할 수 없어**. 뉴스 호재가 아무리 강력하고 거래량이 많아도 이 룰은 예외 없이 적용해.
         3. **재무 건전성 필터 (VETO)**: ROE 적자 기업, 최근 3분기 연속 영업이익 적자 기업, 부채비율 200% 이상인 한계 기업, 또는 PBR 10배 이상의 고평가 버블 종목은 계량 시스템에 의해 원천 제외되거나 AI 추천에서 배제되어야 해.
-        4. **장중 수급 필터 (VETO)**: 당일 실시간 장중 가집계 투자자별 매매동향에서 외인/기관 쌍끌이 순매도 및 개인 순매수의 '장중 개미지옥 패턴'이 감지된 종목은 계량 시스템에 의해 VETO 처리(후보 제외)되거나 AI 추천에서 완벽히 배제해야 해.
+        4. **장중 수급 필터 (VETO)**: 당일 실시간 장중 가집계 투자자별 매매동향에서 외인/기관 쌍끌이 순매도 및 개인 순매수의 '장중 개미지옥 패턴'이 감지된 종목은 계량 시스템에 의해 VETO 처리(후보 제외)되거나 AI 추천에서 완벽히 배제해야 해. (단, 삼성전자처럼 당일 기관/외인의 순매수 전환 또는 대량 거래 대금을 동반하며 강력한 돌파 흐름이 감지되는 대형 주도주이거나 체결강도가 115% 이상인 강력한 당일 돌파 종목은 개미지옥 패턴 예외로 분류되어 TOP PICK으로 추천될 수 있어.)
         5. **데이터 보정 경고 인지 (⚠️ [데이터 보정됨])**: 일부 종목에 \`⚠️ [데이터 보정됨]\` 배지가 붙어 있는 경우, 이는 실시간 KIS API 호출 제한(Rate Limit) 또는 일시적인 수급 집계 지연으로 인해 직전 캐시 데이터나 보정된 지표를 사용하여 종합점수가 산출된 상태를 뜻합니다. AI는 이 배지가 있는 종목을 추천할 때 데이터가 다소 지연되었을 리스크(예: 당일 장중 최신 흐름 미반영)가 있음을 인지하고, 최종 추천 후보 선정 시 이를 리스크 요인으로 신중히 검토하십시오.
         6. **정렬 순서**: 추천 종목 'candidates' 배열의 정렬 순서는 퀀트 종합 점수(totalScore)가 높은 종목이 맨 앞으로 오도록 내림차순 정렬해야 해.
         7. [최신 뉴스]를 분석할 때, 발행 시각이 분석일(${krNow.getUTCFullYear()}-${krNow.getUTCMonth()+1}-${krNow.getUTCDate()})로부터 '24시간 이내'인 뉴스를 최우선 가중치(20%)로 반영해.
@@ -2678,7 +2786,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             - **RSI & 볼린저 밴드**: RSI가 70 이상이거나 볼린저 밴드 상한선 부근(positionPercent > 80%)에 도달한 과열 상태라면, 아무리 뉴스가 좋아도 단기 리스크가 큼을 'bearCase' 및 'feedback'에 경고로 지적하고 분할 매수 전략을 추천해. 반대로 RSI가 30 이하이거나 볼린저 밴드 하한선 부근(positionPercent < 20%)에 위치한 과매도 상태라면 낙폭 과대 반등 가치를 분석해 리포트에 반영해.
         11. **이동평균선 배열 가이드:** 이동평균선이 '역배열 (하락 추세 지속)'인 종목은 메인 추천(TOP PICK)에서 가능한 배제하고, '정배열 (강력한 추세 상승)'이거나 막 20일선 골든크로스가 발생한 안정적인 종목 위주로 선정해.
         12. **최근 추천 백테스팅 피드백 학습:** 제공된 [최근 추천 성적 요약] 백테스팅 리포트를 꼼꼼히 확인해. 최근 추천 성공률이 매우 낮거나 마이너스 성적을 낸 특정 테마군(예: 3일/5일 마이너스)이 있다면, 이번 선정 시 유사 테마/유사 지표를 가진 종목에 대한 리스크 판정을 2배 더 응격하게 적용하여 억지 추천을 원천 배제해. 리포트의 feedback이나 reason에서 스스로 과거 성적 피드백 결과(예: '최근 반도체 테마의 성적이 양호하므로 모멘텀 신뢰도가 높음' 또는 '최근 2차전지 테마의 3일 수익률이 마이너스로 부진하므로 이번 2차전지 종목 추천에서는 목표가를 낮춰 보수적으로 접근함')를 인용하며 학습한 흔적을 남겨줘.
-        13. **누적 수급 및 연속 순매수 분석 적용:** 제공된 외국인/기관/개인의 5일/20일 누적 순매수 수량 및 연속 순매수 일수를 분석에 긴밀히 반영해. 외인 또는 기관이 3일 이상 연속 순매수 중이거나 5일/20일 누적 순매수 유입이 큰 종목은 세력 수급의 신뢰도가 높은 주도주로 적극 반영해. 반면 외인/기관이 대량 순매도하고 있는 폭탄을 개인이 온몸으로 받아내는 형국(즉, 개인 5일/20일 누적 순매수가 비정상적으로 급증하고 외인/기관이 마이너스인 상태)이 포착되면 전형적인 '개미 지옥 및 설거지 종목'으로 판단하여 TOP PICK(메인 추천) 선정에서 강력히 배제(VETO)하고 리스크 경고를 기술해.
+        13. **누적 수급 및 연속 순매수 분석 적용:** 제공된 외국인/기관/개인의 5일/20일 누적 순매수 수량 및 연속 순매수 일수를 분석에 긴밀히 반영해. 외인 또는 기관이 3일 이상 연속 순매수 중이거나 5일/20일 누적 순매수 유입이 큰 종목은 세력 수급의 신뢰도가 높은 주도주로 적극 반영해. 반면 외인/기관이 대량 순매도하고 있는 폭탄을 개인이 온몸으로 받아내는 형국(즉, 개인 5일/20일 누적 순매수가 비정상적으로 급증하고 외인/기관이 마이너스인 상태)이 포착되면 전형적인 '개미 지옥 및 설거지 종목'으로 판단하여 TOP PICK(메인 추천) 선정에서 강력히 배제(VETO)하고 리스크 경고를 기술해. (단, 당일 외인/기관의 동반 순매수 유입이 뚜렷하거나 체결강도가 115% 이상인 돌파형 주도주(예: 삼성전자)는 20일 누적 개미지옥 패턴이 있다 하더라도 예외적으로 최우선 추천될 수 있으므로, 리스크와 반전 상승의 모멘텀을 함께 기술하여 적극 추천해.)
         14. **뉴스 감성 스코어(Sentiment Score) 분석 적용:** 제공된 시장/테마/종목별 '뉴스 감성 지수(호재%, 악재%)'를 리스크 판별 및 목표가 설정에 적극적으로 연계해. 만약 특정 종목이나 테마의 호재성 뉴스 비율이 70% 이상이면 시장 관심도가 매우 뜨거운 상태로 보아 'shortTermPicks' 진입 시 가산점을 부여하되, 악재성 뉴스 비율이 30% 이상이거나 갑작스럽게 악재 뉴스가 증가한 경우에는 단기 리스크가 급증한 것으로 판단해 'VETO RULE(추천 배제)' 또는 손절선(sl)을 타이트하게 조절해. 감정적 편향을 억제하고 이 계량 지표를 우선 신뢰해.
         15. **수급 요약 정보(sp) 강제 탑재:** 'shortTermPicks' 및 'longTermPicks'의 각 종목 객체에 'sp' 필드를 추가해. 'sp'에는 제공된 [분석 후보]의 5일 누적 수급을 활용해 '외+OO만/기-OO만/개-OO만' 형태(예: '외+12만/기-4.5만/개-7.5만', 만원 미만 단위면 '외+3천/기-500/개+2.5천')로 15자 내외의 5일 누적 수급 현황 요약을 반드시 채워줘. 만약 정보가 없으면 '정보없음'으로 기재해.
         16. **ATR 기반 동적 목표가(tp)/손절가(sl) 산출 방식 적용 (강제):**
