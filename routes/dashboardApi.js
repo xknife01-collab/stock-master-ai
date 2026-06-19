@@ -178,15 +178,18 @@ export const syncDashboardData = async () => {
                 timeout: 2500
             });
             if (volRes.data.rt_cd === '0' && volRes.data.output && volRes.data.output.length > 0) {
-                topStocks[0] = volRes.data.output.slice(0, 10).map(it => ({
+                const mappedVol = volRes.data.output.map(it => ({
                     n: it.hts_kor_isnm, s: it.mksc_shrn_iscd, p: it.stck_prpr, pct: it.prdy_ctrt + '%'
                 }));
-                saveSupplyCache('dashboard_volume_rank', topStocks[0]);
+                saveSupplyCache('dashboard_volume_rank', mappedVol);
+                topStocks[0] = mappedVol.slice(0, 10);
             } else {
-                topStocks[0] = getSupplyCache('dashboard_volume_rank') || [];
+                const cachedVol = getSupplyCache('dashboard_volume_rank') || [];
+                topStocks[0] = cachedVol.slice(0, 10);
             }
         } catch (volError) {
-            topStocks[0] = getSupplyCache('dashboard_volume_rank') || [];
+            const cachedVol = getSupplyCache('dashboard_volume_rank') || [];
+            topStocks[0] = cachedVol.slice(0, 10);
         }
 
         try {
@@ -203,15 +206,18 @@ export const syncDashboardData = async () => {
                 timeout: 2500
             });
             if (gainerRes.data.rt_cd === '0' && gainerRes.data.output && gainerRes.data.output.length > 0) {
-                topStocks[1] = gainerRes.data.output.slice(0, 10).map(it => ({
+                const mappedGainer = gainerRes.data.output.map(it => ({
                     n: it.hts_kor_isnm, s: it.mksc_shrn_iscd, p: it.stck_prpr, pct: it.prdy_ctrt + '%'
                 }));
-                saveSupplyCache('dashboard_fluctuation_rank', topStocks[1]);
+                saveSupplyCache('dashboard_fluctuation_rank', mappedGainer);
+                topStocks[1] = mappedGainer.slice(0, 10);
             } else {
-                topStocks[1] = getSupplyCache('dashboard_fluctuation_rank') || [];
+                const cachedGainer = getSupplyCache('dashboard_fluctuation_rank') || [];
+                topStocks[1] = cachedGainer.slice(0, 10);
             }
         } catch (gainerError) {
-            topStocks[1] = getSupplyCache('dashboard_fluctuation_rank') || [];
+            const cachedGainer = getSupplyCache('dashboard_fluctuation_rank') || [];
+            topStocks[1] = cachedGainer.slice(0, 10);
         }
 
         // 🛡️ topStocks 개별 카테고리 복원

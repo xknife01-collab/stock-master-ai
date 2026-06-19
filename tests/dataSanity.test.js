@@ -22,8 +22,10 @@ test('Data Integrity Shield - Samsung Electronics (005930) Sanity Check', async 
     assert.ok(!isNaN(parseFloat(adv.strength)), `Strength must be numeric, got: ${adv.strength}`);
     
     // 2. Disparity (이격도)
+    assert.ok(adv.disparity1, "Disparity 1D must exist");
     assert.ok(adv.disparity5, "Disparity 5D must exist");
     assert.ok(adv.disparity20, "Disparity 20D must exist");
+    assert.ok(!isNaN(parseFloat(adv.disparity1)), `Disparity 1D must be numeric, got: ${adv.disparity1}`);
     assert.ok(!isNaN(parseFloat(adv.disparity5)), `Disparity 5D must be numeric, got: ${adv.disparity5}`);
     assert.ok(!isNaN(parseFloat(adv.disparity20)), `Disparity 20D must be numeric, got: ${adv.disparity20}`);
     

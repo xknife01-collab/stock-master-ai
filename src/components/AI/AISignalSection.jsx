@@ -6,7 +6,126 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
+  const [scoreboardTab, setScoreboardTab] = useState('all');
+  const [scoreboardSort, setScoreboardSort] = useState('score');
+  const [scoreboardSearch, setScoreboardSearch] = useState('');
+  const [expandedCand, setExpandedCand] = useState(null);
+
   const sig = aiSignal?.data?.pulse?.data || aiSignal?.pulse?.data || aiSignal?.data || aiSignal?.prediction || aiSignal;
+
+  const getStatusBadge = (c) => {
+    const badges = [];
+
+    if (c.isVetoed) {
+      let cleanReason = c.vetoReason || '필터배제';
+      if (cleanReason.includes('설거지')) cleanReason = '🔴 설거지 경고';
+      else if (cleanReason.includes('개미지옥')) cleanReason = '🔴 개미지옥 경보';
+      else if (cleanReason.includes('적자') || cleanReason.includes('손실')) cleanReason = '🔴 좀비/적자 경고';
+      else if (cleanReason.includes('부채')) cleanReason = '🔴 부실/고부채';
+      else if (cleanReason.includes('이격도')) cleanReason = '🔴 이격과열 경고';
+      else if (cleanReason.includes('RSI')) cleanReason = '🔴 RSI 과매수';
+      else if (cleanReason.includes('하락')) cleanReason = '🔴 하락추세 감지';
+      else cleanReason = `🔴 VETO: ${cleanReason.split('(')[0]}`;
+      
+      badges.push(
+        <span key="veto" className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-red-500/10 border border-red-500/20 text-[#ff3d68] shadow-sm select-none">
+          {cleanReason}
+        </span>
+      );
+    } else {
+      badges.push(
+        <span key="safe" className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-[#00ffab]/10 border border-[#00ffab]/20 text-[#00ffab] shadow-sm select-none">
+          🟢 진입 가능
+        </span>
+      );
+    }
+
+    if (c.isSupplyGoldenCross) {
+      badges.push(
+        <span key="golden" className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 shadow-sm select-none animate-pulse">
+          ✨ 상승 변곡점 (수급)
+        </span>
+      );
+    }
+
+    if (c.isSupplyDeathCross) {
+      badges.push(
+        <span key="death" className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-red-500/10 border border-red-500/25 text-[#ff3d68] shadow-sm select-none animate-pulse">
+          ⚠️ 하락 변곡점 (이탈)
+        </span>
+      );
+    }
+
+    return (
+      <div className="flex gap-1.5 items-center flex-wrap">
+        {badges}
+      </div>
+    );
+  };
+
+  const renderScoreBar = (label, value, maxVal) => {
+    const isNegative = value < 0;
+    const pct = isNegative ? 0 : Math.max(0, Math.min(100, (value / maxVal) * 100));
+    
+    return (
+      <div className="flex flex-col gap-1 text-[11px] mb-2">
+        <div className="flex justify-between font-bold text-white/50 text-[10px]">
+          <span>{label}</span>
+          <span className={`${isNegative ? 'text-[#ff3d68]' : 'text-white/80'} font-mono`}>{value} / {maxVal}점</span>
+        </div>
+        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden relative">
+          <div 
+            className={`h-full rounded-full transition-all duration-500 ${isNegative ? 'bg-[#ff3d68]' : 'bg-[#00ffab]'}`}
+            style={{ width: `${isNegative ? Math.min(100, Math.abs(value)*3.3) : pct}%` }}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  const renderRangeBar = (price, tp, sl) => {
+    if (!price) return null;
+    const priceNum = parseFloat(price);
+    const tpNum = parseFloat(tp);
+    const slNum = parseFloat(sl);
+    
+    const range = tpNum - slNum;
+    const pct = range > 0 ? ((priceNum - slNum) / range) * 100 : 50;
+    
+    return (
+      <div className="flex flex-col gap-2 bg-white/[0.01] border border-white/5 p-4 rounded-xl mt-3">
+        <div className="flex justify-between items-center text-[10px] text-white/40 font-bold uppercase tracking-wider">
+          <span>📉 청산 손절선 (Exit SL)</span>
+          <span>현재 가격</span>
+          <span>📈 스윙 목표선 (Swing TP)</span>
+        </div>
+        <div className="flex justify-between items-center text-xs font-black">
+          <span className="text-[#ff3d68] font-mono">{formatPrice(slNum)}</span>
+          <span className="text-white font-mono text-[13px]">{formatPrice(priceNum)}</span>
+          <span className="text-[#00ffab] font-mono">{formatPrice(tpNum)}</span>
+        </div>
+        <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden relative mt-1">
+          {/* Marker lines */}
+          <div className="absolute left-[33%] top-0 bottom-0 w-[1px] bg-white/10" />
+          <div className="absolute left-[66%] top-0 bottom-0 w-[1px] bg-white/10" />
+          
+          {/* Progress bar representing range */}
+          <div 
+            className="h-full bg-gradient-to-r from-[#ff3d68] via-purple-500 to-[#00ffab] opacity-40"
+            style={{ width: '100%' }}
+          />
+          {/* Current price indicator point */}
+          <div 
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-white border-2 border-[#141822] shadow-[0_0_8px_rgba(255,255,255,0.8)]"
+            style={{ left: `${Math.max(0, Math.min(100, pct))}%` }}
+          />
+        </div>
+        <div className="text-[10px] text-white/30 text-center font-bold mt-1">
+          ATR 변동성 기준: 단기 스윙 공략 3.0배수 목표 및 손절 배수 1.5배수 실시간 청산 지지대
+        </div>
+      </div>
+    );
+  };
 
   const formatDateTime = (timeStr) => {
     try {
@@ -22,6 +141,10 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
 
   const formatPrice = (val) => {
     if (!val) return '';
+    const num = Number(String(val).replace(/,/g, ''));
+    if (!isNaN(num)) {
+      return Math.round(num).toLocaleString() + '원';
+    }
     const clean = String(val).replace(/[^0-9]/g, '');
     return clean ? Number(clean).toLocaleString() + '원' : val;
   };
@@ -668,6 +791,317 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
               ))}
             </div>
           )}
+
+          {/* Quant Scoreboard & Risk Center */}
+          {(() => {
+            const candidates = sig?.candidates || [];
+            
+            const filteredCandidates = candidates.filter(c => {
+              if (scoreboardSearch) {
+                const q = scoreboardSearch.toLowerCase();
+                const matchName = c.name?.toLowerCase().includes(q);
+                const matchCode = c.code?.includes(q);
+                if (!matchName && !matchCode) return false;
+              }
+              if (scoreboardTab === 'safe') return !c.isVetoed;
+              if (scoreboardTab === 'veto') return c.isVetoed;
+              if (scoreboardTab === 'golden') return c.isSupplyGoldenCross || c.isSupplyDeathCross;
+              return true;
+            });
+
+            const sortedCandidates = [...filteredCandidates].sort((a, b) => {
+              if (scoreboardSort === 'score') {
+                return (b.totalScore || 0) - (a.totalScore || 0);
+              }
+              if (scoreboardSort === 'strength') {
+                return (b.metrics?.strength || 0) - (a.metrics?.strength || 0);
+              }
+              if (scoreboardSort === 'disparity') {
+                return Math.abs((b.metrics?.disparity5 || 100) - 100) - Math.abs((a.metrics?.disparity5 || 100) - 100);
+              }
+              if (scoreboardSort === 'short') {
+                return (b.metrics?.shortRatio || 0) - (a.metrics?.shortRatio || 0);
+              }
+              return 0;
+            });
+
+            return (
+              <div className="mt-8 border-t border-white/5 pt-8">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                  <div>
+                    <h3 className="text-sm font-black text-white/80 flex items-center gap-2 uppercase tracking-widest">
+                      <ChartLine size={14} className="text-[#00ffab]" /> 계량 전광판 및 실시간 리스크 센터
+                    </h3>
+                    <p className="text-[10px] text-white/40 mt-1">시장 후보 종목 25개의 실시간 계량 지표와 VETO 배제 사유를 투명하게 공개합니다.</p>
+                  </div>
+                  
+                  {/* Controls */}
+                  <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full md:w-auto">
+                    {/* Search Input */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="종목명/코드 검색..."
+                        value={scoreboardSearch}
+                        onChange={(e) => { setScoreboardSearch(e.target.value); setExpandedCand(null); }}
+                        className="w-full sm:w-48 bg-white/[0.03] border border-white/10 rounded-xl px-3.5 py-1.5 text-xs text-white placeholder-white/20 focus:outline-none focus:border-[#00ffab]/50 transition-all font-bold"
+                      />
+                      {scoreboardSearch && (
+                        <button
+                          onClick={() => setScoreboardSearch('')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white text-[10px]"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Filter Tabs */}
+                    <div className="flex bg-white/[0.02] border border-white/5 rounded-xl p-0.5 font-bold overflow-x-auto custom-scrollbar">
+                      {[
+                        { id: 'all', label: '전체' },
+                        { id: 'safe', label: '🟢 진입유효' },
+                        { id: 'veto', label: '🔴 배제(VETO)' },
+                        { id: 'golden', label: '✨ 변곡점' }
+                      ].map(tab => (
+                        <button
+                          key={tab.id}
+                          onClick={() => { setScoreboardTab(tab.id); setExpandedCand(null); }}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] transition-all whitespace-nowrap ${scoreboardTab === tab.id ? 'bg-[#00ffab]/10 border border-[#00ffab]/20 text-[#00ffab]' : 'border border-transparent text-white/50 hover:text-white'}`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Sort Dropdown */}
+                    <div className="flex items-center gap-1.5 bg-white/[0.02] border border-white/5 rounded-xl px-3 py-1.5 font-bold text-white/50 text-[10px] whitespace-nowrap">
+                      <span>정렬:</span>
+                      <select
+                        value={scoreboardSort}
+                        onChange={(e) => { setScoreboardSort(e.target.value); setExpandedCand(null); }}
+                        className="bg-transparent border-none text-white focus:outline-none text-[10px] font-black cursor-pointer"
+                      >
+                        <option value="score" className="bg-[#141822] text-white">종합점수순</option>
+                        <option value="strength" className="bg-[#141822] text-white">체결강도순</option>
+                        <option value="disparity" className="bg-[#141822] text-white">이격과열순</option>
+                        <option value="short" className="bg-[#141822] text-white">공매도비율순</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Scoreboard List */}
+                {sortedCandidates.length === 0 ? (
+                  <div className="py-12 text-center text-white/30 text-xs border border-white/5 rounded-2xl bg-white/[0.01]">
+                    검색 조건에 맞는 계량 후보 종목이 없습니다.
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {sortedCandidates.map((c, idx) => {
+                      const isExpanded = expandedCand === c.code;
+                      const atrPercent = c.metrics?.atrPercent || 5.0;
+                      const cPrice = parseFloat(c.price || 0);
+                      const tp = cPrice * (1 + 3.0 * (atrPercent / 100));
+                      const sl = cPrice * (1 - 1.5 * (atrPercent / 100));
+                      
+                      return (
+                        <div 
+                          key={c.code} 
+                          className={`glass-card border border-white/5 bg-white/[0.01] rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'bg-white/[0.03] border-white/10 shadow-lg' : 'hover:bg-white/[0.02]'}`}
+                        >
+                          {/* Collapsed Header Bar */}
+                          <div 
+                            onClick={() => setExpandedCand(isExpanded ? null : c.code)}
+                            className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 cursor-pointer select-none"
+                          >
+                            <div className="flex items-center gap-3 w-full sm:w-auto">
+                              <span className="w-5 text-center font-mono font-black text-white/30 text-xs">
+                                {idx + 1}
+                              </span>
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-2">
+                                  <span 
+                                    className="text-white font-black text-sm hover:text-blue-400 hover:underline cursor-pointer transition-colors"
+                                    onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      onOpenPopup(c.name, String(c.price), c.change, c.code); 
+                                    }}
+                                  >
+                                    {c.name}
+                                  </span>
+                                  <span className="text-[10px] text-white/30 font-mono">{c.code}</span>
+                                </div>
+                                <span className="text-[9px] text-white/40 mt-0.5">{c.metrics?.sector || '기타'}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto border-t sm:border-t-0 border-white/5 pt-2 sm:pt-0">
+                              {/* Badges */}
+                              <div className="flex gap-2">
+                                {getStatusBadge(c)}
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                {/* Total Score */}
+                                <div className="flex flex-col items-end">
+                                  <span className="text-[9px] text-white/30 font-bold uppercase tracking-widest">계량 종합</span>
+                                  <span className={`text-sm font-black font-mono ${c.isVetoed ? 'text-white/40' : (c.totalScore >= 40 ? 'text-[#00ffab]' : 'text-white/80')}`}>
+                                    {c.totalScore !== undefined && c.totalScore !== null ? c.totalScore.toFixed(0) : '0'}점
+                                  </span>
+                                </div>
+                                
+                                {/* Expand Arrow */}
+                                <div className="text-white/30">
+                                  {isExpanded ? (
+                                    <svg className="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 15l7-7 7 7" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Expand Details Drawer */}
+                          <AnimatePresence initial={false}>
+                            {isExpanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                              >
+                                <div className="px-4 pb-6 pt-2 border-t border-white/5 bg-black/10">
+                                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    
+                                    {/* Column 1: Sub-Score breakdown */}
+                                    <div className="lg:col-span-1 bg-white/[0.01] border border-white/5 rounded-2xl p-4">
+                                      <div className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                        <span>📊 계량 가중치 분석 (Detail Scores)</span>
+                                      </div>
+                                      {renderScoreBar('당일 체결강도', c.scores?.strengthScore || 0, 30)}
+                                      {renderScoreBar('외인/기관 수급', c.scores?.supplyScore || 0, 35)}
+                                      {renderScoreBar('시장 연동 상대강도', c.scores?.indexRelativeScore || 0, 20)}
+                                      {renderScoreBar('이동평균 추세', c.scores?.trendScore || 0, 15)}
+                                      {renderScoreBar('자금 유입 규모', c.scores?.moneyInflowScore || 0, 15)}
+                                      {c.scores?.financialScore !== undefined && c.scores.financialScore !== 0 && 
+                                        renderScoreBar('하락장 재무 안전성', c.scores.financialScore, 20)
+                                      }
+                                      {c.scores?.backtestPenalty !== undefined && c.scores.backtestPenalty < 0 && (
+                                        <div className="flex justify-between items-center text-[10px] text-[#ff3d68] font-bold mt-1 bg-[#ff3d68]/5 p-2 rounded-lg border border-[#ff3d68]/15">
+                                          <span>📉 최근 30분 백테스트 감점</span>
+                                          <span className="font-mono">{c.scores.backtestPenalty}점</span>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Column 2: Raw metrics */}
+                                    <div className="lg:col-span-1 bg-white/[0.01] border border-white/5 rounded-2xl p-4 flex flex-col justify-between">
+                                      <div>
+                                        <div className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-3">
+                                          <span>⚙️ 실시간 계량 지표 (Raw Metrics)</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-white/60">
+                                          <div className="flex justify-between py-1 border-b border-white/[0.03]">
+                                            <span>체결강도:</span>
+                                            <span className="font-mono text-white/95 font-bold">{c.metrics?.strength}%</span>
+                                          </div>
+                                          <div className="flex justify-between py-1 border-b border-white/[0.03]">
+                                            <span>공매도 비중:</span>
+                                            <span className="font-mono text-white/95 font-bold">{c.metrics?.shortRatio}%</span>
+                                          </div>
+                                          <div className="flex justify-between py-1 border-b border-white/[0.03]">
+                                            <span>5일 이격도:</span>
+                                            <span className="font-mono text-white/95 font-bold">{c.metrics?.disparity5}%</span>
+                                          </div>
+                                          <div className="flex justify-between py-1 border-b border-white/[0.03]">
+                                            <span>1일 이격도:</span>
+                                            <span className="font-mono text-white/95 font-bold">{c.metrics?.disparity1}%</span>
+                                          </div>
+                                          <div className="flex justify-between py-1 border-b border-white/[0.03]">
+                                            <span>신용잔고율:</span>
+                                            <span className="font-mono text-white/95 font-bold">{c.metrics?.creditBalance}%</span>
+                                          </div>
+                                          <div className="flex justify-between py-1 border-b border-white/[0.03]">
+                                            <span>거래대금 (당일):</span>
+                                            <span className="font-mono text-white/95 font-bold">{Math.round((c.metrics?.transactionValue || 0) / 100000000)}억원</span>
+                                          </div>
+                                          <div className="flex justify-between py-1 border-b border-white/[0.03] col-span-2">
+                                            <span>이동평균 정렬:</span>
+                                            <span className="text-[#00ffab] font-bold">{c.metrics?.maAlignment || '혼조세'}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Financial info if available */}
+                                      {c.financials && (
+                                        <div className="mt-4 pt-3 border-t border-white/5">
+                                          <div className="text-[9px] font-black text-white/30 uppercase tracking-widest mb-1.5">
+                                            Corporate Financials
+                                          </div>
+                                          <div className="grid grid-cols-3 gap-2 text-center text-[10px] text-white/60">
+                                            <div className="bg-white/[0.02] p-1.5 rounded-lg border border-white/5">
+                                              <div className="text-white/30 text-[8px] uppercase">ROE</div>
+                                              <div className={`font-mono font-bold mt-0.5 ${c.financials.roe < 0 ? 'text-[#ff3d68]' : 'text-white'}`}>{c.financials.roe !== null ? `${c.financials.roe}%` : '-'}</div>
+                                            </div>
+                                            <div className="bg-white/[0.02] p-1.5 rounded-lg border border-white/5">
+                                              <div className="text-white/30 text-[8px] uppercase">부채비율</div>
+                                              <div className={`font-mono font-bold mt-0.5 ${c.financials.debtRatio >= 200 ? 'text-[#ff3d68]' : 'text-white'}`}>{c.financials.debtRatio !== null ? `${c.financials.debtRatio}%` : '-'}</div>
+                                            </div>
+                                            <div className="bg-white/[0.02] p-1.5 rounded-lg border border-white/5">
+                                              <div className="text-white/30 text-[8px] uppercase">PBR</div>
+                                              <div className="font-mono font-bold mt-0.5 text-white">{c.financials.pbr !== null ? `${c.financials.pbr}배` : '-'}</div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Column 3: ATR & Trading Guidance */}
+                                    <div className="lg:col-span-1 flex flex-col justify-between">
+                                      <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-4 h-full flex flex-col justify-between">
+                                        <div>
+                                          <div className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                            <span>🎯 진입 및 청산 가이드 (ATR Target Boundary)</span>
+                                          </div>
+                                          <div className="text-[11px] text-white/50 leading-relaxed mb-3">
+                                            {c.isVetoed ? (
+                                              <span className="text-[#ff3d68] font-bold">
+                                                [주의] 본 종목은 {c.vetoReason || '계량 안전성 필터 배제'} 조건에 감지된 상태이므로 신규 진입을 금지합니다.
+                                              </span>
+                                            ) : (
+                                              <span className="text-white/70">
+                                                변동성(ATR {atrPercent}%) 기준 매수 청산 지지대와 돌파 상승 저항대 가이드라인입니다.
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        
+                                        {/* Visual Range bar */}
+                                        {renderRangeBar(c.price, tp, sl)}
+                                      </div>
+                                    </div>
+
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
         </div>
       </div>
     </section>

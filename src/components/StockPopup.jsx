@@ -88,7 +88,7 @@ const StockPopup = ({ item, onClose }) => {
                 <span className="text-sm font-medium text-gray-500 ml-1">KRW</span>
               </span>
               {!loadingRealTime && (
-                <span className={`font-bold pb-1 text-sm ${realTimeData.change?.includes('-') ? 'text-blue-500' : 'text-[#ed3738]'}`}>
+                <span className={`font-bold pb-1 text-sm ${String(realTimeData.change || '').includes('-') ? 'text-blue-500' : 'text-[#ed3738]'}`}>
                   {realTimeData.change}
                 </span>
               )}
@@ -172,7 +172,7 @@ const StockPopup = ({ item, onClose }) => {
                   <div className="text-right">
                     <span className="text-[10px] text-sky-400 font-bold block">현재가 대비</span>
                     <span className="text-sm font-bold text-sky-500">
-                      +{Math.round(((parseInt(stockDetail.consensus[0].target) - parseInt(item.price.replace(/,/g, ''))) / parseInt(item.price.replace(/,/g, ''))) * 100)}% 업사이드
+                      +{Math.round(((parseInt(stockDetail.consensus[0].target) - parseInt(String(item.price).replace(/,/g, ''))) / parseInt(String(item.price).replace(/,/g, ''))) * 100)}% 업사이드
                     </span>
                   </div>
                 </div>
@@ -370,29 +370,30 @@ const StockPopup = ({ item, onClose }) => {
                 </div>
  
                 <div className="grid grid-cols-2 gap-3">
-                  {/* Card 1: 20일 이격도 */}
+                  {/* Card 1: 5일 / 1일 이격도 */}
                   <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex flex-col justify-between">
                     <div>
                       <div className="flex justify-between items-center mb-1">
-                        <span className="text-[10px] font-black text-gray-500 uppercase">이격도 (20일)</span>
-                        {stockDetail.advanced?.disparity20 !== undefined && stockDetail.advanced?.disparity20 !== '-' && (
+                        <span className="text-[10px] font-black text-gray-500 uppercase">이격도 (5일/1일)</span>
+                        {stockDetail.advanced?.disparity5 !== undefined && stockDetail.advanced?.disparity5 !== '-' && (
                           <span className={`text-[8px] px-1.5 py-0.5 rounded font-black ${
-                            parseFloat(stockDetail.advanced?.disparity20) > 106 
+                            parseFloat(stockDetail.advanced?.disparity5) > 106 
                               ? 'bg-red-50 text-red-600 border border-red-100' 
-                              : parseFloat(stockDetail.advanced?.disparity20) >= 98 && parseFloat(stockDetail.advanced?.disparity20) <= 104
+                              : parseFloat(stockDetail.advanced?.disparity5) >= 98 && parseFloat(stockDetail.advanced?.disparity5) <= 104
                                 ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
                                 : 'bg-gray-50 text-gray-600 border border-gray-100'
                           }`}>
-                            {parseFloat(stockDetail.advanced?.disparity20) > 106 ? '단기 과열' : parseFloat(stockDetail.advanced?.disparity20) >= 98 && parseFloat(stockDetail.advanced?.disparity20) <= 104 ? '안정 수렴' : '관망/조정'}
+                            {parseFloat(stockDetail.advanced?.disparity5) > 106 ? '단기 과열' : parseFloat(stockDetail.advanced?.disparity5) >= 98 && parseFloat(stockDetail.advanced?.disparity5) <= 104 ? '안정 수렴' : '관망/조정'}
                           </span>
                         )}
                       </div>
-                      <div className="text-xl font-black text-gray-900 font-mono mt-1">
-                        {stockDetail.advanced?.disparity20 !== undefined ? `${stockDetail.advanced.disparity20}%` : '-'}
+                      <div className="text-sm font-black text-gray-900 font-mono mt-1 flex flex-col gap-0.5">
+                        <div>5일: {stockDetail.advanced?.disparity5 !== undefined ? `${stockDetail.advanced.disparity5}%` : '-'}</div>
+                        <div className="text-[10px] text-gray-500 font-normal">1일: {stockDetail.advanced?.disparity1 !== undefined ? `${stockDetail.advanced.disparity1}%` : '-'}</div>
                       </div>
                     </div>
                     <p className="text-[9px] text-gray-400 leading-normal mt-2 pt-2 border-t border-gray-50">
-                      20일 이동평균선과 현재가의 괴리율. <strong>98%~104%</strong> 안정이 진입 적기이며, 106% 초과 시 리스크 관리가 필요합니다.
+                      5일 이동평균선 및 전일비(1일) 대비 가격 괴리율. <strong>98%~104%</strong> 안정이 진입 적기이며, 106% 초과 시 리스크 관리가 필요합니다.
                     </p>
                   </div>
  
