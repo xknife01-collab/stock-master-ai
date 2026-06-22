@@ -33,6 +33,13 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
         </span>
       );
     } else {
+      if (c.metrics?.strengthAcceleration >= 5) {
+        badges.push(
+          <span key="accel-override" className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 shadow-sm select-none animate-pulse">
+            ⚡ 수급 가속 특례
+          </span>
+        );
+      }
       badges.push(
         <span key="safe" className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-[#00ffab]/10 border border-[#00ffab]/20 text-[#00ffab] shadow-sm select-none">
           🟢 진입 가능
@@ -782,6 +789,9 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                                       {renderScoreBar('시장 연동 상대강도', c.scores?.indexRelativeScore || 0, 20)}
                                       {renderScoreBar('이동평균 추세', c.scores?.trendScore || 0, 15)}
                                       {renderScoreBar('자금 유입 규모', c.scores?.moneyInflowScore || 0, 15)}
+                                      {renderScoreBar('외국계 창구 수급', c.scores?.memberTrendScore || 0, 10)}
+                                      {renderScoreBar('대형 체결 (블록오더)', c.scores?.largeTradeScore || 0, 8)}
+                                      {renderScoreBar('체결강도 가속도', c.scores?.strengthAccScore || 0, 10)}
                                       {c.scores?.financialScore !== undefined && c.scores.financialScore !== 0 && 
                                         renderScoreBar('하락장 재무 안전성', c.scores.financialScore, 20)
                                       }
@@ -824,9 +834,27 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                                             <span>거래대금 (당일):</span>
                                             <span className="font-mono text-white/95 font-bold">{Math.round((c.metrics?.transactionValue || 0) / 100000000)}억원</span>
                                           </div>
+                                          <div className="flex justify-between py-1 border-b border-white/[0.03]">
+                                            <span>체결 가속도:</span>
+                                            <span className="font-mono text-orange-400 font-bold">
+                                              {c.metrics?.strengthAcceleration !== undefined ? `${c.metrics.strengthAcceleration > 0 ? '+' : ''}${c.metrics.strengthAcceleration}%p` : '-'}
+                                            </span>
+                                          </div>
+                                          <div className="flex justify-between py-1 border-b border-white/[0.03]">
+                                            <span>블록오더 비중:</span>
+                                            <span className="font-mono text-[#00ffab] font-bold">
+                                              {c.metrics?.largeTradeRatio !== undefined ? `${(c.metrics.largeTradeRatio * 100).toFixed(1)}%` : '-'}
+                                            </span>
+                                          </div>
                                           <div className="flex justify-between py-1 border-b border-white/[0.03] col-span-2">
                                             <span>이동평균 정렬:</span>
                                             <span className="text-[#00ffab] font-bold">{c.metrics?.maAlignment || '혼조세'}</span>
+                                          </div>
+                                          <div className="flex justify-between py-1 border-b border-white/[0.03] col-span-2">
+                                            <span>외국계 순매수액:</span>
+                                            <span className="font-mono text-[#00ffab] font-bold">
+                                              {c.metrics?.netForeignWindowBuyMoney !== undefined ? `${c.metrics.netForeignWindowBuyMoney > 0 ? '+' : ''}${c.metrics.netForeignWindowBuyMoney}억원` : '-'}
+                                            </span>
                                           </div>
                                         </div>
                                       </div>
@@ -868,9 +896,16 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                                                 [주의] 본 종목은 {c.vetoReason || '계량 안전성 필터 배제'} 조건에 감지된 상태이므로 신규 진입을 금지합니다.
                                               </span>
                                             ) : (
-                                              <span className="text-white/70">
-                                                변동성(ATR {atrPercent}%) 기준 매수 청산 지지대와 돌파 상승 저항대 가이드라인입니다.
-                                              </span>
+                                              <div className="flex flex-col gap-2">
+                                                {c.metrics?.strengthAcceleration >= 5 && (parseFloat(c.metrics?.strength) < 95 || (c.metrics?.maAlignment && c.metrics.maAlignment.includes('역배열'))) && (
+                                                  <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[10px] font-bold leading-normal">
+                                                    💡 [수급 가속 특례 적용] 체결강도({c.metrics?.strength}%)가 기준(95%)보다 낮거나 추세가 역배열 상태이나, 실시간 가속도(+{c.metrics?.strengthAcceleration}%p)와 블록오더 비중이 급증하여 리스크 VETO가 유예되고 진입이 유효 판정되었습니다.
+                                                  </div>
+                                                )}
+                                                <span className="text-white/70">
+                                                  변동성(ATR {atrPercent}%) 기준 매수 청산 지지대와 돌파 상승 저항대 가이드라인입니다.
+                                                </span>
+                                              </div>
                                             )}
                                           </div>
                                         </div>
