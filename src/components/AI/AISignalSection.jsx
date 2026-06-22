@@ -633,7 +633,7 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                     <h3 className="text-sm font-black text-white/80 flex items-center gap-2 uppercase tracking-widest">
                       <ChartLine size={14} className="text-[#00ffab]" /> 계량 전광판 및 실시간 리스크 센터
                     </h3>
-                    <p className="text-[10px] text-orange-400 font-bold mt-1">국내 시장을 선도하는 350개 핵심 종목을 대상으로 30분마다 정밀 계량 평가를 실시하며, 분석 결과는 30분 주기로 자동 업데이트됩니다. 이 중 최종 엄선되어 AI 1차 심층 리스크 검증으로 유입되는 상위 25개 후보 종목의 실시간 퀀트 지표와 VETO 배제 사유를 투명하게 공개합니다.</p>
+                    <p className="text-[10px] text-orange-400 font-bold mt-1">국내 시장을 선도하는 350개 핵심 종목을 대상으로 10분마다 정밀 계량 평가를 실시하며, 분석 결과는 10분 주기로 자동 업데이트됩니다. 이 중 최종 엄선되어 AI 1차 심층 리스크 검증으로 유입되는 상위 25개 후보 종목의 실시간 퀀트 지표와 VETO 배제 사유를 투명하게 공개합니다.</p>
                   </div>
                   
                   {/* Controls */}

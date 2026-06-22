@@ -23,9 +23,9 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // --- Cron Jobs ---
-// 1. 장중 시간(KST 09:05 - 15:35) 월~금요일 매 30분마다 Pulse 실행 (AI 시장 분석)
+// 1. 장중 시간(KST 09:00 - 15:50) 월~금요일 매 10분마다 Pulse 실행 (AI 시장 분석)
 // 서버의 로컬 타임존 설정에 영향을 받지 않도록 Asia/Seoul 타임존을 명시적으로 지정하여 스케줄링합니다.
-cron.schedule('5,35 9-15 * * 1-5', async () => {
+cron.schedule('*/10 9-15 * * 1-5', async () => {
     console.log('⏰ [Cron] 장중 시간(KST) - Pulse 자동 실행 시작...');
     try {
         await executeHourlyPulse();

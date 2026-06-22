@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { aiModel, vertexModel } from '../lib/ai.js';
-import { getAccessToken, KIS_BASE_URL, getKisHeaders, fetchStockPrice, fetchStockAnalytics, fetchStockInvestorTrend, fetchMarketRankings, fetchConditionResult, fetchMultipleStockQuantMetrics, fetchStockFinancialsForVeto, fetchIndexDailyHistory, initKisStockMaster, fetchStockIntradayInvestorEstimate, calculateTechnicalIndicators } from '../lib/kisCore.js';
+import { getAccessToken, KIS_BASE_URL, getKisHeaders, fetchStockPrice, fetchStockAnalytics, fetchStockInvestorTrend, fetchMarketRankings, fetchConditionResult, fetchMultipleStockQuantMetrics, fetchStockFinancialsForVeto, fetchIndexDailyHistory, initKisStockMaster, fetchStockIntradayInvestorEstimate, calculateTechnicalIndicators, setRealtimeTaskActive } from '../lib/kisCore.js';
 import { fetchMacroIndicators } from './macroApi.js';
 import { getSupplyCache, saveSupplyCache } from '../lib/supplyCache.js';
 import supabase from '../lib/supabaseClient.js';
@@ -1021,12 +1021,14 @@ export const executeHourlyPulse = async (force = false) => {
     // 4. 실행 프로세스 (잠금 설정)
     fetchingAiSignalPromise = (async () => {
         try {
+            setRealtimeTaskActive(true);
             const result = await _executeHourlyPulseInternal(currentHourKey, timeStr);
             return {
                 ...result,
                 marketOpen: true
             };
         } finally {
+            setRealtimeTaskActive(false);
             fetchingAiSignalPromise = null;
         }
     })();
