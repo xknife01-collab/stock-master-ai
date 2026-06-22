@@ -1568,7 +1568,10 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                             selfHealedReasons: row.advanced?.selfHealedReasons || [],
                             isDefaultFallback: false,
                             chartHistory: row.advanced?.chartHistory || {},
-                            technical: row.advanced?.technical || null
+                            technical: row.advanced?.technical || null,
+                            strengthAcceleration: parseNum(row.advanced?.strengthAcceleration, 0),
+                            memberTrend: row.advanced?.memberTrend || null,
+                            largeTrade: row.advanced?.largeTrade || null
                         };
                     });
                     console.log(`⚡ [Pulse] Supabase 캐시로부터 ${freshData.length}개 종목의 유효한(1시간 이내) 퀀트 지표 로드 완료 (총 ${data.length}개 중 ${data.length - freshData.length}개 만료됨).`);
@@ -1639,7 +1642,10 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                             selfHealedReasons: row.advanced?.selfHealedReasons || [],
                             isDefaultFallback: false,
                             chartHistory: row.advanced?.chartHistory || {},
-                            technical: row.advanced?.technical || null
+                            technical: row.advanced?.technical || null,
+                            strengthAcceleration: parseNum(row.advanced?.strengthAcceleration, 0),
+                            memberTrend: row.advanced?.memberTrend || null,
+                            largeTrade: row.advanced?.largeTrade || null
                         };
                         
                         // cacheData & cachedRows 의 해당 row 교체 (이후 재무 데이터 조회 루프 등에서 사용됨)
@@ -1718,7 +1724,10 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                         selfHealedReasons: staleRow.advanced?.selfHealedReasons || [],
                         isDefaultFallback: false,
                         chartHistory: staleRow.advanced?.chartHistory || {},
-                        technical: staleRow.advanced?.technical || null
+                        technical: staleRow.advanced?.technical || null,
+                        strengthAcceleration: parseNum(staleRow.advanced?.strengthAcceleration, 0),
+                        memberTrend: staleRow.advanced?.memberTrend || null,
+                        largeTrade: staleRow.advanced?.largeTrade || null
                     };
                 } else {
                     console.log(`⚠️ [Default Fallback] ${c.name} (${symbol}) - 캐시가 전무하여 디폴트 값을 지정하고 백그라운드 동기화를 트리거합니다.`);
@@ -1747,7 +1756,10 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                         selfHealedReasons: [],
                         isDefaultFallback: true,
                         chartHistory: {},
-                        technical: null
+                        technical: null,
+                        strengthAcceleration: 0,
+                        memberTrend: { foreignBuyVolume: 0, foreignSellVolume: 0, foreignNetBuy: 0 },
+                        largeTrade: { totalLargeValue: 0, buyLargeValue: 0, sellLargeValue: 0, largeRatio: 0 }
                     };
                 }
             }
@@ -2672,6 +2684,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                         disparity5: c.metrics?.disparity5,
                         disparity20: c.metrics?.disparity20,
                         strength: c.metrics?.strength,
+                        strengthAcceleration: c.metrics?.strengthAcceleration || 0,
+                        netForeignWindowBuyMoney: c.metrics?.netForeignWindowBuyMoney || 0,
+                        largeTradeRatio: c.metrics?.largeTradeRatio || 0,
                         shortRatio: c.metrics?.shortRatio,
                         investor1D: c.metrics?.investor1D,
                         investor5D: c.metrics?.investor5D,
@@ -2760,11 +2775,14 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             return `[${idx + 1}위] ${c.name} (${c.code})${excludeBadge}${intradayVetoBadge}${fitTagText}${antHellBadge}${penaltyBadge}${integrityBadge}${spikeBadge}${inflectionBadge} - 퀀트 종합점수: ${c.totalScore}점 (상한선이 없는 상대강도 점수)
     - [5일 이격도] 수치: ${c.metrics.disparity5}% / [1일 이격도] 수치: ${c.metrics.disparity1}% ➡️ 점수: ${c.scores.disparityScore}점 / 10점
     - [체결강도] 수치: ${c.metrics.strength}% ➡️ 점수: ${c.scores.strengthScore}점 / ${isSafe ? 15 : 30}점
+    - [체결강도 가속도] 수치: ${c.metrics.strengthAcceleration > 0 ? '+' : ''}${c.metrics.strengthAcceleration}%p ➡️ 점수: ${c.scores.strengthAccScore || 0}점 / 10점
     - [지수 연동 & 상대 강도] ➡️ 점수: ${c.scores.indexRelativeScore}점 / ${isSafe ? 10 : 20}점
     - [추세 점수(정배열)] 상태: ${c.metrics.maAlignment || '혼조세'} ➡️ 점수: ${c.scores.trendScore}점 / 15점 (정배열 시 +15점, 역배열 시 -15점)
     - [환산 자금 유입 가산점] 10만 원 환산 거래대금: ${normalizedTxValEok.toFixed(1)}억 원 ➡️ 점수: ${c.scores.moneyInflowScore || 0}점 / 15점 (10만 원 단가 환산 거래량 급증 보너스)
     - [공매도 비중] 수치: ${c.metrics.shortRatio}% ➡️ 점수: ${c.scores.shortScore}점 / 5점
     - [수급 점수] ➡️ 점수: ${c.scores.supplyScore}점 / 35점
+    - [외국계 창구 수급] 실시간 순매수 금액: ${c.metrics.netForeignWindowBuyMoney || 0}억 원 ➡️ 점수: ${c.scores.memberTrendScore || 0}점 / 10점
+    - [대형 체결 (블록오더)] 대형 체결 비율: ${((c.metrics.largeTradeRatio || 0) * 100).toFixed(1)}% ➡️ 점수: ${c.scores.largeTradeScore || 0}점 / 8점
     - [재무 안전성 점수] ➡️ 점수: ${c.scores.financialScore || 0}점 / 20점 ${isSafe ? '(하락장 적용)' : '(상승장 비활성화)'}
     - [과거 백테스트 감점] ➡️ 감점: -${c.scores.backtestPenalty}점 (최근 마이너스 성적 누적)
     - [당일 수급 (핵심)] ${supply1DText}
@@ -3254,6 +3272,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                         disparity5: c.metrics?.disparity5,
                         disparity20: c.metrics?.disparity20,
                         strength: c.metrics?.strength,
+                        strengthAcceleration: c.metrics?.strengthAcceleration || 0,
+                        netForeignWindowBuyMoney: c.metrics?.netForeignWindowBuyMoney || 0,
+                        largeTradeRatio: c.metrics?.largeTradeRatio || 0,
                         shortRatio: c.metrics?.shortRatio,
                         investor1D: c.metrics?.investor1D,
                         investor5D: c.metrics?.investor5D,
