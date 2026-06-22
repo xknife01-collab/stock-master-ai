@@ -2060,11 +2060,40 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             }
             moneyInflowScore = Math.min(15, moneyInflowScore);
 
+            // 9. 외국계 창구 실시간 순매수 급증 점수 (memberTrendScore, Max 10점)
+            let memberTrendScore = 0;
+            const netFwdBuy = m.memberTrend?.foreignNetBuy || 0;
+            const netFwdBuyMoney = Math.round((netFwdBuy * (m.price || c.price || 0)) / 100000000); // 억 원 단위
+            if (netFwdBuyMoney >= 10) memberTrendScore = 10;
+            else if (netFwdBuyMoney >= 5) memberTrendScore = 7;
+            else if (netFwdBuyMoney >= 1) memberTrendScore = 4;
+            else if (netFwdBuyMoney > 0) memberTrendScore = 2;
+
+            // 10. 대형 체결 실시간 감지 점수 (largeTradeScore, Max 8점)
+            let largeTradeScore = 0;
+            const largeRatio = m.largeTrade?.largeRatio || 0;
+            if (largeRatio >= 0.3) largeTradeScore += 5;
+            else if (largeRatio >= 0.15) largeTradeScore += 3;
+            
+            const buyLargeVal = m.largeTrade?.buyLargeValue || 0;
+            const sellLargeVal = m.largeTrade?.sellLargeValue || 0;
+            if (buyLargeVal > sellLargeVal * 1.5 && buyLargeVal > 0) {
+                largeTradeScore += 3;
+            }
+
+            // 11. 체결강도 가속도 점수 (strengthAccScore, Max 10점)
+            let strengthAccScore = 0;
+            const strengthAcc = m.strengthAcceleration || 0;
+            if (strengthAcc >= 10) strengthAccScore = 10;
+            else if (strengthAcc >= 5) strengthAccScore = 5;
+            else if (strengthAcc <= -10) strengthAccScore = -10; // 가속도 하락 패널티
+            else if (strengthAcc <= -5) strengthAccScore = -5;
+
             let themeScore = 0;
             let isThemeLeader = false;
 
             const backtestPenalty = calculateBacktestPenalty(c.code);
-            const rawTotalScore = strengthScore + disparityScore + shortScore + supplyScore + indexRelativeScore + trendScore + moneyInflowScore + goldenCrossBonus;
+            const rawTotalScore = strengthScore + disparityScore + shortScore + supplyScore + indexRelativeScore + trendScore + moneyInflowScore + goldenCrossBonus + memberTrendScore + largeTradeScore + strengthAccScore;
             const totalScore = Math.max(-100, rawTotalScore - backtestPenalty); // 상한선 제한 해제 (Unbounded relative score, 하한선 -100 제한만 유지)
 
             // --- Hard VETO 판정 (기술적 과열 및 장중 하락 추세 감지) ---
@@ -2073,9 +2102,14 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
             // 체결강도 절대 약세 VETO (95% 미만, 하락장/안전모드 100% 미만, forceRecommend 시 90% 미만)
             const minStrengthRequired = forceRecommend ? 90 : (isSafe ? 100 : 95);
-            if (parseFloat(m.strength || 100) < minStrengthRequired) {
+            const strVal = parseFloat(m.strength || 100);
+            const isStrengthVetoOverridden = strengthAcc >= 5 && strVal >= 90;
+
+            if (strVal < minStrengthRequired && !isStrengthVetoOverridden) {
                 isVetoed = true;
                 vetoReasons.push(`체결강도 약세 감지 (체결강도: ${m.strength}% < 기준: ${minStrengthRequired}%)`);
+            } else if (isStrengthVetoOverridden && strVal < minStrengthRequired) {
+                console.log(`✨ [VETO Override] ${c.name} (${c.code}) - 체결강도가 기준(${minStrengthRequired}%)보다 낮은 ${m.strength}%이나, 체결강도 가속도(+${strengthAcc}%p)가 감지되어 VETO 적용 유예.`);
             }
 
             const rsiVal = (m.technical && m.technical.rsi !== '-') ? parseFloat(m.technical.rsi) : null;
@@ -2111,8 +2145,8 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 const isDownwardDrift = disp1 < 100 && parseFloat(m.strength || 100) < 100;
                 const isVetoRebounding = (disp5 < 100) && (disp1 >= 100) && (parseFloat(m.strength) >= 100) && (parseFloat(c.change || m.change || '0') > 0 || !isDumping);
                 
-                // Super Leader 또는 수급 골든크로스(체결강도 지지 필요)이면서 수급 이탈이 없을 때는 역배열, 5일선 아래 VETO를 바이패스합니다.
-                const shouldBypassTrends = forceRecommend || (isSuperLeader && !isDumping) || (isSupplyGoldenCross && str >= 95 && !isDumping);
+                // Super Leader, 수급 골든크로스(체결강도 지지 필요), 또는 체결강도 가속도 돌입이면서 수급 이탈이 없을 때는 역배열, 5일선 아래 VETO를 바이패스합니다.
+                const shouldBypassTrends = forceRecommend || (isSuperLeader && !isDumping) || (isSupplyGoldenCross && str >= 95 && !isDumping) || (strengthAcc >= 5 && !isDumping);
 
                 if (!shouldBypassTrends && isDownwardAlignment) {
                     isVetoed = true;
@@ -2174,6 +2208,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     disparity5: m.disparity5,
                     disparity20: m.disparity20,
                     strength: m.strength,
+                    strengthAcceleration: m.strengthAcceleration || 0,
+                    netForeignWindowBuyMoney: netFwdBuyMoney,
+                    largeTradeRatio: largeRatio,
                     shortRatio: m.shortRatio,
                     investor1D: m.investor1D,
                     investor5D: m.investor5D,
@@ -2195,6 +2232,9 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                     indexRelativeScore,
                     trendScore, // Added trendScore to scores
                     moneyInflowScore, // Added moneyInflowScore
+                    memberTrendScore,
+                    largeTradeScore,
+                    strengthAccScore,
                     themeScore: 0, // Theme score deactivated (Option A)
                     backtestPenalty,
                     financialScore: 0 // 2차 재무 루프에서 부여됨
