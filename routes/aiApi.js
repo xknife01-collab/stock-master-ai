@@ -2102,13 +2102,13 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
 
             // 체결강도 절대 약세 VETO (95% 미만, 하락장/안전모드 100% 미만, forceRecommend 시 90% 미만)
             const minStrengthRequired = forceRecommend ? 90 : (isSafe ? 100 : 95);
-            const strVal = parseFloat(m.strength || 100);
-            const isStrengthVetoOverridden = strengthAcc >= 5 && strVal >= 90;
+            const checkStrVal = parseFloat(m.strength || 100);
+            const isStrengthVetoOverridden = strengthAcc >= 5 && checkStrVal >= 90;
 
-            if (strVal < minStrengthRequired && !isStrengthVetoOverridden) {
+            if (checkStrVal < minStrengthRequired && !isStrengthVetoOverridden) {
                 isVetoed = true;
                 vetoReasons.push(`체결강도 약세 감지 (체결강도: ${m.strength}% < 기준: ${minStrengthRequired}%)`);
-            } else if (isStrengthVetoOverridden && strVal < minStrengthRequired) {
+            } else if (isStrengthVetoOverridden && checkStrVal < minStrengthRequired) {
                 console.log(`✨ [VETO Override] ${c.name} (${c.code}) - 체결강도가 기준(${minStrengthRequired}%)보다 낮은 ${m.strength}%이나, 체결강도 가속도(+${strengthAcc}%p)가 감지되어 VETO 적용 유예.`);
             }
 
