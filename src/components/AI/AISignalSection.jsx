@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, ChartLine } from 'lucide-react';
+import { Activity, ChartLine, Zap, TrendingUp, Globe, Percent, ShieldAlert, ArrowUpRight, ArrowDownRight, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
@@ -10,6 +10,7 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
   const [scoreboardSort, setScoreboardSort] = useState('score');
   const [scoreboardSearch, setScoreboardSearch] = useState('');
   const [expandedCand, setExpandedCand] = useState(null);
+  const [showQuantGuide, setShowQuantGuide] = useState(false);
 
   const sig = aiSignal?.data?.pulse?.data || aiSignal?.pulse?.data || aiSignal?.data || aiSignal?.prediction || aiSignal;
 
@@ -689,6 +690,165 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                       </select>
                     </div>
                   </div>
+                </div>
+
+                {/* 💡 초보자를 위한 퀀트 지표 가이드북 */}
+                <div className="mb-6">
+                  <button
+                    onClick={() => setShowQuantGuide(!showQuantGuide)}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all text-xs font-bold text-white/70"
+                  >
+                    <span className="flex items-center gap-2">
+                      <BookOpen size={14} className="text-[#00ffab]" />
+                      💡 실시간 퀀트 리스크 지표가 어려우신가요? 초보자를 위한 8대 핵심 가이드 확인하기
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[10px] text-white/40">
+                      {showQuantGuide ? '가이드 닫기' : '가이드 열기'}
+                      {showQuantGuide ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    </span>
+                  </button>
+
+                  <AnimatePresence>
+                    {showQuantGuide && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+                          {/* Card 1: 체결강도 */}
+                          <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-3.5 flex flex-col justify-between h-full">
+                            <div>
+                              <div className="flex items-center gap-2 text-[10px] font-black text-white/40 uppercase tracking-wider mb-1.5">
+                                <Activity size={12} className="text-[#00ffab]" />
+                                <span>체결강도</span>
+                              </div>
+                              <p className="text-[11px] text-white/70 leading-relaxed font-bold">
+                                현재 시장에서 주식을 <strong>실시간으로 사려는 매수 체결량</strong>과 <strong>팔려는 매도 체결량</strong>의 비율입니다. 100%를 기준으로 하며, 100%보다 높으면 매수세가 더 강하여 주가가 상승할 확률이 높고, 100% 미만이면 매수세가 약화되어 횡보 또는 하락할 가능성이 큽니다.
+                              </p>
+                            </div>
+                            <div className="text-[9px] text-white/30 mt-2 font-bold bg-white/[0.02] px-2 py-1 rounded">
+                              🏎️ 비유: 주가를 앞으로 밀어붙이는 자동차 액셀 페달의 기본 압력
+                            </div>
+                          </div>
+
+                          {/* Card 2: 체결 가속도 */}
+                          <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-3.5 flex flex-col justify-between h-full">
+                            <div>
+                              <div className="flex items-center gap-2 text-[10px] font-black text-white/40 uppercase tracking-wider mb-1.5">
+                                <Zap size={12} className="text-orange-400" />
+                                <span>체결 가속도 (ROC)</span>
+                              </div>
+                              <p className="text-[11px] text-white/70 leading-relaxed font-bold">
+                                최근 10분간 <strong>체결강도가 얼마나 급격하게 솟구치고 있는지</strong> 나타내는 수급의 속도 변화율입니다. 가속도가 +5%p 이상 급증하면, 기술적 필터를 무시할 정도로 세력이 호가를 위로 들이받으며 급하게 물량을 쓸어 담고 있음을 뜻합니다.
+                              </p>
+                            </div>
+                            <div className="text-[9px] text-orange-400/50 mt-2 font-bold bg-orange-500/5 px-2 py-1 rounded">
+                              🚀 비유: 멈춰있던 차가 순간적으로 시속 100km까지 도달하는 제로백 순간 가속력
+                            </div>
+                          </div>
+
+                          {/* Card 3: 대형 체결 (블록오더) */}
+                          <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-3.5 flex flex-col justify-between h-full">
+                            <div>
+                              <div className="flex items-center gap-2 text-[10px] font-black text-white/40 uppercase tracking-wider mb-1.5">
+                                <TrendingUp size={12} className="text-[#00ffab]" />
+                                <span>대형 체결 (블록오더)</span>
+                              </div>
+                              <p className="text-[11px] text-white/70 leading-relaxed font-bold">
+                                단일 주문 체결 금액이 <strong>5,000만 원 이상인 거액의 체결</strong>이 당일 전체 거래대금에서 차지하는 비율입니다. 이 비중이 15%~30% 이상으로 높고 매수세가 우위일수록, 개미들이 아닌 거대 자금을 움직이는 <strong>'외인/기관 세력(스마트 머니)'</strong>이 이 종목에 강력하게 참여하고 있음을 확증합니다.
+                              </p>
+                            </div>
+                            <div className="text-[9px] text-white/30 mt-2 font-bold bg-white/[0.02] px-2 py-1 rounded">
+                              💼 비유: 전장에 일반 보병이 아닌 거대 중장비(세력)가 투입된 비율
+                            </div>
+                          </div>
+
+                          {/* Card 4: 외국계 창구 순매수 */}
+                          <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-3.5 flex flex-col justify-between h-full">
+                            <div>
+                              <div className="flex items-center gap-2 text-[10px] font-black text-white/40 uppercase tracking-wider mb-1.5">
+                                <Globe size={12} className="text-[#00ffab]" />
+                                <span>외국계 창구 순매수</span>
+                              </div>
+                              <p className="text-[11px] text-white/70 leading-relaxed font-bold">
+                                모건스탠리, JP모건, 골드만삭스 등 <strong>외국계 증권사 창구를 통해 실시간으로 유입되는 매수액에서 매도액을 뺀 순매수 규모</strong>입니다. 국내 시장에서 강한 주도권을 쥐고 주가를 흔드는 외국인 주포 세력의 실탄 유입 강도를 직접 추적하여 수급의 진정성을 판정합니다.
+                              </p>
+                            </div>
+                            <div className="text-[9px] text-white/30 mt-2 font-bold bg-white/[0.02] px-2 py-1 rounded">
+                              💵 비유: 주가를 끌어올릴 메이저 외국인 큰손의 순수 실탄(자금) 수급 규모
+                            </div>
+                          </div>
+
+                          {/* Card 5: 이격도 */}
+                          <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-3.5 flex flex-col justify-between h-full">
+                            <div>
+                              <div className="flex items-center gap-2 text-[10px] font-black text-white/40 uppercase tracking-wider mb-1.5">
+                                <Percent size={12} className="text-white/40" />
+                                <span>이격도</span>
+                              </div>
+                              <p className="text-[11px] text-white/70 leading-relaxed font-bold">
+                                현재 주가가 <strong>특정 이동평균선(평균 가격선)으로부터 얼마나 멀리 벌어져 있는지</strong>를 나타내는 비율입니다. 이격도가 105% 이상으로 너무 높으면 단기적으로 평균 가격보다 지나치게 비싼 '과열 상태'이므로 <strong>추격 매수의 위험</strong>이 크고, 95% 이하로 낮으면 단기 과매도 구간을 뜻합니다.
+                              </p>
+                            </div>
+                            <div className="text-[9px] text-white/30 mt-2 font-bold bg-white/[0.02] px-2 py-1 rounded">
+                              📏 비유: 평균 가격이라는 기둥과 주가라는 고무줄 사이의 팽팽한 장력
+                            </div>
+                          </div>
+
+                          {/* Card 6: VETO (리스크 배제) */}
+                          <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-3.5 flex flex-col justify-between h-full">
+                            <div>
+                              <div className="flex items-center gap-2 text-[10px] font-black text-[#ff3d68] uppercase tracking-wider mb-1.5">
+                                <ShieldAlert size={12} className="text-[#ff3d68]" />
+                                <span>VETO (리스크 배제)</span>
+                              </div>
+                              <p className="text-[11px] text-white/70 leading-relaxed font-bold">
+                                아무리 거래량이 늘어나고 수급이 좋아 보여도, <strong>기업의 연속 적자/재무 부실(고부채), 신용 융자 잔고의 과도함(빚투 과다), 단기 고점에서의 세력 설거지 양상</strong> 등 치명적인 리스크 요인이 감지되면 <strong>AI가 추천 대상에서 강제 배제</strong>하여 투자자의 원금을 보호하는 절대 방어 필터입니다.
+                              </p>
+                            </div>
+                            <div className="text-[9px] text-[#ff3d68]/60 mt-2 font-bold bg-[#ff3d68]/5 px-2 py-1 rounded">
+                              🛡️ 비유: 위험한 지뢰밭 진입을 원천 차단하는 AI 철갑 방어막
+                            </div>
+                          </div>
+
+                          {/* Card 7: 상승 변곡점 */}
+                          <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-3.5 flex flex-col justify-between h-full">
+                            <div>
+                              <div className="flex items-center gap-2 text-[10px] font-black text-[#00ffab] uppercase tracking-wider mb-1.5">
+                                <ArrowUpRight size={12} className="text-[#00ffab]" />
+                                <span>상승 변곡점</span>
+                              </div>
+                              <p className="text-[11px] text-white/70 leading-relaxed font-bold">
+                                세력이 최근 5일간 지속해서 매도(물량 매집 또는 가격 조정)를 하던 흐름 속에서, <strong>오늘 갑자기 외인과 기관이 동시에 강력한 순매수(쌍끌이 매수)로 전환하고 체결강도 95%를 돌파하며 본격 상승 엔진을 점화하는 강력한 턴어라운드 타이밍</strong>을 정밀 타격하여 검출합니다.
+                              </p>
+                            </div>
+                            <div className="text-[9px] text-[#00ffab]/60 mt-2 font-bold bg-[#00ffab]/5 px-2 py-1 rounded">
+                              📈 비유: 기나긴 하락/횡보의 터널을 끝내고 위로 솟구치는 상승 출발점
+                            </div>
+                          </div>
+
+                          {/* Card 8: 하락 변곡점 */}
+                          <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-3.5 flex flex-col justify-between h-full">
+                            <div>
+                              <div className="flex items-center gap-2 text-[10px] font-black text-[#ff3d68] uppercase tracking-wider mb-1.5">
+                                <ArrowDownRight size={12} className="text-[#ff3d68]" />
+                                <span>하락 변곡점</span>
+                              </div>
+                              <p className="text-[11px] text-white/70 leading-relaxed font-bold">
+                                상승세를 유지하던 주가 흐름 속에서, <strong>오늘 갑자기 외인과 기관이 동시 대량 매도(쌍끌이 투매)로 급격히 돌아서고 매수 힘이 급격히 이탈할 때</strong>를 포착합니다. 차트가 겉보기엔 멀쩡해 보여도 수급의 뼈대가 무너지고 세력이 이탈하는 신호를 선제 감지하여 대피 경보를 내립니다.
+                              </p>
+                            </div>
+                            <div className="text-[9px] text-[#ff3d68]/60 mt-2 font-bold bg-[#ff3d68]/5 px-2 py-1 rounded">
+                              📉 비유: 세력이 개인들에게 물량을 넘기고 차익 실현을 시작하는 하락 입구
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* Scoreboard List */}
