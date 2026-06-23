@@ -18,19 +18,33 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
     const badges = [];
 
     if (c.isVetoed) {
-      let cleanReason = c.vetoReason || '필터배제';
-      if (cleanReason.includes('설거지')) cleanReason = '🔴 설거지 경고';
-      else if (cleanReason.includes('개미지옥')) cleanReason = '🔴 개미지옥 경보';
-      else if (cleanReason.includes('적자') || cleanReason.includes('손실')) cleanReason = '🔴 좀비/적자 경고';
-      else if (cleanReason.includes('부채')) cleanReason = '🔴 부실/고부채';
-      else if (cleanReason.includes('이격도')) cleanReason = '🔴 이격과열 경고';
-      else if (cleanReason.includes('RSI')) cleanReason = '🔴 RSI 과매수';
-      else if (cleanReason.includes('하락')) cleanReason = '🔴 하락추세 감지';
-      else cleanReason = `🔴 VETO: ${cleanReason.split('(')[0]}`;
+      let rawReason = c.vetoReason || '필터배제';
+      let cleanReason = rawReason.replace(/^\[[^\]]+\]\s*/g, '');
+      let badgeLabel = '';
+      
+      if (rawReason.includes('낙칼') || rawReason.includes('급락') || rawReason.includes('폭락')) {
+        badgeLabel = '🔴 낙칼/급락 경고';
+      } else if (rawReason.includes('설거지')) {
+        badgeLabel = '🔴 설거지 경고';
+      } else if (rawReason.includes('개미지옥')) {
+        badgeLabel = '🔴 개미지옥 경보';
+      } else if (rawReason.includes('적자') || rawReason.includes('손실')) {
+        badgeLabel = '🔴 좀비/적자 경고';
+      } else if (rawReason.includes('부채')) {
+        badgeLabel = '🔴 부실/고부채';
+      } else if (rawReason.includes('이격도') || rawReason.includes('이격')) {
+        badgeLabel = '🔴 이격과열 경고';
+      } else if (rawReason.includes('RSI')) {
+        badgeLabel = '🔴 RSI 과매수';
+      } else if (rawReason.includes('하락') || rawReason.includes('흘러내림')) {
+        badgeLabel = '🔴 하락추세 감지';
+      } else {
+        badgeLabel = `🔴 VETO: ${cleanReason.split('(')[0]}`;
+      }
       
       badges.push(
         <span key="veto" className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-red-500/10 border border-red-500/20 text-[#ff3d68] shadow-sm select-none">
-          {cleanReason}
+          {badgeLabel}
         </span>
       );
     } else {

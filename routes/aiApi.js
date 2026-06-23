@@ -9,6 +9,7 @@ import { fetchMacroIndicators } from './macroApi.js';
 import { getSupplyCache, saveSupplyCache } from '../lib/supplyCache.js';
 import supabase from '../lib/supabaseClient.js';
 import { syncSingleStock } from '../lib/stockSync.js';
+import { cachedDashboard } from './dashboardApi.js';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1115,8 +1116,8 @@ const calculateExchangeStress = (macro) => {
         return { score: 0, rate: 0, changePercent: 0 };
     }
 
-    const rate = parseFloat(usdIndicator.value);
-    const changeVal = parseFloat(usdIndicator.change || '0');
+    const rate = parseFloat(usdIndicator.value?.toString().replace(/,/g, '') || '0');
+    const changeVal = parseFloat(usdIndicator.change?.toString().replace(/,/g, '') || '0');
     
     const prevRate = rate - changeVal;
     const changePercent = prevRate > 0 ? (changeVal / prevRate) * 100 : 0;
@@ -1247,8 +1248,9 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
         const marketNewsSentiment = currentNewsData.sentiment;
         
         // 지수 및 매크로 정보 병렬 조회 (미국채 10년물 금리 추가) - KIS API 호출 실패 시 캐시 폴백 자동 가동
+        const isMockMode = process.env.MOCK_GEMINI === 'true';
         const [macro, kospiHistory, kosdaqHistory, us10yData] = await Promise.all([
-            fetchMacroIndicators().then(res => {
+            isMockMode ? (getMarketCache('macro') || []) : fetchMacroIndicators().then(res => {
                 if (res && res.length > 0) {
                     saveMarketCache('macro', res);
                     return res;
@@ -1256,7 +1258,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                 return getMarketCache('macro') || [];
             }).catch(() => getMarketCache('macro') || []),
 
-            fetchIndexDailyHistory('0001').then(res => {
+            isMockMode ? (getMarketCache('kospi_history') || []) : fetchIndexDailyHistory('0001').then(res => {
                 if (res && res.length > 0) {
                     saveMarketCache('kospi_history', res);
                     return res;
@@ -1264,7 +1266,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                 return getMarketCache('kospi_history') || [];
             }).catch(() => getMarketCache('kospi_history') || []),
 
-            fetchIndexDailyHistory('1001').then(res => {
+            isMockMode ? (getMarketCache('kosdaq_history') || []) : fetchIndexDailyHistory('1001').then(res => {
                 if (res && res.length > 0) {
                     saveMarketCache('kosdaq_history', res);
                     return res;
@@ -1272,7 +1274,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                 return getMarketCache('kosdaq_history') || [];
             }).catch(() => getMarketCache('kosdaq_history') || []),
 
-            fetchUs10yYield().then(res => {
+            isMockMode ? (getMarketCache('us10y') || { currentYield: 4.2, prevClose: 4.2 }) : fetchUs10yYield().then(res => {
                 if (res !== null && res !== undefined) {
                     saveMarketCache('us10y', res);
                     return res;
@@ -1285,28 +1287,93 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             })
         ]);
 
+        // 실시간 인덱스 가격 반영 레이어
+        let activeDashboard = cachedDashboard;
+        if (isMockMode) {
+            try {
+                const cacheFilePath = path.join(__dirname, '../dashboard_cache.json');
+                if (fs.existsSync(cacheFilePath)) {
+                    activeDashboard = JSON.parse(fs.readFileSync(cacheFilePath, 'utf8'));
+                }
+            } catch (e) {
+                console.error('Failed to reload mock dashboard cache:', e.message);
+            }
+        }
+
+        const realTimeKospi = activeDashboard?.sectors?.find(s => s.code === '0001');
+        const realTimeKosdaq = activeDashboard?.sectors?.find(s => s.code === '1001');
+        
+        const todayStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, '');
+        
+        if (realTimeKospi && realTimeKospi.price) {
+            const cleanPrice = realTimeKospi.price.toString().replace(/,/g, '');
+            if (parseFloat(cleanPrice) > 0) {
+                const rtPrice = parseFloat(cleanPrice);
+                if (kospiHistory.length > 0) {
+                    if (kospiHistory[kospiHistory.length - 1].date === todayStr) {
+                        kospiHistory[kospiHistory.length - 1].price = rtPrice;
+                    } else {
+                        kospiHistory.push({ date: todayStr, price: rtPrice });
+                    }
+                }
+            }
+        }
+        
+        if (realTimeKosdaq && realTimeKosdaq.price) {
+            const cleanPrice = realTimeKosdaq.price.toString().replace(/,/g, '');
+            if (parseFloat(cleanPrice) > 0) {
+                const rtPrice = parseFloat(cleanPrice);
+                if (kosdaqHistory.length > 0) {
+                    if (kosdaqHistory[kosdaqHistory.length - 1].date === todayStr) {
+                        kosdaqHistory[kosdaqHistory.length - 1].price = rtPrice;
+                    } else {
+                        kosdaqHistory.push({ date: todayStr, price: rtPrice });
+                    }
+                }
+            }
+        }
+
         const kospiStress = calculateIndexStress(kospiHistory);
         const kosdaqStress = calculateIndexStress(kosdaqHistory);
         const usdStress = calculateExchangeStress(macro);
         const bondStress = calculateBondStress(us10yData);
         const totalStressScore = kospiStress.score + kosdaqStress.score + usdStress.score + bondStress.score;
 
+        // 실시간 인덱스 변동률 급락 부스터 및 지지선 붕괴 판정 (2분 실시간 연동)
+        const realTimeKospiChange = realTimeKospi ? parseFloat(realTimeKospi.change) : 0;
+        const realTimeKosdaqChange = realTimeKosdaq ? parseFloat(realTimeKosdaq.change) : 0;
+        
+        const isIndexSupportBroken = kospiStress.zScore < -1.0 || realTimeKospiChange <= -1.5 || kosdaqStress.zScore < -1.0 || realTimeKosdaqChange <= -1.5;
+        
+        let isRealtimePanic = false;
+        let adjustedStressScore = totalStressScore;
+        if (realTimeKospiChange <= -3.0 || realTimeKosdaqChange <= -4.0) {
+            isRealtimePanic = true;
+            adjustedStressScore = Math.max(85, totalStressScore); // 킬스위치(>= 80) 즉시 강제 활성화
+        } else if (realTimeKospiChange <= -1.5 || realTimeKosdaqChange <= -2.0) {
+            adjustedStressScore = Math.max(55, totalStressScore); // 세이프모드(>= 50) 강제 활성화
+        }
+
+        const isSafe = (adjustedStressScore >= 50) || isIndexSupportBroken;
+
         const marketStress = {
-            score: totalStressScore,
-            safeMode: totalStressScore >= 50,
+            score: adjustedStressScore,
+            safeMode: isSafe,
             kospi: {
                 current: kospiStress.current,
                 sma20: parseFloat(kospiStress.sma20.toFixed(2)),
                 zScore: parseFloat(kospiStress.zScore.toFixed(2)),
                 slope: parseFloat(kospiStress.slope.toFixed(3)),
-                score: kospiStress.score
+                score: kospiStress.score,
+                changePercent: realTimeKospiChange
             },
             kosdaq: {
                 current: kosdaqStress.current,
                 sma20: parseFloat(kosdaqStress.sma20.toFixed(2)),
                 zScore: parseFloat(kosdaqStress.zScore.toFixed(2)),
                 slope: parseFloat(kosdaqStress.slope.toFixed(3)),
-                score: kosdaqStress.score
+                score: kosdaqStress.score,
+                changePercent: realTimeKosdaqChange
             },
             usd: {
                 rate: usdStress.rate,
@@ -1324,39 +1391,15 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             (marketStress.kospi.zScore > 1.0 || marketStress.kospi.slope > 1.0) ||
             (marketStress.kosdaq.zScore > 1.0 || marketStress.kosdaq.slope > 1.0)
         );
-        console.log(`📡 [Pulse] 시장 매크로 스트레스 지수 계산 완료: ${totalStressScore}점 (Safe Mode: ${marketStress.safeMode}, Bull Market: ${isBullMarket})`);
+        console.log(`📡 [Pulse] 시장 매크로 스트레스 지수 계산 완료: ${marketStress.score}점 (Safe Mode: ${marketStress.safeMode}, Bull Market: ${isBullMarket})`);
 
-        // 초고위험 관망 (80점 이상) 킬스위치 가동
-        if (totalStressScore >= 80) {
-            console.log(`🚨 [Market Panic Detected] 스트레스 지수 극도 임계치(${totalStressScore}점) 초과로 신규 매수를 원천 보류하고 홀드 신호로 대체합니다.`);
-            const panicSignal = {
-                theme: "시장 급락 및 패닉 관망 (Safe Mode)",
-                themeProb: "100%",
-                stock: "현금 비중 확대 (추천 없음)",
-                symbol: "000000",
-                price: "0",
-                tp: "0",
-                sl: "0",
-                fundamental: "시장 매크로 리스크 극대화로 인한 기업 가치 평가 일시 신뢰 상실.",
-                macro: `코스피 Z-Score ${kospiStress.zScore.toFixed(2)}, 코스닥 Z-Score ${kosdaqStress.zScore.toFixed(2)}, 환율 ${usdStress.rate}원, 미국채 금리 ${bondStress.yield}%. 시장 스트레스 지수가 ${totalStressScore}점으로 80점 임계치를 초과했습니다.`,
-                bearCase: "전체 시장의 체계적 위험(Systemic Risk)으로 인해 모든 개별 종목의 하방 압력이 무차별적으로 발생할 수 있는 구간입니다.",
-                reason: `시장 매크로 스트레스 점수 ${totalStressScore}점 돌파 (코스피 20일선 이탈 변동성 Z-Score ${kospiStress.zScore.toFixed(2)}, 코스닥 ${kosdaqStress.zScore.toFixed(2)}, 환율 ${usdStress.rate}원, 미국채 10년 금리 ${bondStress.yield}%). 시스템 규정에 따라 신규 주식 매수 추천을 원천 보류하고 현금 비중 80% 이상 확보를 지시합니다.`,
-                feedback: "모든 신규 진입을 즉각 중단하고, 기존 보유 주식의 리스크 관리 및 안전 자산/현금 확보에 역량을 집중해야 합니다.",
-                shortTermPicks: [],
-                longTermPicks: [],
-                newInsight: "시장 전체의 체계적 위험이 지배적인 구간에서는 개별 퀀트/재무 지표가 무력화됩니다. 이러한 폭락장 진입 시 추천을 강제로 중단하고 현금을 확보하게 하는 자동 차단 제어기(Kill Switch)의 정상 작동을 확인했습니다.",
-                marketStress
-            };
 
-            saveAiCache({ pulse: { data: panicSignal } }, currentHalfHourKey, currentTenMinKey);
-            return { data: panicSignal, time: timeStr };
-        }
 
         
         // 매크로 지표에 대한 시장 주류 해석(Sentiment) 힌트 추가
         const interpretMacro = (m) => {
-            const val = parseFloat(m.value?.replace(/,/g, ''));
-            const chg = parseFloat(m.change);
+            const val = parseFloat(m.value?.toString().replace(/,/g, '') || '0');
+            const chg = parseFloat(m.change?.toString().replace(/,/g, '') || '0');
             if (m.label.includes('환율')) {
                 if (chg > 0) return "수출주 채산성 개선 기대 및 외인 수급 하방 압력";
                 return "원화 강세, 내수주 및 외인 유동성 공급에 긍정적";
@@ -1544,7 +1587,18 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             return isNaN(parsed) ? fallback : parsed;
         };
         
-        if (supabase) {
+        if (isMockMode) {
+            try {
+                const localVetoPath = path.join(__dirname, '../veto_metrics.json');
+                if (fs.existsSync(localVetoPath)) {
+                    const localData = JSON.parse(fs.readFileSync(localVetoPath, 'utf8'));
+                    cacheData = localData.filter(row => symbols.includes(row.symbol));
+                    console.log(`🤖 [Mock Mode] Loaded ${cacheData.length} stock metrics from veto_metrics.json local file.`);
+                }
+            } catch (e) {
+                console.error('Failed to load local veto metrics cache:', e.message);
+            }
+        } else if (supabase) {
             try {
                 const { data, error } = await supabase
                     .from('stock_detail_cache')
@@ -1553,70 +1607,74 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                 
                 if (!error && data) {
                     cacheData = data;
-                    const now = new Date();
-                    const freshData = data.filter(row => {
-                        if (!row.updated_at) return false;
-                        const updatedAt = new Date(row.updated_at);
-                        const diffMins = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
-                        if (diffMins > 60) return false;
-                        
-                        // ⚙️ [Schema Self-Healing] 캐시에 ATR, 거래량증가율, 또는 전일거래대금 지표가 누락된 경우 스키마 마이그레이션을 위해 만료 처리
-                        if (!row.advanced || row.advanced.atr === undefined || row.advanced.atrPercent === undefined || row.advanced.volumeRate === undefined || row.advanced.prevTransactionValue === undefined) {
-                            console.log(`♻️ [Schema Self-Healing] ${row.symbol} 캐시에 ATR/거래량증가율/전일거래대금 중 누락된 지표가 있습니다. 즉시 Live 동기화를 트리거합니다.`);
-                            return false;
-                        }
-                        
-                        return true;
-                    });
-
-                    cachedRows = data;
-                    freshData.forEach(row => {
-                        metricsMap[row.symbol] = {
-                            price: row.fundamental?.price || 0,
-                            disparity1: parseNum(row.advanced?.disparity1, 100),
-                            disparity5: parseNum(row.advanced?.disparity5, 100),
-                            disparity20: parseNum(row.advanced?.disparity20, 100),
-                            strength: parseNum(row.advanced?.strength, 100),
-                            shortRatio: parseNum(row.advanced?.shortRatio, 0),
-                            investor1D: {
-                                foreign: parseNum(row.advanced?.investor?.foreign1D, 0),
-                                organ: parseNum(row.advanced?.investor?.organ1D, 0),
-                                personal: parseNum(row.advanced?.investor?.personal1D, 0)
-                            },
-                            investor5D: {
-                                foreign: parseNum(row.advanced?.investor?.foreign5D, 0),
-                                organ: parseNum(row.advanced?.investor?.organ5D, 0),
-                                personal: parseNum(row.advanced?.investor?.personal5D, 0)
-                            },
-                            investorMoney5D: {
-                                foreign: parseNum(row.advanced?.investor?.foreignMoney5D, 0),
-                                organ: parseNum(row.advanced?.investor?.organMoney5D, 0),
-                                personal: parseNum(row.advanced?.investor?.personalMoney5D, 0)
-                            },
-                            atr: row.advanced?.atr !== undefined ? parseNum(row.advanced?.atr, null) : null,
-                            atrPercent: row.advanced?.atrPercent !== undefined ? parseNum(row.advanced?.atrPercent, null) : null,
-                            transactionValue: parseNum(row.advanced?.transactionValue, 0),
-                            prevTransactionValue: parseNum(row.advanced?.prevTransactionValue, 0),
-                            volumeRate: parseNum(row.advanced?.volumeRate, 100),
-                            creditBalance: parseNum(row.advanced?.creditBalance, 0),
-                            sector: row.fundamental?.sector || '기타',
-                            isSelfHealed: row.advanced?.isSelfHealed || false,
-                            selfHealedReasons: row.advanced?.selfHealedReasons || [],
-                            isDefaultFallback: false,
-                            chartHistory: row.advanced?.chartHistory || {},
-                            technical: row.advanced?.technical || null,
-                            strengthAcceleration: parseNum(row.advanced?.strengthAcceleration, 0),
-                            memberTrend: row.advanced?.memberTrend || null,
-                            largeTrade: row.advanced?.largeTrade || null
-                        };
-                    });
-                    console.log(`⚡ [Pulse] Supabase 캐시로부터 ${freshData.length}개 종목의 유효한(1시간 이내) 퀀트 지표 로드 완료 (총 ${data.length}개 중 ${data.length - freshData.length}개 만료됨).`);
                 } else {
                     console.error('❌ [Pulse] Failed to load metrics from Supabase cache:', error?.message);
                 }
             } catch (cacheErr) {
                 console.error('❌ [Pulse] Exception loading metrics from Supabase cache:', cacheErr.message);
             }
+        }
+
+        if (cacheData && cacheData.length > 0) {
+            const now = new Date();
+            const freshData = cacheData.filter(row => {
+                if (isMockMode) return true;
+                if (!row.updated_at) return false;
+                const updatedAt = new Date(row.updated_at);
+                const diffMins = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
+                if (diffMins > 60) return false;
+                
+                // ⚙️ [Schema Self-Healing] 캐시에 ATR, 거래량증가율, 또는 전일거래대금 지표가 누락된 경우 스키마 마이그레이션을 위해 만료 처리
+                if (!row.advanced || row.advanced.atr === undefined || row.advanced.atrPercent === undefined || row.advanced.volumeRate === undefined || row.advanced.prevTransactionValue === undefined) {
+                    console.log(`♻️ [Schema Self-Healing] ${row.symbol} 캐시에 ATR/거래량증가율/전일거래대금 중 누락된 지표가 있습니다. 즉시 Live 동기화를 트리거합니다.`);
+                    return false;
+                }
+                
+                return true;
+            });
+
+            cachedRows = cacheData;
+            freshData.forEach(row => {
+                metricsMap[row.symbol] = {
+                    price: row.fundamental?.price || 0,
+                    disparity1: parseNum(row.advanced?.disparity1, 100),
+                    disparity5: parseNum(row.advanced?.disparity5, 100),
+                    disparity20: parseNum(row.advanced?.disparity20, 100),
+                    strength: parseNum(row.advanced?.strength, 100),
+                    shortRatio: parseNum(row.advanced?.shortRatio, 0),
+                    investor1D: {
+                        foreign: parseNum(row.advanced?.investor?.foreign1D, 0),
+                        organ: parseNum(row.advanced?.investor?.organ1D, 0),
+                        personal: parseNum(row.advanced?.investor?.personal1D, 0)
+                    },
+                    investor5D: {
+                        foreign: parseNum(row.advanced?.investor?.foreign5D, 0),
+                        organ: parseNum(row.advanced?.investor?.organ5D, 0),
+                        personal: parseNum(row.advanced?.investor?.personal5D, 0)
+                    },
+                    investorMoney5D: {
+                        foreign: parseNum(row.advanced?.investor?.foreignMoney5D, 0),
+                        organ: parseNum(row.advanced?.investor?.organMoney5D, 0),
+                        personal: parseNum(row.advanced?.investor?.personalMoney5D, 0)
+                    },
+                    atr: row.advanced?.atr !== undefined ? parseNum(row.advanced?.atr, null) : null,
+                    atrPercent: row.advanced?.atrPercent !== undefined ? parseNum(row.advanced?.atrPercent, null) : null,
+                    transactionValue: parseNum(row.advanced?.transactionValue, 0),
+                    prevTransactionValue: parseNum(row.advanced?.prevTransactionValue, 0),
+                    volumeRate: parseNum(row.advanced?.volumeRate, 100),
+                    creditBalance: parseNum(row.advanced?.creditBalance, 0),
+                    sector: row.fundamental?.sector || '기타',
+                    isSelfHealed: row.advanced?.isSelfHealed || false,
+                    selfHealedReasons: row.advanced?.selfHealedReasons || [],
+                    isDefaultFallback: false,
+                    chartHistory: row.advanced?.chartHistory || {},
+                    technical: row.advanced?.technical || null,
+                    strengthAcceleration: parseNum(row.advanced?.strengthAcceleration, 0),
+                    memberTrend: row.advanced?.memberTrend || null,
+                    largeTrade: row.advanced?.largeTrade || null
+                };
+            });
+            console.log(`⚡ [Pulse] 캐시로부터 ${freshData.length}개 종목의 유효한 퀀트 지표 로드 완료.`);
         }
 
         // 📡 [Targeted Live Sync] 상위 12개 후보 종목에 대해 실시간 KIS 데이터 강제 동기화 (최근 1분 이내 데이터가 없는 경우)
@@ -1639,7 +1697,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                 }
             }
             
-            if (needsSync) {
+            if (needsSync && !isMockMode) {
                 console.log(`📡 [Targeted Live Sync] ${c.name} (${c.code}) 최신 데이터가 없거나 1분을 경과했습니다. 실시간 API 동기화 실행...`);
                 try {
                     const syncResult = await syncSingleStock(c.code);
@@ -1904,6 +1962,23 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
         const scoredCandidates = candidatePool.map(c => {
             const m = metricsMap[c.code] || { price: c.price, disparity5: 100, disparity20: 100, strength: 100, shortRatio: 0, investor1D: { foreign: 0, organ: 0, personal: 0 }, investor5D: { foreign: 0, organ: 0, personal: 0 }, investorMoney5D: { foreign: 0, organ: 0, personal: 0 }, transactionValue: 0, prevTransactionValue: 0, volumeRate: 100, creditBalance: 0, sector: '기타' };
             
+            // Sync with 2-minute real-time index dashboard data if available
+            const realTimeStock = activeDashboard?.topStocks?.flat()?.find(s => s.s === c.code);
+            if (realTimeStock) {
+                if (realTimeStock.p) {
+                    const parsedP = parseInt(realTimeStock.p.replace(/,/g, ''));
+                    if (!isNaN(parsedP) && parsedP > 0) {
+                        m.price = parsedP;
+                    }
+                }
+                if (realTimeStock.pct) {
+                    const parsedPct = parseFloat(realTimeStock.pct);
+                    if (!isNaN(parsedPct)) {
+                        m.change = parsedPct;
+                    }
+                }
+            }
+            
             // --- Pre-VETO 필터링 ---
             const txVal = m.transactionValue || 0;
             const prevTxVal = m.prevTransactionValue || 0;
@@ -2157,7 +2232,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
 
             if (checkStrVal < minStrengthRequired && !isStrengthVetoOverridden) {
                 isVetoed = true;
-                vetoReasons.push(`체결강도 약세 감지 (체결강도: ${m.strength}% < 기준: ${minStrengthRequired}%)`);
+                vetoReasons.push(`[수급 분석] 체결강도 약세 감지 (체결강도: ${m.strength}% < 기준: ${minStrengthRequired}%)`);
             } else if (isStrengthVetoOverridden && checkStrVal < minStrengthRequired) {
                 console.log(`✨ [VETO Override] ${c.name} (${c.code}) - 체결강도가 기준(${minStrengthRequired}%)보다 낮은 ${m.strength}%이나, 체결강도 가속도(+${strengthAcc}%p)가 감지되어 VETO 적용 유예.`);
             }
@@ -2175,7 +2250,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             const isHighDisparityZone = isSafe ? (disp5 > 105) : (disp5 > 107);
             if (isHighDisparityZone && isDumping) {
                 isVetoed = true;
-                vetoReasons.push(`고이격 상태에서 외인/기관 순매도(설거지) 감지 (5일 이격도: ${disp5}%, 외인: ${inv1D.foreign}, 기관: ${inv1D.organ})`);
+                vetoReasons.push(`[수급 분석] 고이격 상태에서 외인/기관 순매도(설거지) 감지 (5일 이격도: ${disp5}%, 외인: ${inv1D.foreign}, 기관: ${inv1D.organ})`);
             }
 
             // 상승장, 강제 추천, 또는 강력한 쌍끌이 돌파/정배열 우상향 시 기술적 제한 임계값 완화
@@ -2189,39 +2264,48 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                 limitRsi = 95;
             }
 
+            // 실시간 당일 낙폭 VETO 필터 (낙칼 차단기)
+            const knifeThreshold = (isSafe || isIndexSupportBroken) ? -1.5 : -3.0;
+            if (!forceRecommend && changePct <= knifeThreshold) {
+                isVetoed = true;
+                vetoReasons.push(`[기술적 분석] 실시간 급락 낙칼 감지 (당일 등락률: ${changePct}% <= 기준: ${knifeThreshold}%)`);
+            }
+
             if (!isVetoed || vetoReasons.length > 0) {
-                const isDownwardAlignment = maAlignment.includes('역배열');
                 const isPriceBelow5MA = disp5 < 100;
                 const isDownwardDrift = disp1 < 100 && parseFloat(m.strength || 100) < 100;
-                const isVetoRebounding = (disp5 < 100) && (disp1 >= 100) && (parseFloat(m.strength) >= 100) && (parseFloat(c.change || m.change || '0') > 0 || !isDumping);
                 
-                // Super Leader, 수급 골든크로스(체결강도 지지 필요), 또는 체결강도 가속도 돌입이면서 수급 이탈이 없을 때는 역배열, 5일선 아래 VETO를 바이패스합니다.
-                // 상승장(isBullMarket) 우회 조건 추가: 체결강도 105% 이상 또는 가속도 +3%p 이상 & 쌍끌이 매도 아님
-                const shouldBypassTrends = forceRecommend || 
+                let isVetoRebounding = (disp5 < 100) && (disp1 >= 100) && (parseFloat(m.strength) >= 100) && (parseFloat(c.change || m.change || '0') > 0 || !isDumping);
+                
+                // Super Leader, 수급 골든크로스(체결강도 지지 필요), 또는 체결강도 가속도 돌입이면서 수급 이탈이 없을 때는 5일선 아래 VETO를 바이패스합니다.
+                let shouldBypassTrends = forceRecommend || 
                     (isSuperLeader && !isDumping) || 
                     (isSupplyGoldenCross && str >= 95 && !isDumping) || 
                     (strengthAcc >= 5 && !isDumping) ||
                     (isBullMarket && str >= 105 && !isDumping) ||
                     (isBullMarket && strengthAcc >= 3 && !isDumping);
 
+                // 안전모드 및 지수 지지선 붕괴 시 모든 기술적 우양향 예외/반등 우회 규칙 원천 박탈
+                if (isSafe || isIndexSupportBroken) {
+                    shouldBypassTrends = false;
+                    isVetoRebounding = false;
+                }
+
                 if (!forceRecommend && isSupplyDeathCross) {
                     isVetoed = true;
-                    vetoReasons.push(`수급 하락 변곡점 감지 (당일 수급 이탈 및 주가 하락)`);
-                } else if (!forceRecommend && !shouldBypassTrends && !isVetoRebounding && isDownwardAlignment) {
-                    isVetoed = true;
-                    vetoReasons.push(`역배열 하락 추세 종목 제외 (이동평균 정렬: ${maAlignment})`);
+                    vetoReasons.push(`[수급 분석] 수급 하락 변곡점 감지 (당일 수급 이탈 및 주가 하락)`);
                 } else if (!forceRecommend && !shouldBypassTrends && isPriceBelow5MA && !isVetoRebounding) {
                     isVetoed = true;
-                    vetoReasons.push(`5일선 아래 흘러내림 종목 제외 (5일 이격도: ${disp5}% < 100%, 반등 요건 미충족)`);
+                    vetoReasons.push(`[기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: ${disp5}% < 100%, 반등 요건 미충족)`);
                 } else if (!forceRecommend && !shouldBypassTrends && isDownwardDrift) {
                     isVetoed = true;
-                    vetoReasons.push(`단기 하락 및 체결강도 약세 (1일 이격도: ${disp1}%, 체결강도: ${m.strength}%)`);
+                    vetoReasons.push(`[기술적 분석] 단기 하락 및 체결강도 약세 (1일 이격도: ${disp1}%, 체결강도: ${m.strength}%)`);
                 } else if (disp5 > limitDisp5) {
                     isVetoed = true;
-                    vetoReasons.push(`5일 이격도 과열 (${disp5}%, 기준: ${limitDisp5}% 초과)`);
+                    vetoReasons.push(`[기술적 분석] 5일 이격도 과열 (${disp5}%, 기준: ${limitDisp5}% 초과)`);
                 } else if (rsiVal !== null && rsiVal >= limitRsi) {
                     isVetoed = true;
-                    vetoReasons.push(`RSI 과매수 과열 (${rsiVal}, 기준: ${limitRsi} 이상)`);
+                    vetoReasons.push(`[기술적 분석] RSI 과매수 과열 (${rsiVal}, 기준: ${limitRsi} 이상)`);
                 }
             }
 
@@ -2238,10 +2322,10 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                         const change30m = (priceNow - price30m) / price30m;
                         if (priceNow < price30m && price30m < price60m) {
                             isVetoed = true;
-                            vetoReasons.push(`단기 주가 계단식 하락 추세 감지 (${price60m}원 -> ${price30m}원 -> ${priceNow}원)`);
+                            vetoReasons.push(`[기술적 분석] 단기 주가 계단식 하락 추세 감지 (${price60m}원 -> ${price30m}원 -> ${priceNow}원)`);
                         } else if (change30m <= -0.015) {
                             isVetoed = true;
-                            vetoReasons.push(`단기 주가 급락 감지 (30분 전 대비 ${(change30m * 100).toFixed(2)}% 하락)`);
+                            vetoReasons.push(`[기술적 분석] 단기 주가 급락 감지 (30분 전 대비 ${(change30m * 100).toFixed(2)}% 하락)`);
                         }
                     }
                 }
@@ -2309,7 +2393,6 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
 
         // 2) 상위 40개 후보군에 대하여 재무 데이터를 조회하여 Veto 심사 및 하락장 재무 점수(Max 20점) 부여
         console.log(`📡 [Pulse] 상위 40개 후보 종목의 재무 데이터 및 VETO 요건 심사 시작...`);
-        const isSafe = marketStress.safeMode;
         
         for (let i = 0; i < Math.min(40, sortedScored.length); i++) {
             const c = sortedScored[i];
@@ -2341,14 +2424,14 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                     if (isNegRoe && fin.roe < roeLimit) {
                         console.log(`❌ [Financial Veto] ${c.name} (${c.code}) - ROE 적자(${fin.roe}%, 기준: ${roeLimit}%)로 후보군에서 원천 제외`);
                         c.isVetoed = true;
-                        c.vetoReason = c.vetoReason ? `${c.vetoReason} | ROE 적자` : 'ROE 적자';
+                        c.vetoReason = c.vetoReason ? `${c.vetoReason} | [재무 분석] ROE 적자` : '[재무 분석] ROE 적자';
                     }
 
                     // (2) 최근 3분기 연속 영업이익 적자(영업손실) 한계 기업 제외 Veto Rule (강제 추천 시 바이패스)
                     if (fin.opProfits && fin.opProfits.length >= 3 && fin.opProfits.every(p => p < 0) && !forceRecommend) {
                         console.log(`❌ [Financial Veto] ${c.name} (${c.code}) - 3분기 연속 영업이익 적자로 후보군에서 원천 제외`);
                         c.isVetoed = true;
-                        c.vetoReason = c.vetoReason ? `${c.vetoReason} | 3분기 연속 영업손실` : '3분기 연속 영업손실';
+                        c.vetoReason = c.vetoReason ? `${c.vetoReason} | [재무 분석] 3분기 연속 영업손실` : '[재무 분석] 3분기 연속 영업손실';
                     }
 
                     // (3) 부채비율 200% 이상 기업 제외 Veto Rule (금융/은행/보험/증권 섹터 제외, 강제 추천 시 500%로 완화)
@@ -2357,7 +2440,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                     if (!isFinancialSector && fin.debtRatio !== null && fin.debtRatio >= maxDebtLimit) {
                         console.log(`❌ [Financial Veto] ${c.name} (${c.code}) - 부채비율 과다(${fin.debtRatio}%)로 후보군에서 원천 제외`);
                         c.isVetoed = true;
-                        c.vetoReason = c.vetoReason ? `${c.vetoReason} | 부채비율 과다 (${fin.debtRatio}%)` : `부채비율 과다 (${fin.debtRatio}%)`;
+                        c.vetoReason = c.vetoReason ? `${c.vetoReason} | [재무 분석] 부채비율 과다 (${fin.debtRatio}%)` : `[재무 분석] 부채비율 과다 (${fin.debtRatio}%)`;
                     }
 
                     // (4) 고PBR 15배 이상 버블 기업 제외 Veto Rule (ROE >= 20% 우량 성장주는 20배로 완화, 강력한 시장 주도주는 50배로 완화)
@@ -2365,7 +2448,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                     if (fin.pbr !== null && fin.pbr >= pbrThreshold) {
                         console.log(`❌ [Financial Veto] ${c.name} (${c.code}) - 고PBR 버블(${fin.pbr}배, 기준: ${pbrThreshold}배)로 후보군에서 원천 제외`);
                         c.isVetoed = true;
-                        c.vetoReason = c.vetoReason ? `${c.vetoReason} | 고PBR 버블 (${fin.pbr}배)` : `고PBR 버블 (${fin.pbr}배)`;
+                        c.vetoReason = c.vetoReason ? `${c.vetoReason} | [재무 분석] 고PBR 버블 (${fin.pbr}배)` : `[재무 분석] 고PBR 버블 (${fin.pbr}배)`;
                     }
 
                     if (!c.isVetoed) {
@@ -2432,13 +2515,92 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             }
         });
 
-        // 재무 점수가 합산된 최종 점수 기준으로 재정렬 및 상위 25개 선정
-        const finalSortedScored = [...sortedScored].sort((a, b) => b.totalScore - a.totalScore).slice(0, 25);
+        // 재무 점수가 합산된 최종 점수 기준으로 재정렬 및 상위 25개 선정 (6대 핵심 반도체주 포함 보장)
+        const coreCodes = ['005930', '000660', '042700', '007660', '403870', '067310'];
+        const coreItems = sortedScored.filter(c => coreCodes.includes(c.code));
+        const nonCoreItems = sortedScored.filter(c => !coreCodes.includes(c.code));
+
+        coreItems.sort((a, b) => b.totalScore - a.totalScore);
+        nonCoreItems.sort((a, b) => b.totalScore - a.totalScore);
+
+        const finalSortedScored = [...coreItems];
+        for (const c of nonCoreItems) {
+            if (finalSortedScored.length >= 25) break;
+            finalSortedScored.push(c);
+        }
+        finalSortedScored.sort((a, b) => b.totalScore - a.totalScore);
 
         console.log("📊 [Pulse] 후보 종목 최종 상태 및 스코어 (최대 25개):");
         finalSortedScored.forEach(c => {
             console.log(`   👉 ${c.name} (${c.code}): 총점 ${c.totalScore.toFixed(1)} | VETO 여부: ${c.isVetoed ? '❌ YES (' + c.vetoReason + ')' : '✅ NO'}`);
         });
+
+        // 초고위험 관망 (80점 이상) 킬스위치 가동 - 전광판에 종목을 띄우기 위해 여기서 평가 완료 후 리턴
+        if (marketStress.score >= 80) {
+            console.log(`🚨 [Market Panic Detected] 스트레스 지수 극도 임계치(${marketStress.score}점) 초과로 신규 매수를 원천 보류하고 홀드 신호로 대체합니다.`);
+            const panicSignal = {
+                theme: "시장 급락 및 패닉 관망 (Safe Mode)",
+                themeProb: "100%",
+                stock: "현금 비중 확대 (추천 없음)",
+                symbol: "000000",
+                price: "0",
+                tp: "0",
+                sl: "0",
+                fundamental: "시장 매크로 리스크 극대화로 인한 기업 가치 평가 일시 신뢰 상실.",
+                macro: `코스피 Z-Score ${kospiStress.zScore.toFixed(2)} (당일 등락률: ${realTimeKospiChange}%), 코스닥 Z-Score ${kosdaqStress.zScore.toFixed(2)} (당일 등락률: ${realTimeKosdaqChange}%), 환율 ${usdStress.rate}원, 미국채 금리 ${bondStress.yield}%. 시장 스트레스 지수가 ${marketStress.score}점으로 80점 임계치를 초과했습니다. ${isRealtimePanic ? '[실시간 지수 폭락 감지 패닉 브레이커 작동]' : ''}`,
+                bearCase: "전체 시장의 체계적 위험(Systemic Risk)으로 인해 모든 개별 종목의 하방 압력이 무차별적으로 발생할 수 있는 구간입니다.",
+                reason: `시장 매크로 스트레스 점수 ${marketStress.score}점 돌파 (코스피 20일선 이탈 변동성 Z-Score ${kospiStress.zScore.toFixed(2)}, 코스닥 ${kosdaqStress.zScore.toFixed(2)}, 환율 ${usdStress.rate}원, 미국채 10년 금리 ${bondStress.yield}%). 시스템 규정에 따라 신규 주식 매수 추천을 원천 보류하고 현금 비중 80% 이상 확보를 지시합니다.`,
+                feedback: "모든 신규 진입을 즉각 중단하고, 기존 보유 주식의 리스크 관리 및 안전 자산/현금 확보에 역량을 집중해야 합니다.",
+                shortTermPicks: [],
+                longTermPicks: [],
+                newInsight: "시장 전체의 체계적 위험이 지배적인 구간에서는 개별 퀀트/재무 지표가 무력화됩니다. 이러한 폭락장 진입 시 추천을 강제로 중단하고 현금을 확보하게 하는 자동 차단 제어기(Kill Switch)의 정상 작동을 확인했습니다.",
+                marketStress
+            };
+
+            if (Array.isArray(finalSortedScored)) {
+                panicSignal.candidates = finalSortedScored.map(c => ({
+                    name: c.name,
+                    code: c.code,
+                    totalScore: c.totalScore || 0,
+                    price: c.price,
+                    change: c.change,
+                    isAntHell: c.isAntHell || false,
+                    isSelfHealed: c.isSelfHealed || false,
+                    selfHealedReasons: c.selfHealedReasons || [],
+                    isDefaultFallback: c.isDefaultFallback || false,
+                    isVetoed: c.isVetoed || false,
+                    vetoReason: c.vetoReason || '',
+                    isSupplyGoldenCross: c.isSupplyGoldenCross || false,
+                    isSupplyDeathCross: c.isSupplyDeathCross || false,
+                    metrics: {
+                        disparity1: c.metrics?.disparity1,
+                        disparity5: c.metrics?.disparity5,
+                        disparity20: c.metrics?.disparity20,
+                        strength: c.metrics?.strength,
+                        strengthAcceleration: c.metrics?.strengthAcceleration || 0,
+                        netForeignWindowBuyMoney: c.metrics?.netForeignWindowBuyMoney || 0,
+                        largeTradeRatio: c.metrics?.largeTradeRatio || 0,
+                        shortRatio: c.metrics?.shortRatio,
+                        investor1D: c.metrics?.investor1D,
+                        investor5D: c.metrics?.investor5D,
+                        investorMoney5D: c.metrics?.investorMoney5D,
+                        atr: c.metrics?.atr,
+                        atrPercent: c.metrics?.atrPercent,
+                        transactionValue: c.metrics?.transactionValue,
+                        volumeRate: c.metrics?.volumeRate,
+                        creditBalance: c.metrics?.creditBalance,
+                        sector: c.metrics?.sector,
+                        rsi: c.metrics?.rsi,
+                        maAlignment: c.metrics?.maAlignment
+                    },
+                    scores: c.scores || {},
+                    financials: c.financials || null
+                }));
+            }
+
+            saveAiCache({ pulse: { data: panicSignal } }, currentHalfHourKey, currentTenMinKey);
+            return { data: panicSignal, time: timeStr };
+        }
 
         // 🛡️ [최고의 투자자 Dual-Engine 이원화 필터 적용]
         const technicallyFiltered = finalSortedScored.filter(c => {
@@ -2631,11 +2793,17 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             if (vetoFree.length === 0) {
                 console.log(`⚠️ [Pulse] 완화 기준을 통과한 종목도 없습니다. 기술적/이격도 VETO를 강제 배제한 2차 완화군을 구성합니다...`);
                 const techVetoBypassed = finalSortedScored.filter(c => {
-                    const onlyTechVeto = c.isVetoed && (
+                    let onlyTechVeto = c.isVetoed && (
                         c.vetoReason.includes('이격도') || 
                         c.vetoReason.includes('RSI') || 
                         c.vetoReason.includes('쌍끌이')
                     ) && !c.vetoReason.includes('ROE') && !c.vetoReason.includes('손실') && !c.vetoReason.includes('부채') && !c.vetoReason.includes('체결강도');
+                    
+                    if (isSafe || isIndexSupportBroken) {
+                        if (c.vetoReason.includes('5일선 아래') || c.vetoReason.includes('낙칼') || c.vetoReason.includes('급락')) {
+                            onlyTechVeto = false;
+                        }
+                    }
                     return !c.isVetoed || onlyTechVeto;
                 });
 
@@ -3525,6 +3693,28 @@ const fetchAiContentWithRetry = async (prompt, retries = 3, delay = 1500) => {
 
 // --- AI Helper (Used in passes) ---
 const fetchAiContent = async (p) => {
+    if (process.env.MOCK_GEMINI === 'true') {
+        console.log('🤖 [Mock AI] MOCK_GEMINI=true detected. Returning mock analysis response immediately.');
+        return {
+            signal: {
+                theme: '전기전자',
+                themeProb: '95%',
+                stock: '삼성전자',
+                symbol: '005930',
+                price: '310000',
+                tp: '350000',
+                sl: '290000',
+                fundamental: '우량',
+                macro: '안정',
+                bearCase: '없음',
+                reason: '테스트용',
+                feedback: '테스트용',
+                shortTermPicks: [],
+                longTermPicks: [],
+                newInsight: '테스트용'
+            }
+        };
+    }
     return await fetchAiContentWithRetry(p);
 };
 
