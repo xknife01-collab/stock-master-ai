@@ -68,8 +68,8 @@ async function inspect(symbol) {
 }
 
 async function run() {
-    // Let's inspect SK Hynix (000660) which we synchronized using the real KIS API
-    await inspect('000660');
+    await inspect('067310');
+    await inspect('207940');
     process.exit(0);
 }
 

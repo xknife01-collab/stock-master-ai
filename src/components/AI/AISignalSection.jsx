@@ -41,11 +41,19 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
           </span>
         );
       }
-      badges.push(
-        <span key="safe" className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-[#00ffab]/10 border border-[#00ffab]/20 text-[#00ffab] shadow-sm select-none">
-          🟢 진입 가능
-        </span>
-      );
+      if (c.isSupplyDeathCross) {
+        badges.push(
+          <span key="safe" className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 shadow-sm select-none">
+            🟡 진입 보류 (이탈 감지)
+          </span>
+        );
+      } else {
+        badges.push(
+          <span key="safe" className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-[#00ffab]/10 border border-[#00ffab]/20 text-[#00ffab] shadow-sm select-none">
+            🟢 진입 가능
+          </span>
+        );
+      }
     }
 
     if (c.isSupplyGoldenCross) {

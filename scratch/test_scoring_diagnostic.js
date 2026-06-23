@@ -206,8 +206,15 @@ async function run() {
     const technicallyFiltered = finalSortedScored.filter(c => {
         if (c.isVetoed) return false;
 
-        const passedShort = (c.totalScore >= 55 && c.metrics.strength >= 90 && c.metrics.disparity20 < 107 && c.metrics.shortRatio < 10);
-        const passedLong = (c.totalScore >= 55 && c.metrics.strength >= 85 && c.metrics.disparity20 < 105 && c.metrics.shortRatio < 10);
+        const isDualBuy = c.metrics.investor1D && c.metrics.investor1D.foreign > 0 && c.metrics.investor1D.organ > 0;
+        const hasStrongStrength = c.metrics.strength >= 115;
+        const isStrongBreakout = isDualBuy && hasStrongStrength;
+
+        const maxShortDisp20 = (isStrongBreakout) ? 112 : 107;
+        const maxLongDisp20 = (isStrongBreakout) ? 108 : 105;
+
+        const passedShort = (c.totalScore >= 55 && c.metrics.strength >= 90 && c.metrics.disparity20 < maxShortDisp20 && c.metrics.shortRatio < 10);
+        const passedLong = (c.totalScore >= 55 && c.metrics.strength >= 85 && c.metrics.disparity20 < maxLongDisp20 && c.metrics.shortRatio < 10);
 
         c.passedShort = passedShort;
         c.passedLong = passedLong;

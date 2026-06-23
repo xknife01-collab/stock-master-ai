@@ -252,8 +252,20 @@ const saveRagDiary = async (news, signal) => {
 };
 
 
-const getAiCache = async () => {
-    // 1. Supabase 클라우드 캐시 조회 우선 (서버리스 환경 대비)
+const getAiCache = async (currentTenMinKey = null) => {
+    // 1. 만약 로컬 캐시가 존재하고, 우리가 찾는 tenMinKey가 이미 들어있다면 즉시 로컬 캐시 반환 (속도 극대화 & 레이스 컨디션 방지)
+    if (currentTenMinKey && fs.existsSync(aiCachePath)) {
+        try {
+            const localCache = JSON.parse(fs.readFileSync(aiCachePath, 'utf8'));
+            if (localCache && localCache.tenMinKey === currentTenMinKey && localCache.pulse) {
+                return localCache;
+            }
+        } catch (e) {
+            console.error('Error reading local cache early check:', e.message);
+        }
+    }
+
+    // 2. Supabase 클라우드 캐시 조회 우선 (서버리스 환경 대비)
     if (supabase) {
         try {
             const { data, error } = await supabase
@@ -274,7 +286,7 @@ const getAiCache = async () => {
         }
     }
 
-    // 2. 클라우드 조회 실패 시 로컬 파일 폴백
+    // 3. 클라우드 조회 실패 시 로컬 파일 폴백
     if (fs.existsSync(aiCachePath)) {
         try {
             return JSON.parse(fs.readFileSync(aiCachePath, 'utf8'));
@@ -286,7 +298,7 @@ const getAiCache = async () => {
     return { signal: null, hourKey: null };
 };
 
-const saveAiCache = (pulseData, hourKey, savedTime = null) => {
+const saveAiCache = (pulseData, halfHourKey, tenMinKey, savedTime = null) => {
     let dataToSave = pulseData.data || pulseData.signal || pulseData.prediction || pulseData;
     if (dataToSave.pulse) dataToSave = dataToSave.pulse;
     if (dataToSave.data) dataToSave = dataToSave.data;
@@ -299,12 +311,18 @@ const saveAiCache = (pulseData, hourKey, savedTime = null) => {
         finalSavedTime = `${dateStr} ${timeStr}`;
     }
     
-    const cacheObj = { pulse: dataToSave, hourKey, savedTime: finalSavedTime };
+    const cacheObj = { 
+        pulse: dataToSave, 
+        halfHourKey, 
+        tenMinKey, 
+        hourKey: halfHourKey, // 하위 호환성 유지
+        savedTime: finalSavedTime 
+    };
     const jsonStr = JSON.stringify(cacheObj, null, 2);
     
     try {
         fs.writeFileSync(aiCachePath, jsonStr, 'utf8');
-        console.log(`💾 [Cache] AI 분석 캐시 저장 완료 (HourKey: ${hourKey}, SavedTime: ${finalSavedTime})`);
+        console.log(`💾 [Cache] AI 분석 캐시 저장 완료 (HalfHourKey: ${halfHourKey}, TenMinKey: ${tenMinKey}, SavedTime: ${finalSavedTime})`);
     } catch (e) {
         console.error('❌ Local cache write failed:', e.message);
     }
@@ -928,7 +946,11 @@ export const executeHourlyPulse = async (force = false) => {
     // 한국 시간(KST) 강제 보정
     const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
     const currentHalfHour = now.getUTCMinutes() < 30 ? '00' : '30';
-    const currentHourKey = `${now.getUTCFullYear()}-${now.getUTCMonth()+1}-${now.getUTCDate()}-${now.getUTCHours()}-${currentHalfHour}`;
+    const currentHalfHourKey = `${now.getUTCFullYear()}-${now.getUTCMonth()+1}-${now.getUTCDate()}-${now.getUTCHours()}-${currentHalfHour}`;
+    
+    const currentTenMinute = Math.floor(now.getUTCMinutes() / 10) * 10;
+    const currentTenMinKey = `${now.getUTCFullYear()}-${now.getUTCMonth()+1}-${now.getUTCDate()}-${now.getUTCHours()}-${currentTenMinute.toString().padStart(2, '0')}`;
+    
     const timeStr = now.getUTCHours().toString().padStart(2, '0') + ':' + now.getUTCMinutes().toString().padStart(2, '0');
 
     // 1. 이미 진행 중인 작업이 있으면 해당 약속 반환
@@ -937,7 +959,7 @@ export const executeHourlyPulse = async (force = false) => {
         return await fetchingAiSignalPromise;
     }
 
-    const cache = await getAiCache();
+    const cache = await getAiCache(currentTenMinKey);
     const marketOpen = isMarketOpen();
 
     // 2. 장외 시간 및 캐시 확인 (장외 시간이고 캐시가 없으면 diary에서 복구하여 즉각 제공)
@@ -963,7 +985,7 @@ export const executeHourlyPulse = async (force = false) => {
                     const min = String(kst.getUTCMinutes()).padStart(2, '0');
                     savedTime = `${mm}.${dd} ${hh}:${min}`;
                 }
-                saveAiCache({ pulse: { data: pulseData } }, currentHourKey, savedTime);
+                saveAiCache({ pulse: { data: pulseData } }, currentHalfHourKey, currentTenMinKey, savedTime);
             }
         }
 
@@ -972,9 +994,9 @@ export const executeHourlyPulse = async (force = false) => {
             await refreshRecommendedPrices(pulseData);
             cleanSignal(pulseData);
             
-            // 기존 캐시에 savedTime이 없을 경우 hourKey에서 파싱
-            if (!savedTime && cache && cache.hourKey) {
-                const parts = cache.hourKey.split('-');
+            // 기존 캐시에 savedTime이 없을 경우 hourKey/halfHourKey에서 파싱
+            if (!savedTime && cache && (cache.halfHourKey || cache.hourKey)) {
+                const parts = (cache.halfHourKey || cache.hourKey).split('-');
                 if (parts.length >= 5) {
                     const mm = parts[1].padStart(2, '0');
                     const dd = parts[2].padStart(2, '0');
@@ -992,16 +1014,16 @@ export const executeHourlyPulse = async (force = false) => {
         }
     }
 
-    // 3. 캐시 확인 (해당 시간에 이미 완료된 결과가 있는지 - 30분 단위)
-    if (!force && cache && cache.hourKey === currentHourKey && cache.pulse) {
-        console.log(`✅ [Pulse] 이번 30분 주기(${currentHourKey})의 분석 결과가 이미 존재하여 캐시를 사용합니다.`);
+    // 3. 캐시 확인 (10분 단위로 캐시 체크!)
+    if (!force && cache && cache.tenMinKey === currentTenMinKey && cache.pulse) {
+        console.log(`✅ [Pulse] 이번 10분 주기(${currentTenMinKey})의 분석 결과가 이미 존재하여 캐시를 사용합니다.`);
         let pulseData = cache.pulse.data || cache.pulse;
         await refreshRecommendedPrices(pulseData);
         cleanSignal(pulseData);
         
         let savedTime = cache.savedTime;
-        if (!savedTime && cache.hourKey) {
-            const parts = cache.hourKey.split('-');
+        if (!savedTime && cache.tenMinKey) {
+            const parts = cache.tenMinKey.split('-');
             if (parts.length >= 5) {
                 const mm = parts[1].padStart(2, '0');
                 const dd = parts[2].padStart(2, '0');
@@ -1022,7 +1044,7 @@ export const executeHourlyPulse = async (force = false) => {
     fetchingAiSignalPromise = (async () => {
         try {
             setRealtimeTaskActive(true);
-            const result = await _executeHourlyPulseInternal(currentHourKey, timeStr);
+            const result = await _executeHourlyPulseInternal(currentHalfHourKey, currentTenMinKey, timeStr, cache, force);
             return {
                 ...result,
                 marketOpen: true
@@ -1215,7 +1237,7 @@ const getSupplyPointsCombined = (fQty, oQty, pQty, fMoney, oMoney, pMoney, maxS)
     return Math.round(qtyScore * 0.5 + moneyScore * 0.5);
 };
 
-const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
+const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey, timeStr, cache, force) => {
     const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
     try {
         const forceRecommend = process.env.FORCE_RECOMMEND === 'true';
@@ -1326,11 +1348,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 marketStress
             };
 
-            const fullCache = {
-                pulse: panicSignal,
-                hourKey: currentHourKey
-            };
-            fs.writeFileSync(aiCachePath, JSON.stringify(fullCache, null, 2), 'utf8');
+            saveAiCache({ pulse: { data: panicSignal } }, currentHalfHourKey, currentTenMinKey);
             return { data: panicSignal, time: timeStr };
         }
 
@@ -1411,6 +1429,24 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 { code: '000270', name: '기아' }
             ];
         }
+
+        // 6대 반도체 핵심 주도주 상시 후보군 편입 보장
+        const coreMainstream = [
+            { code: '005930', name: '삼성전자' },
+            { code: '000660', name: 'SK하이닉스' },
+            { code: '042700', name: '한미반도체' },
+            { code: '007660', name: '이수페타시스' },
+            { code: '403870', name: 'HPSP' },
+            { code: '067310', name: '하나마이크론' }
+        ];
+        
+        coreMainstream.forEach(c => {
+            if (!htsGolden.some(h => h.code === c.code) && 
+                !htsVolume.some(h => h.code === c.code) && 
+                !htsNewHigh.some(h => h.code === c.code)) {
+                htsGolden.push(c);
+            }
+        });
 
         const isEtfOrIndex = (name) => {
             const keywords = ["KODEX", "TIGER", "SOL", "RISE", "KBSTAR", "ACE", "HANARO", "KOSEF", "ARIRANG", "ETN", "인버스", "레버리지", "선물", "국채", "달러", "고배당", "MSCI", "ESG", "active", "액티브", "로우볼", "밸류", "모멘텀", "스팩", "SPAC", "제호", "인덱스"];
@@ -2160,15 +2196,24 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 const isVetoRebounding = (disp5 < 100) && (disp1 >= 100) && (parseFloat(m.strength) >= 100) && (parseFloat(c.change || m.change || '0') > 0 || !isDumping);
                 
                 // Super Leader, 수급 골든크로스(체결강도 지지 필요), 또는 체결강도 가속도 돌입이면서 수급 이탈이 없을 때는 역배열, 5일선 아래 VETO를 바이패스합니다.
-                const shouldBypassTrends = forceRecommend || (isSuperLeader && !isDumping) || (isSupplyGoldenCross && str >= 95 && !isDumping) || (strengthAcc >= 5 && !isDumping);
+                // 상승장(isBullMarket) 우회 조건 추가: 체결강도 105% 이상 또는 가속도 +3%p 이상 & 쌍끌이 매도 아님
+                const shouldBypassTrends = forceRecommend || 
+                    (isSuperLeader && !isDumping) || 
+                    (isSupplyGoldenCross && str >= 95 && !isDumping) || 
+                    (strengthAcc >= 5 && !isDumping) ||
+                    (isBullMarket && str >= 105 && !isDumping) ||
+                    (isBullMarket && strengthAcc >= 3 && !isDumping);
 
-                if (!shouldBypassTrends && isDownwardAlignment) {
+                if (!forceRecommend && isSupplyDeathCross) {
+                    isVetoed = true;
+                    vetoReasons.push(`수급 하락 변곡점 감지 (당일 수급 이탈 및 주가 하락)`);
+                } else if (!forceRecommend && !shouldBypassTrends && !isVetoRebounding && isDownwardAlignment) {
                     isVetoed = true;
                     vetoReasons.push(`역배열 하락 추세 종목 제외 (이동평균 정렬: ${maAlignment})`);
-                } else if (!shouldBypassTrends && isPriceBelow5MA && !isVetoRebounding) {
+                } else if (!forceRecommend && !shouldBypassTrends && isPriceBelow5MA && !isVetoRebounding) {
                     isVetoed = true;
                     vetoReasons.push(`5일선 아래 흘러내림 종목 제외 (5일 이격도: ${disp5}% < 100%, 반등 요건 미충족)`);
-                } else if (!shouldBypassTrends && isDownwardDrift) {
+                } else if (!forceRecommend && !shouldBypassTrends && isDownwardDrift) {
                     isVetoed = true;
                     vetoReasons.push(`단기 하락 및 체결강도 약세 (1일 이격도: ${disp1}%, 체결강도: ${m.strength}%)`);
                 } else if (disp5 > limitDisp5) {
@@ -2706,12 +2751,84 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             }
             
             saveRagDiary("시장 관망: 안전 필터 기준 충족 종목 없음", holdSignal);
-            fs.writeFileSync(aiCachePath, JSON.stringify({ pulse: holdSignal, hourKey: currentHourKey }, null, 2), 'utf8');
+            saveAiCache({ pulse: { data: holdSignal } }, currentHalfHourKey, currentTenMinKey);
             return { data: holdSignal, time: timeStr };
         }
 
 
         finalSortedScored.sort((a, b) => b.totalScore - a.totalScore);
+
+        // 30분 단위 AI 리포트 캐시가 유효한지 검사 (테스트/강제 모드이고 force가 아닐 때)
+        const isReportCacheValid = !force && cache && cache.halfHourKey === currentHalfHourKey && cache.pulse && cache.pulse.theme && cache.pulse.theme !== "시장 급락 및 패닉 관망 (Safe Mode)";
+        
+        if (isReportCacheValid) {
+            console.log(`♻️ [Pulse] 이번 30분 주기 리포트가 유효하여 Gemini API 호출을 생략하고 캐시된 보고서를 재사용합니다. (키: ${currentHalfHourKey})`);
+            const cachedPulse = cache.pulse.data || cache.pulse;
+            
+            // 기존 30분 리포트 본문 구조를 유지하고, candidates 배열만 10분 단위 실시간 연산 결과로 교체!
+            const signalData = {
+                theme: cachedPulse.theme,
+                themeProb: cachedPulse.themeProb,
+                stock: cachedPulse.stock,
+                symbol: cachedPulse.symbol,
+                price: cachedPulse.price,
+                tp: cachedPulse.tp,
+                sl: cachedPulse.sl,
+                fundamental: cachedPulse.fundamental,
+                macro: cachedPulse.macro,
+                bearCase: cachedPulse.bearCase,
+                reason: cachedPulse.reason,
+                feedback: cachedPulse.feedback,
+                shortTermPicks: cachedPulse.shortTermPicks || [],
+                longTermPicks: cachedPulse.longTermPicks || [],
+                newInsight: cachedPulse.newInsight,
+                marketStress: marketStress // 실시간 계산된 매크로 스트레스 지수 반영
+            };
+            
+            if (Array.isArray(finalSortedScored)) {
+                signalData.candidates = finalSortedScored.map(c => ({
+                    name: c.name,
+                    code: c.code,
+                    totalScore: c.totalScore || 0,
+                    price: c.price,
+                    change: c.change,
+                    isAntHell: c.isAntHell || false,
+                    isSelfHealed: c.isSelfHealed || false,
+                    selfHealedReasons: c.selfHealedReasons || [],
+                    isDefaultFallback: c.isDefaultFallback || false,
+                    isVetoed: c.isVetoed || false,
+                    vetoReason: c.vetoReason || '',
+                    isSupplyGoldenCross: c.isSupplyGoldenCross || false,
+                    isSupplyDeathCross: c.isSupplyDeathCross || false,
+                    metrics: {
+                        disparity1: c.metrics?.disparity1,
+                        disparity5: c.metrics?.disparity5,
+                        disparity20: c.metrics?.disparity20,
+                        strength: c.metrics?.strength,
+                        strengthAcceleration: c.metrics?.strengthAcceleration || 0,
+                        netForeignWindowBuyMoney: c.metrics?.netForeignWindowBuyMoney || 0,
+                        largeTradeRatio: c.metrics?.largeTradeRatio || 0,
+                        shortRatio: c.metrics?.shortRatio,
+                        investor1D: c.metrics?.investor1D,
+                        investor5D: c.metrics?.investor5D,
+                        investorMoney5D: c.metrics?.investorMoney5D,
+                        atr: c.metrics?.atr,
+                        atrPercent: c.metrics?.atrPercent,
+                        transactionValue: c.metrics?.transactionValue,
+                        volumeRate: c.metrics?.volumeRate,
+                        creditBalance: c.metrics?.creditBalance,
+                        sector: c.metrics?.sector,
+                        rsi: c.metrics?.rsi,
+                        maAlignment: c.metrics?.maAlignment
+                    },
+                    scores: c.scores || {},
+                    financials: c.financials || null
+                }));
+            }
+            
+            saveAiCache({ pulse: { data: signalData } }, currentHalfHourKey, currentTenMinKey);
+            return { data: signalData, time: timeStr };
+        }
 
         // 52주 신고가 및 거래대금 폭발 종목을 최상단으로 강제 정렬 (Priority Queueing)
         technicallyFiltered.sort((a, b) => {
@@ -2863,7 +2980,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
         const rawCandidates = selectionRaw?.candidates || [];
         
         // 🔧 [결정론적 1:1 상장코드 주입 레이어]
-        const candidates = rawCandidates.map(name => {
+        let candidates = rawCandidates.map(name => {
             if (!name || typeof name !== 'string') return null;
             const cleanedName = name.replace(/\s+/g, '');
             
@@ -2877,6 +2994,18 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
             console.warn(`🚨 [원천 차단] 기술적 필터 미통과 종목 추천 제외: ${name}`);
             return null;
         }).filter(Boolean);
+
+        // 🛡️ [데이터 부재 방지 방어 코드]
+        // 만약 AI가 선택한 candidates가 비어있거나 부족한 경우, 기술 필터를 통과한 상위 종목들을 백업으로 채워넣습니다.
+        if (candidates.length < 3 && technicallyFiltered.length > 0) {
+            console.log(`⚠️ [Pulse Backup] AI 추천 종목 수가 부족하여 (${candidates.length}개) 기술 필터 통과 상위 종목을 추가합니다.`);
+            for (const tStock of technicallyFiltered) {
+                if (candidates.length >= 5) break;
+                if (!candidates.some(c => c.s === tStock.code)) {
+                    candidates.push({ n: tStock.name, s: tStock.code });
+                }
+            }
+        }
 
         const mainTheme = selectionRaw?.theme || '분석중';
         // --- 중간 단계: KIS 실시간 가격 조회 (Supabase 캐시 및 로컬 데이터 대체로 네트워크 병목 제거) ---
@@ -2914,8 +3043,40 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 
                 // Supabase 캐시 데이터 조회
                 const row = (cachedRows || []).find(r => r.symbol === c.s) || {};
-                const fundamental = row.fundamental || {};
-                const advanced = row.advanced || {};
+                const liveMetrics = metricsMap[c.s] || {};
+                const fundamental = row.fundamental || { name: c.n, price: liveMetrics.price, sector: liveMetrics.sector };
+                const advanced = {
+                    ...row.advanced,
+                    disparity1: row.advanced?.disparity1 || liveMetrics.disparity1 || 100,
+                    disparity5: row.advanced?.disparity5 || liveMetrics.disparity5 || 100,
+                    disparity20: row.advanced?.disparity20 || liveMetrics.disparity20 || 100,
+                    strength: row.advanced?.strength || liveMetrics.strength || 100,
+                    shortRatio: row.advanced?.shortRatio || liveMetrics.shortRatio || 0,
+                    investor: row.advanced?.investor || {
+                        foreign1D: liveMetrics.investor1D?.foreign || 0,
+                        organ1D: liveMetrics.investor1D?.organ || 0,
+                        personal1D: liveMetrics.investor1D?.personal || 0,
+                        foreign5D: liveMetrics.investor5D?.foreign || 0,
+                        organ5D: liveMetrics.investor5D?.organ || 0,
+                        personal5D: liveMetrics.investor5D?.personal || 0,
+                        foreignMoney5D: liveMetrics.investorMoney5D?.foreign || 0,
+                        organMoney5D: liveMetrics.investorMoney5D?.organ || 0,
+                        personalMoney5D: liveMetrics.investorMoney5D?.personal || 0,
+                    },
+                    atr: row.advanced?.atr !== undefined ? row.advanced.atr : liveMetrics.atr,
+                    atrPercent: row.advanced?.atrPercent !== undefined ? row.advanced.atrPercent : liveMetrics.atrPercent,
+                    transactionValue: row.advanced?.transactionValue !== undefined ? row.advanced.transactionValue : liveMetrics.transactionValue,
+                    prevTransactionValue: row.advanced?.prevTransactionValue !== undefined ? row.advanced.prevTransactionValue : liveMetrics.prevTransactionValue,
+                    volumeRate: row.advanced?.volumeRate !== undefined ? row.advanced.volumeRate : liveMetrics.volumeRate,
+                    creditBalance: row.advanced?.creditBalance !== undefined ? row.advanced.creditBalance : liveMetrics.creditBalance,
+                    chartHistory: row.advanced?.chartHistory || liveMetrics.chartHistory || {},
+                    technical: row.advanced?.technical || liveMetrics.technical || null,
+                    strengthAcceleration: row.advanced?.strengthAcceleration !== undefined ? row.advanced.strengthAcceleration : liveMetrics.strengthAcceleration,
+                    memberTrend: row.advanced?.memberTrend || liveMetrics.memberTrend || null,
+                    largeTrade: row.advanced?.largeTrade || liveMetrics.largeTrade || null,
+                    isSelfHealed: row.advanced?.isSelfHealed || liveMetrics.isSelfHealed || false,
+                    selfHealedReasons: row.advanced?.selfHealedReasons || liveMetrics.selfHealedReasons || []
+                };
 
                 // 1) 수급 정보 매핑 (investor 객체)
                 let stats = advanced.investor || null;
@@ -3293,7 +3454,7 @@ const _executeHourlyPulseInternal = async (currentHourKey, timeStr) => {
                 }));
             }
 
-            saveAiCache({ pulse: { data: signalData } }, currentHourKey);
+            saveAiCache({ pulse: { data: signalData } }, currentHalfHourKey, currentTenMinKey);
             await saveRagDiary(currentNews, signalData);
             
             if (signalData.newInsight) {
