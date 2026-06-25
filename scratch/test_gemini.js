@@ -1,14 +1,25 @@
-import { aiModel } from '../lib/ai.js';
+import dotenv from 'dotenv';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-console.log("Calling Gemini API...");
+dotenv.config();
+
+console.log("Using API Key:", process.env.GEMINI_API_KEY ? "Present (starts with " + process.env.GEMINI_API_KEY.slice(0, 5) + ")" : "Missing");
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
 const start = Date.now();
-aiModel.generateContent({
-    contents: [{ role: 'user', parts: [{ text: "Say hello!" }] }]
+console.log("Calling Gemini API...");
+
+model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: "Hello! Reply with OK if you receive this." }] }],
+    generationConfig: { responseMimeType: "text/plain" }
 })
-.then(res => {
-    console.log("✅ Gemini Success! Response:", res.response.text().trim());
-    console.log(`Latency: ${(Date.now() - start) / 1000}s`);
+.then(result => {
+    const duration = ((Date.now() - start) / 1000).toFixed(2);
+    console.log(`✅ Success in ${duration} seconds!`);
+    console.log("Response text:", result.response.text().trim());
 })
 .catch(err => {
-    console.error("❌ Gemini Failed:", err.message);
+    console.error("❌ Failed:", err.message);
 });

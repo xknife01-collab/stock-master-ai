@@ -51,6 +51,24 @@ const generateMockChart = (basePrice, rangeType) => {
     return data;
 };
 
+const filter1DChartIfNeeded = (chartData) => {
+    if (!Array.isArray(chartData)) return [];
+    
+    const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const day = krNow.getUTCDay();
+    const hour = krNow.getUTCHours();
+    const min = krNow.getUTCMinutes();
+    const timeVal = hour * 100 + min;
+    
+    // 장중(평일 09:00 ~ 15:30)일 때만 미래 시점 데이터 노출을 막기 위해 현재 시간 필터 적용
+    const isTodayTradingActive = (day !== 0 && day !== 6) && (timeVal >= 900 && timeVal <= 1530);
+    if (isTodayTradingActive) {
+        const curHHMM = hour.toString().padStart(2, '0') + ":" + min.toString().padStart(2, '0');
+        return chartData.filter(p => p.date <= curHHMM);
+    }
+    return chartData;
+};
+
 // 1. 주식 현재가 조회 (Supabase 캐시 우선 조회 및 Fast-Fallback 적용)
 router.get('/:symbol', async (req, res) => {
     const { symbol } = req.params;
@@ -145,10 +163,8 @@ router.get('/history/:symbol', async (req, res) => {
         const now = Date.now();
         if (historyCache.has(cacheKey) && (now - historyCache.get(cacheKey).timestamp < CACHE_TTL)) {
             let cachedData = historyCache.get(cacheKey).data;
-            if (range === '1D' && Array.isArray(cachedData)) {
-                const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
-                const curHHMM = krNow.getUTCHours().toString().padStart(2, '0') + ":" + krNow.getUTCMinutes().toString().padStart(2, '0');
-                cachedData = cachedData.filter(p => p.date <= curHHMM);
+            if (range === '1D') {
+                cachedData = filter1DChartIfNeeded(cachedData);
             }
             return res.json(cachedData);
         }
@@ -234,9 +250,7 @@ router.get('/history/:symbol', async (req, res) => {
                 else if (range === '1M') finalData = finalHistory.slice(-30);
 
                 if (range === '1D') {
-                    const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
-                    const curHHMM = krNow.getUTCHours().toString().padStart(2, '0') + ":" + krNow.getUTCMinutes().toString().padStart(2, '0');
-                    finalData = finalData.filter(p => p.date <= curHHMM);
+                    finalData = filter1DChartIfNeeded(finalData);
                 }
 
                 historyCache.set(cacheKey, { timestamp: now, data: finalData });
@@ -327,11 +341,9 @@ router.get('/history/:symbol', async (req, res) => {
                     }
                 }
 
-                // 1D 분봉인 경우 현재 시간(KST)까지만 필터링하여 반환
-                if (range === '1D' && Array.isArray(cachedChart)) {
-                    const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
-                    const curHHMM = krNow.getUTCHours().toString().padStart(2, '0') + ":" + krNow.getUTCMinutes().toString().padStart(2, '0');
-                    cachedChart = cachedChart.filter(p => p.date <= curHHMM);
+                // 1D 분봉인 경우 조건부로 현재 시간(KST)까지만 필터링하여 반환
+                if (range === '1D') {
+                    cachedChart = filter1DChartIfNeeded(cachedChart);
                 }
 
                 if (cachedChart && cachedChart.length > 0) {
@@ -351,9 +363,7 @@ router.get('/history/:symbol', async (req, res) => {
             const freshDetail = await syncSingleStock(targetSymbol);
             if (freshDetail && freshDetail.advanced?.chartHistory?.['1D']) {
                 let chart1D = freshDetail.advanced.chartHistory['1D'];
-                const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
-                const curHHMM = krNow.getUTCHours().toString().padStart(2, '0') + ":" + krNow.getUTCMinutes().toString().padStart(2, '0');
-                chart1D = chart1D.filter(p => p.date <= curHHMM);
+                chart1D = filter1DChartIfNeeded(chart1D);
                 return res.json(chart1D);
             }
         } else {
