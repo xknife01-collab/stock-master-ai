@@ -2227,8 +2227,14 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             let isVetoed = false;
             const vetoReasons = [];
 
-            // 체결강도 절대 약세 VETO (95% 미만, 하락장/안전모드 100% 미만, forceRecommend 시 90% 미만)
-            const minStrengthRequired = forceRecommend ? 90 : (isSafe ? 100 : 95);
+            // 체결강도 절대 약세 VETO (오르는 말에 올라타기 위해, 당일 상승 중(changePct > 0)이거나 정배열 상승 추세인 경우 체결강도 하한선을 80%~90%로 대폭 하향하여 VETO 차단 방지)
+            const isCoreSemiconductor = ['005930', '000660', '042700', '007660', '403870', '067310'].includes(c.code);
+            const isUptrend = maAlignment.includes('정배열') || (changePct > 0);
+            
+            let minStrengthRequired = forceRecommend ? 90 : (isSafe ? 100 : 95);
+            if (isCoreSemiconductor || isUptrend) {
+                minStrengthRequired = (changePct > 0) ? 80 : 90;
+            }
             const checkStrVal = parseFloat(m.strength || 100);
             const isStrengthVetoOverridden = strengthAcc >= 5 && checkStrVal >= 90;
 
@@ -2257,7 +2263,22 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
 
             // 상승장, 강제 추천, 또는 강력한 쌍끌이 돌파/정배열 우상향 시 기술적 제한 임계값 완화
             let limitDisp5 = forceRecommend ? 120 : (isStrongBreakout ? 112 : 108);
+            
+            // 수급(체결강도)이 강력하게 동반되는 상승 랠리 종목에 대해 이격도 제한을 대폭 상향하여 올라타도록 완화
+            const isGenuineRally = (checkStrVal >= 105) && (strengthAcc >= 0) && (!isDumping || isUptrend);
+            const isSuperGenuineRally = (checkStrVal >= 115) && (strengthAcc >= 3);
+            
+            if (isGenuineRally || isCoreSemiconductor) {
+                limitDisp5 = Math.max(limitDisp5, 115); // 주도주 및 강수급 상승 랠리 이격 제한 115%로 완화
+            }
+            if (isSuperGenuineRally) {
+                limitDisp5 = Math.max(limitDisp5, 120); // 초강력 수급 가속 종목은 이격 제한 120%까지 허용 (오르는 말에 승차)
+            }
+            
             let limitRsi = isSafe ? 75 : ((isBullMarket || isStrongBreakout) ? 85 : 78);
+            if (isGenuineRally || isCoreSemiconductor) {
+                limitRsi = Math.max(limitRsi, 82); // 상승 랠리 종목은 RSI 한계선 82로 상향
+            }
 
             const isSuperLeader = totalScore >= 70;
 
@@ -2288,9 +2309,10 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                     (isBullMarket && strengthAcc >= 3 && !isDumping);
 
                 // 안전모드 및 지수 지지선 붕괴 시 모든 기술적 우양향 예외/반등 우회 규칙 원천 박탈
+                // 단, 반도체 대장주 및 수급이 살아있는 진짜 상승 랠리 종목(isGenuineRally)은 실시간 추세 매매를 위해 예외(Bypass)를 허용함
                 if (isSafe || isIndexSupportBroken) {
-                    shouldBypassTrends = false;
-                    isVetoRebounding = false;
+                    shouldBypassTrends = isGenuineRally || isCoreSemiconductor;
+                    isVetoRebounding = isGenuineRally || isCoreSemiconductor;
                 }
 
                 if (!forceRecommend && isSupplyDeathCross) {

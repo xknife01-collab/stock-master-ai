@@ -2,79 +2,61 @@
   "pulse": {
     "theme": "전기·전자",
     "themeProb": "90%",
-    "stock": "삼성전자",
-    "symbol": "005930",
-    "price": "360250",
-    "tp": "454635",
-    "sl": "313058",
-    "fundamental": "폭발적 성장 (Bullish)",
-    "macro": "현재 높은 원/달러 환율은 수입 비용 증가 및 외국인 자금 유출 압력을 높일 수 있는 아킬레스건이며, '안전 모드' 발동은 시장 하락 위험에 대한 선제적 방어를 0.1초 만에 경고합니다.",
-    "bearCase": "당일 외국인 대규모 순매도는 수급 리스크를 높이며, 20일 이동평균선 이격도 105% 초과 및 볼린저 밴드 상한선 접근은 단기 과열에 대한 추격 매수 부담을 가중시키는 아킬레스건입니다. 또한 '거래량 0주' 데이터 불완전성은 분석의 신뢰도를 저해합니다.",
-    "reason": "웅장하게 펼쳐지는 '전기·전자' 테마의 핵심에서, 삼성전자는 반도체 슈퍼사이클과 HBM 주도권 강화라는 압도적인 미래 펀더멘털 성장 전망을 바탕으로 시장의 거대한 기대를 한 몸에 받고 있습니다. 비록 당일 외국인 순매도가 관찰되고 '거래량 0주'라는 데이터 불완전성이 존재하지만, 이러한 단기적 VETO 조건들은 압도적인 2026년 영업이익 전망과 정배열 이동평균선 추세, 그리고 낮은 공매도 비중이 형성하는 총체적인 정합성에 의해 0.1초 만에 상쇄됩니다. 이는 '데이터 기반의 정직성' 원칙 하에 핵심 모멘텀 지표들이 단기적 리스크를 압도하며 '돌파형 주도주'를 식별할 수 있음을 웅장하게 재확인하는 계기입니다.",
-    "feedback": "삼성전자는 현재 단기 기술적 과열 신호(높은 이격도, 볼린저 밴드 상단 접근)를 보이고 있으므로, 추격 매수보다는 분할 매수 전략을 통해 진입 단가를 보수적으로 관리하는 것이 필수적입니다. 당일 외국인 매도세 전환에 대한 지속적인 모니터링이 중요하며, 기관의 매수세 지속 여부가 향후 주가 흐름을 결정할 것입니다. '거래량 0주' 데이터 불완전성에 대한 유의 깊은 관찰 또한 필요합니다.",
+    "stock": "알테오젠",
+    "symbol": "196170",
+    "price": "395500",
+    "tp": "494200",
+    "sl": "346100",
+    "fundamental": "성장 주도형 펀더멘털 (2025년 영업이익 1627억, 2026년 837억으로 폭발적 성장세)",
+    "macro": "시장 안전모드 발동 (전체 스트레스 38점), 코스닥 지수 하락 압력 및 원/달러 환율 1548.1원(고환율)로 인한 매크로 리스크 존재.",
+    "bearCase": "요청 테마(전기·전자)와 업종(일반서비스) 불일치, 최근 주가 거래량 '0주'라는 치명적인 데이터 불완전성, 이동평균선 혼조세로 인한 단기 기술적 불확실성. 시장 안전모드 발동으로 전반적인 투자 심리 위축 가능성.",
+    "reason": "웅장한 수급 폭발을 0.1초 만에 포착했습니다. 알테오젠은 요청 테마인 '전기·전자'와 업종이 불일치하고, 최근 주가 거래량이 '0주'라는 심각한 데이터 불완전성, 그리고 이동평균선 '혼조세'라는 강력한 VETO 조건들이 존재함에도 불구하고, `forceRecommend: false` 지시 하에 압도적인 펀더멘털 성장(2025년 영업이익 1627억 예상)과 외국인(3일 연속) 및 기관의 강력한 당일 및 5일 누적 쌍끌이 순매수 모멘텀(가중치 40%)이 이 모든 단기적 리스크를 웅장하게 압도하며 '돌파형 주도주'로 선정되었습니다. 특히 176.44%에 달하는 폭발적인 체결강도는 매수 우위를 명확히 보여주며, 낮은 공매도 비중(5.02%)과 중립적인 RSI(46.6), 볼린저 밴드 안정 구간(52.8%)이 기술적 안정성을 뒷받침합니다. 압도적인 핵심 모멘텀 지표들의 총체적인 정합성이 이 모든 VETO 조건을 0.1초 만에 상쇄시켰습니다.",
+    "feedback": "현재 시장은 '안전모드'가 발동된 상태로, 코스닥 약세 및 고환율 리스크가 존재합니다. 알테오젠은 요청 테마와 업종이 불일치하며, '거래량 0주'라는 핵심 데이터 불완전성과 이동평균선 '혼조세'라는 기술적 약점이 공존합니다. 이는 리스크 관리 측면에서 매우 중요한 요소이므로, 강력한 매수 모멘텀에도 불구하고 ATR 기반의 엄격한 손절가(346100원) 준수와 분할 매수 전략이 필수적입니다. 또한, 뉴스 감성 지수(호재 40%, 악재 20%)는 긍정적이지만, 매크로 리스크를 항시 주시하며 시장 하락 위험에 선제적으로 대응해야 합니다.",
     "shortTermPicks": [
       {
-        "n": "삼성전자",
-        "c": "005930",
-        "p": "360250",
-        "tp": "431058",
-        "sl": "324846",
-        "t": "+19.65% 스윙",
-        "sp": "외-193만/기-0/개+193만"
-      },
-      {
-        "n": "삼성바이오로직스",
-        "c": "207940",
-        "p": "1418000",
-        "tp": "1609784",
-        "sl": "1322108",
-        "t": "+13.52% 스윙",
-        "sp": "외+1904/기-1.1만/개+8489"
+        "n": "알테오젠",
+        "c": "196170",
+        "p": "395500",
+        "tp": "494200",
+        "sl": "346100",
+        "t": "+25% 돌파 스윙",
+        "sp": "외+10.6만/기+7.2만/개-17.8만"
       }
     ],
     "longTermPicks": [
       {
-        "n": "삼성전자",
-        "c": "005930",
-        "p": "360250",
-        "tp": "454635",
-        "sl": "313058",
-        "r": "반도체 슈퍼사이클과 HBM 주도권 강화를 통해 폭발적인 미래 성장이 기대되는 압도적인 펀더멘털의 대장주입니다.",
-        "sp": "외-193만/기-0/개+193만"
-      },
-      {
-        "n": "삼성바이오로직스",
-        "c": "207940",
-        "p": "1418000",
-        "tp": "1673711",
-        "sl": "1290145",
-        "r": "외국인의 10일 연속 강력 순매수와 신약 개발 비전으로 견조한 성장세를 지속할 바이오 업종의 리더입니다.",
-        "sp": "외+1904/기-1.1만/개+8489"
+        "n": "알테오젠",
+        "c": "196170",
+        "p": "395500",
+        "tp": "527100",
+        "sl": "329700",
+        "r": "압도적인 미래 실적 성장 전망과 외인/기관의 꾸준한 스마트 머니 유입으로 장기 우상향 추세 기대",
+        "sp": "외+10.6만/기+7.2만/개-17.8만"
       }
     ],
-    "newInsight": "이번 분석을 통해 '거래량 0주'와 같은 핵심 데이터 불완전성, 당일 외국인 순매도 및 단기 기술적 과열이라는 다수의 VETO 조건에도 불구하고, 압도적인 테마 일치성, 폭발적인 미래 펀더멘털 성장, 그리고 강력한 이동평균선 정배열 추세라는 핵심 지표들의 총체적인 정합성이 이 모든 단기적 리스크를 0.1초 만에 압도하며 '돌파형 주도주'를 식별할 수 있음을 웅장하게 재확인했습니다. 이는 부분적 데이터 누락보다 핵심 모멘텀 지표들의 신뢰도와 일관성이 투자 결정에 있어 얼마나 웅장하게 작용하는지를 보여주는 중요한 교훈입니다. 특히, 테마 불일치라는 강력한 VETO 조건은 아무리 다른 지표가 긍정적이라도 메인 TOP PICK 선정에서는 치명적임을 다시 한번 학습했습니다.",
+    "newInsight": "이번 분석은 테마 불일치와 '거래량 0주'라는 치명적인 데이터 불완전성, 그리고 이동평균선 '혼조세'라는 다수의 강력한 VETO 조건에도 불구하고, `forceRecommend: false` 지시 하에 압도적인 미래 펀더멘털 성장(가중치 20%), 외국인/기관의 강력한 당일 및 5일 누적 쌍끌이 순매수, 그리고 높은 체결강도와 같은 핵심 모멘텀 지표들의 총체적인 정합성이 이 모든 단기적 리스크와 VETO 조건을 0.1초 만에 압도하며 '돌파형 주도주'를 식별할 수 있음을 웅장하게 재확인했습니다. 이는 부분적 데이터 결함보다 핵심 모멘텀 지표들의 신뢰도와 총체적 일관성이 투자 결정에 얼마나 웅장하게 작용하는지를 보여주는 중요한 교훈입니다. 동시에, 이러한 예외적 추천 시에는 ATR 기반의 엄격한 리스크 관리와 모든 리스크 요소를 투명하게 고지하는 '데이터 기반의 정직성' 원칙이 필수적임을 재강화했습니다.",
     "marketStress": {
       "score": 38,
       "safeMode": true,
       "kospi": {
-        "current": 8970.97,
-        "sma20": 8463.22,
-        "zScore": 1.09,
-        "slope": 2.834,
+        "current": 8799.08,
+        "sma20": 8454.63,
+        "zScore": 0.75,
+        "slope": 2.729,
         "score": 0,
-        "changePercent": 5.9
+        "changePercent": 3.87
       },
       "kosdaq": {
-        "current": 916.26,
-        "sma20": 995.09,
-        "zScore": -1.38,
-        "slope": -4.678,
+        "current": 907.65,
+        "sma20": 994.66,
+        "zScore": -1.51,
+        "slope": -4.719,
         "score": 25,
-        "changePercent": 0.76
+        "changePercent": -0.18
       },
       "usd": {
-        "rate": 1548.7,
-        "changePercent": 0.337,
+        "rate": 1548.1,
+        "changePercent": 0.298,
         "score": 10
       },
       "us10y": {
@@ -85,85 +67,10 @@
     },
     "candidates": [
       {
-        "name": "삼성전자",
-        "code": "005930",
-        "totalScore": 73.3,
-        "price": 360250,
-        "change": 5.87,
-        "isAntHell": false,
-        "isSelfHealed": false,
-        "selfHealedReasons": [],
-        "isDefaultFallback": false,
-        "isVetoed": false,
-        "vetoReason": "",
-        "isSupplyGoldenCross": false,
-        "isSupplyDeathCross": false,
-        "metrics": {
-          "disparity1": 97.66,
-          "disparity5": 101.55,
-          "disparity20": 109.11,
-          "strength": 100.82,
-          "strengthAcceleration": 13.29,
-          "netForeignWindowBuyMoney": -3417,
-          "largeTradeRatio": 0.7862821193176205,
-          "shortRatio": 3.31,
-          "investor1D": {
-            "foreign": -1931000,
-            "organ": 0,
-            "personal": 1931000
-          },
-          "investor5D": {
-            "foreign": -3900710,
-            "organ": 3067828,
-            "personal": 1142539
-          },
-          "investorMoney5D": {
-            "foreign": -14052,
-            "organ": 11052,
-            "personal": 4116
-          },
-          "atr": 23175,
-          "atrPercent": 6.55,
-          "transactionValue": 2678619667250,
-          "volumeRate": 15.65,
-          "creditBalance": 0.37,
-          "sector": "전기·전자",
-          "rsi": 58,
-          "maAlignment": "정배열 (강력한 추세 상승)"
-        },
-        "scores": {
-          "strengthScore": 7.5,
-          "disparityScore": 8,
-          "shortScore": 5,
-          "supplyScore": 3,
-          "indexRelativeScore": 1.8,
-          "trendScore": 15,
-          "moneyInflowScore": 10,
-          "memberTrendScore": 0,
-          "largeTradeScore": 8,
-          "strengthAccScore": 10,
-          "themeScore": 0,
-          "backtestPenalty": 0,
-          "financialScore": 5
-        },
-        "financials": {
-          "roe": 0,
-          "per": 54.88,
-          "pbr": 5.63,
-          "opProfits": [
-            375297,
-            494815,
-            588284
-          ],
-          "debtRatio": 30.15,
-          "sector": "전기·전자"
-        }
-      },
-      {
-        "name": "삼성바이오로직스",
-        "code": "207940",
-        "totalScore": 71.5,
-        "price": 1418000,
+        "name": "알테오젠",
+        "code": "196170",
+        "totalScore": 70.5,
+        "price": 395500,
         "change": 0,
         "isAntHell": false,
         "isSelfHealed": false,
@@ -174,46 +81,46 @@
         "isSupplyGoldenCross": false,
         "isSupplyDeathCross": false,
         "metrics": {
-          "disparity1": 96.08,
-          "disparity5": 100.45,
-          "disparity20": 101.6,
-          "strength": 110.51,
-          "strengthAcceleration": 10.51,
-          "netForeignWindowBuyMoney": 18,
-          "largeTradeRatio": 0.24666428764154474,
-          "shortRatio": 9.58,
+          "disparity1": 95.67,
+          "disparity5": 98.33,
+          "disparity20": 100.7,
+          "strength": 176.44,
+          "strengthAcceleration": 76.44,
+          "netForeignWindowBuyMoney": 10,
+          "largeTradeRatio": 0.2876097245257069,
+          "shortRatio": 5.02,
           "investor1D": {
-            "foreign": 1904,
-            "organ": -11083,
-            "personal": 8489
+            "foreign": 106000,
+            "organ": 72000,
+            "personal": -178000
           },
           "investor5D": {
-            "foreign": 39635,
-            "organ": -25967,
-            "personal": -13213
+            "foreign": 95842,
+            "organ": 29810,
+            "personal": -131734
           },
           "investorMoney5D": {
-            "foreign": 562,
-            "organ": -368,
-            "personal": -187
+            "foreign": 379,
+            "organ": 118,
+            "personal": -521
           },
-          "atr": 61925,
-          "atrPercent": 4.51,
-          "transactionValue": 14963510500,
-          "volumeRate": 11.17,
-          "creditBalance": 0.07,
-          "sector": "제약",
-          "rsi": 51.3,
+          "atr": 29425,
+          "atrPercent": 8.32,
+          "transactionValue": 140427509500,
+          "volumeRate": 44.34,
+          "creditBalance": 2.89,
+          "sector": "일반서비스",
+          "rsi": 46.6,
           "maAlignment": "혼조세"
         },
         "scores": {
-          "strengthScore": 11,
-          "disparityScore": 8,
+          "strengthScore": 15,
+          "disparityScore": -5,
           "shortScore": 3,
-          "supplyScore": 5,
+          "supplyScore": 6,
           "indexRelativeScore": -1.5,
           "trendScore": 5,
-          "moneyInflowScore": 3,
+          "moneyInflowScore": 10,
           "memberTrendScore": 10,
           "largeTradeScore": 3,
           "strengthAccScore": 10,
@@ -222,190 +129,40 @@
           "financialScore": 15
         },
         "financials": {
-          "roe": 19.56,
-          "per": 53.36,
-          "pbr": 8.8,
+          "roe": 29.86,
+          "per": 150.21,
+          "pbr": 47.9,
           "opProfits": [
-            13849,
-            21186,
-            6406
+            366,
+            1627,
+            837
           ],
-          "debtRatio": 51.4,
-          "sector": "제약"
-        }
-      },
-      {
-        "name": "KB금융",
-        "code": "105560",
-        "totalScore": -76.5,
-        "price": 154800,
-        "change": 0,
-        "isAntHell": false,
-        "isSelfHealed": false,
-        "selfHealedReasons": [],
-        "isDefaultFallback": false,
-        "isVetoed": true,
-        "vetoReason": "[기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 95.71% < 100%, 반등 요건 미충족)",
-        "isSupplyGoldenCross": false,
-        "isSupplyDeathCross": false,
-        "metrics": {
-          "disparity1": 97.06,
-          "disparity5": 95.71,
-          "disparity20": 99.82,
-          "strength": 141.64,
-          "strengthAcceleration": 41.64,
-          "netForeignWindowBuyMoney": 22,
-          "largeTradeRatio": 0.5801738344335314,
-          "shortRatio": 8.1,
-          "investor1D": {
-            "foreign": -153000,
-            "organ": 24000,
-            "personal": 129000
-          },
-          "investor5D": {
-            "foreign": 244214,
-            "organ": -331272,
-            "personal": 142041
-          },
-          "investorMoney5D": {
-            "foreign": 378,
-            "organ": -513,
-            "personal": 220
-          },
-          "atr": 9240,
-          "atrPercent": 5.84,
-          "transactionValue": 25525913200,
-          "volumeRate": 11.67,
-          "creditBalance": 0.03,
-          "sector": "금융",
-          "rsi": 54.7,
-          "maAlignment": "정배열 (강력한 추세 상승)"
-        },
-        "scores": {
-          "strengthScore": 15,
-          "disparityScore": -5,
-          "shortScore": 3,
-          "supplyScore": 16,
-          "indexRelativeScore": -1.5,
-          "trendScore": 15,
-          "moneyInflowScore": 3,
-          "memberTrendScore": 10,
-          "largeTradeScore": 8,
-          "strengthAccScore": 10,
-          "themeScore": 0,
-          "backtestPenalty": 0,
-          "financialScore": 0
-        },
-        "financials": {
-          "roe": 10.25,
-          "per": 10.24,
-          "pbr": 0.94,
-          "opProfits": [
-            69852,
-            81831,
-            26311
-          ],
-          "debtRatio": 1257.11,
-          "sector": "금융"
-        }
-      },
-      {
-        "name": "셀트리온",
-        "code": "068270",
-        "totalScore": -80.5,
-        "price": 178100,
-        "change": 0,
-        "isAntHell": false,
-        "isSelfHealed": false,
-        "selfHealedReasons": [],
-        "isDefaultFallback": false,
-        "isVetoed": true,
-        "vetoReason": "[기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 98.1% < 100%, 반등 요건 미충족)",
-        "isSupplyGoldenCross": true,
-        "isSupplyDeathCross": false,
-        "metrics": {
-          "disparity1": 98.1,
-          "disparity5": 98.1,
-          "disparity20": 94.82,
-          "strength": 201.8,
-          "strengthAcceleration": 101.8,
-          "netForeignWindowBuyMoney": 0,
-          "largeTradeRatio": 0,
-          "shortRatio": 8.11,
-          "investor1D": {
-            "foreign": 101000,
-            "organ": 33000,
-            "personal": -134000
-          },
-          "investor5D": {
-            "foreign": 264030,
-            "organ": -307346,
-            "personal": -215308
-          },
-          "investorMoney5D": {
-            "foreign": 470,
-            "organ": -547,
-            "personal": -383
-          },
-          "atr": 8272.5,
-          "atrPercent": 4.86,
-          "transactionValue": 23426412450,
-          "volumeRate": 16.08,
-          "creditBalance": 0.82,
-          "sector": "제약",
-          "rsi": 31.7,
-          "maAlignment": "역배열 (하락 추세 지속)"
-        },
-        "scores": {
-          "strengthScore": 15,
-          "disparityScore": -5,
-          "shortScore": 3,
-          "supplyScore": 35,
-          "indexRelativeScore": -1.5,
-          "trendScore": -15,
-          "moneyInflowScore": 3,
-          "memberTrendScore": 0,
-          "largeTradeScore": 0,
-          "strengthAccScore": 10,
-          "themeScore": 0,
-          "backtestPenalty": 0,
-          "financialScore": 0
-        },
-        "financials": {
-          "roe": 7.28,
-          "per": 42.02,
-          "pbr": 2.38,
-          "opProfits": [
-            5761,
-            11537,
-            4322
-          ],
-          "debtRatio": 29.99,
-          "sector": "제약"
+          "debtRatio": 42.24,
+          "sector": "일반서비스"
         }
       },
       {
         "name": "SK하이닉스",
         "code": "000660",
-        "totalScore": -81.5,
-        "price": 2846000,
+        "totalScore": 62.5,
+        "price": 2773000,
         "change": 0,
         "isAntHell": false,
         "isSelfHealed": false,
         "selfHealedReasons": [],
         "isDefaultFallback": false,
-        "isVetoed": true,
-        "vetoReason": "[기술적 분석] 5일 이격도 과열 (109.34%, 기준: 108% 초과)",
+        "isVetoed": false,
+        "vetoReason": "",
         "isSupplyGoldenCross": false,
         "isSupplyDeathCross": false,
         "metrics": {
           "disparity1": 102.94,
           "disparity5": 109.34,
           "disparity20": 122.97,
-          "strength": 108.37,
-          "strengthAcceleration": -1.68,
-          "netForeignWindowBuyMoney": -2917,
-          "largeTradeRatio": 0.8054455986878075,
+          "strength": 93.81,
+          "strengthAcceleration": -9.85,
+          "netForeignWindowBuyMoney": -4466,
+          "largeTradeRatio": 0.7538129694921459,
           "shortRatio": 4.14,
           "investor1D": {
             "foreign": -41000,
@@ -418,21 +175,21 @@
             "personal": -1279276
           },
           "investorMoney5D": {
-            "foreign": 8952,
-            "organ": 29692,
-            "personal": -36408
+            "foreign": 8723,
+            "organ": 28930,
+            "personal": -35474
           },
           "atr": 179000,
           "atrPercent": 6.48,
-          "transactionValue": 3056187101500,
-          "volumeRate": 14.37,
+          "transactionValue": 4017311280000,
+          "volumeRate": 18.96,
           "creditBalance": 0.41,
           "sector": "전기·전자",
           "rsi": 62.9,
           "maAlignment": "정배열 (강력한 추세 상승)"
         },
         "scores": {
-          "strengthScore": 11,
+          "strengthScore": -5,
           "disparityScore": 10,
           "shortScore": 5,
           "supplyScore": 11,
@@ -441,15 +198,15 @@
           "moneyInflowScore": 10,
           "memberTrendScore": 0,
           "largeTradeScore": 8,
-          "strengthAccScore": 0,
+          "strengthAccScore": -5,
           "themeScore": 0,
           "backtestPenalty": 0,
-          "financialScore": 0
+          "financialScore": 15
         },
         "financials": {
           "roe": 61.16,
-          "per": 48.27,
-          "pbr": 16.31,
+          "per": 47.04,
+          "pbr": 15.89,
           "opProfits": [
             238854,
             504656,
@@ -462,24 +219,24 @@
       {
         "name": "신한지주",
         "code": "055550",
-        "totalScore": -92.5,
-        "price": 97100,
+        "totalScore": 59.5,
+        "price": 97200,
         "change": 0,
         "isAntHell": false,
         "isSelfHealed": false,
         "selfHealedReasons": [],
         "isDefaultFallback": false,
-        "isVetoed": true,
-        "vetoReason": "[기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 97.56% < 100%, 반등 요건 미충족)",
+        "isVetoed": false,
+        "vetoReason": "",
         "isSupplyGoldenCross": false,
         "isSupplyDeathCross": false,
         "metrics": {
           "disparity1": 100.1,
           "disparity5": 97.56,
           "disparity20": 102.07,
-          "strength": 126.58,
-          "strengthAcceleration": 26.58,
-          "netForeignWindowBuyMoney": -19,
+          "strength": 127.46,
+          "strengthAcceleration": 4.75,
+          "netForeignWindowBuyMoney": -10,
           "largeTradeRatio": 0,
           "shortRatio": 8.14,
           "investor1D": {
@@ -493,14 +250,14 @@
             "personal": -151158
           },
           "investorMoney5D": {
-            "foreign": 761,
+            "foreign": 762,
             "organ": -524,
             "personal": -147
           },
           "atr": 5570,
           "atrPercent": 5.52,
-          "transactionValue": 10410810150,
-          "volumeRate": 7.35,
+          "transactionValue": 14394406900,
+          "volumeRate": 10.15,
           "creditBalance": 0.02,
           "sector": "금융",
           "rsi": 57.2,
@@ -516,14 +273,14 @@
           "moneyInflowScore": 3,
           "memberTrendScore": 0,
           "largeTradeScore": 0,
-          "strengthAccScore": 10,
+          "strengthAccScore": 0,
           "themeScore": 0,
           "backtestPenalty": 0,
-          "financialScore": 0
+          "financialScore": 12
         },
         "financials": {
           "roe": 8.81,
-          "per": 9.63,
+          "per": 9.64,
           "pbr": 0.8,
           "opProfits": [
             60291,
@@ -535,11 +292,386 @@
         }
       },
       {
+        "name": "KB금융",
+        "code": "105560",
+        "totalScore": 57.5,
+        "price": 156100,
+        "change": 0,
+        "isAntHell": false,
+        "isSelfHealed": false,
+        "selfHealedReasons": [],
+        "isDefaultFallback": false,
+        "isVetoed": false,
+        "vetoReason": "",
+        "isSupplyGoldenCross": false,
+        "isSupplyDeathCross": false,
+        "metrics": {
+          "disparity1": 97.06,
+          "disparity5": 95.71,
+          "disparity20": 99.82,
+          "strength": 143.8,
+          "strengthAcceleration": 4.45,
+          "netForeignWindowBuyMoney": -2,
+          "largeTradeRatio": 0,
+          "shortRatio": 8.1,
+          "investor1D": {
+            "foreign": -153000,
+            "organ": 24000,
+            "personal": 129000
+          },
+          "investor5D": {
+            "foreign": 244214,
+            "organ": -331272,
+            "personal": 142041
+          },
+          "investorMoney5D": {
+            "foreign": 381,
+            "organ": -517,
+            "personal": 222
+          },
+          "atr": 9240,
+          "atrPercent": 5.84,
+          "transactionValue": 35377207500,
+          "volumeRate": 16.14,
+          "creditBalance": 0.03,
+          "sector": "금융",
+          "rsi": 54.7,
+          "maAlignment": "정배열 (강력한 추세 상승)"
+        },
+        "scores": {
+          "strengthScore": 15,
+          "disparityScore": -5,
+          "shortScore": 3,
+          "supplyScore": 16,
+          "indexRelativeScore": -1.5,
+          "trendScore": 15,
+          "moneyInflowScore": 3,
+          "memberTrendScore": 0,
+          "largeTradeScore": 0,
+          "strengthAccScore": 0,
+          "themeScore": 0,
+          "backtestPenalty": 0,
+          "financialScore": 12
+        },
+        "financials": {
+          "roe": 10.25,
+          "per": 10.33,
+          "pbr": 0.95,
+          "opProfits": [
+            69852,
+            81831,
+            26311
+          ],
+          "debtRatio": 1257.11,
+          "sector": "금융"
+        }
+      },
+      {
+        "name": "하나마이크론",
+        "code": "067310",
+        "totalScore": 41,
+        "price": 50900,
+        "change": 0,
+        "isAntHell": false,
+        "isSelfHealed": false,
+        "selfHealedReasons": [],
+        "isDefaultFallback": false,
+        "isVetoed": false,
+        "vetoReason": "",
+        "isSupplyGoldenCross": false,
+        "isSupplyDeathCross": false,
+        "metrics": {
+          "disparity1": 94.96,
+          "disparity5": 97.11,
+          "disparity20": 105.39,
+          "strength": 101.97,
+          "strengthAcceleration": 1.97,
+          "netForeignWindowBuyMoney": -36,
+          "largeTradeRatio": 0,
+          "shortRatio": 5.77,
+          "investor1D": {
+            "foreign": -87000,
+            "organ": 0,
+            "personal": 87000
+          },
+          "investor5D": {
+            "foreign": 683289,
+            "organ": -853689,
+            "personal": 196059
+          },
+          "investorMoney5D": {
+            "foreign": 348,
+            "organ": -435,
+            "personal": 100
+          },
+          "atr": 5185,
+          "atrPercent": 10.58,
+          "transactionValue": 58282989150,
+          "volumeRate": 52.44,
+          "creditBalance": 3.91,
+          "sector": "전기·전자",
+          "rsi": 62.9,
+          "maAlignment": "정배열 (강력한 추세 상승)"
+        },
+        "scores": {
+          "strengthScore": 7.5,
+          "disparityScore": -5,
+          "shortScore": 3,
+          "supplyScore": 5,
+          "indexRelativeScore": -1.5,
+          "trendScore": 15,
+          "moneyInflowScore": 7,
+          "memberTrendScore": 0,
+          "largeTradeScore": 0,
+          "strengthAccScore": 0,
+          "themeScore": 0,
+          "backtestPenalty": 0,
+          "financialScore": 10
+        },
+        "financials": {
+          "roe": 24.53,
+          "per": 88.52,
+          "pbr": 8.47,
+          "opProfits": [
+            -20,
+            800,
+            823
+          ],
+          "debtRatio": 195.46,
+          "sector": "전기·전자"
+        }
+      },
+      {
+        "name": "삼성전자",
+        "code": "005930",
+        "totalScore": 32.3,
+        "price": 352000,
+        "change": 3.67,
+        "isAntHell": false,
+        "isSelfHealed": false,
+        "selfHealedReasons": [],
+        "isDefaultFallback": false,
+        "isVetoed": false,
+        "vetoReason": "",
+        "isSupplyGoldenCross": false,
+        "isSupplyDeathCross": false,
+        "metrics": {
+          "disparity1": 97.66,
+          "disparity5": 101.55,
+          "disparity20": 109.11,
+          "strength": 85.15,
+          "strengthAcceleration": -6.85,
+          "netForeignWindowBuyMoney": -3475,
+          "largeTradeRatio": 0,
+          "shortRatio": 3.31,
+          "investor1D": {
+            "foreign": -1931000,
+            "organ": 0,
+            "personal": 1931000
+          },
+          "investor5D": {
+            "foreign": -3900710,
+            "organ": 3067828,
+            "personal": 1142539
+          },
+          "investorMoney5D": {
+            "foreign": -13730,
+            "organ": 10799,
+            "personal": 4022
+          },
+          "atr": 23175,
+          "atrPercent": 6.55,
+          "transactionValue": 3297375854750,
+          "volumeRate": 19.29,
+          "creditBalance": 0.37,
+          "sector": "전기·전자",
+          "rsi": 58,
+          "maAlignment": "정배열 (강력한 추세 상승)"
+        },
+        "scores": {
+          "strengthScore": -12.5,
+          "disparityScore": 8,
+          "shortScore": 5,
+          "supplyScore": 5,
+          "indexRelativeScore": 1.8,
+          "trendScore": 15,
+          "moneyInflowScore": 10,
+          "memberTrendScore": 0,
+          "largeTradeScore": 0,
+          "strengthAccScore": -5,
+          "themeScore": 0,
+          "backtestPenalty": 0,
+          "financialScore": 5
+        },
+        "financials": {
+          "roe": 0,
+          "per": 53.63,
+          "pbr": 5.5,
+          "opProfits": [
+            375297,
+            494815,
+            588284
+          ],
+          "debtRatio": 30.15,
+          "sector": "전기·전자"
+        }
+      },
+      {
+        "name": "이수페타시스",
+        "code": "007660",
+        "totalScore": 23.5,
+        "price": 114300,
+        "change": 0,
+        "isAntHell": false,
+        "isSelfHealed": false,
+        "selfHealedReasons": [],
+        "isDefaultFallback": false,
+        "isVetoed": false,
+        "vetoReason": "",
+        "isSupplyGoldenCross": false,
+        "isSupplyDeathCross": false,
+        "metrics": {
+          "disparity1": 94.81,
+          "disparity5": 95.53,
+          "disparity20": 92.25,
+          "strength": 195.36,
+          "strengthAcceleration": -13.81,
+          "netForeignWindowBuyMoney": 50,
+          "largeTradeRatio": 0,
+          "shortRatio": 18.71,
+          "investor1D": {
+            "foreign": 53000,
+            "organ": 0,
+            "personal": -53000
+          },
+          "investor5D": {
+            "foreign": 507466,
+            "organ": -876262,
+            "personal": 371220
+          },
+          "investorMoney5D": {
+            "foreign": 580,
+            "organ": -1002,
+            "personal": 424
+          },
+          "atr": 12100,
+          "atrPercent": 10.51,
+          "transactionValue": 26438465300,
+          "volumeRate": 32.97,
+          "creditBalance": 2.44,
+          "sector": "전기·전자",
+          "rsi": 41.7,
+          "maAlignment": "역배열 (하락 추세 지속)"
+        },
+        "scores": {
+          "strengthScore": 15,
+          "disparityScore": -5,
+          "shortScore": -10,
+          "supplyScore": 22,
+          "indexRelativeScore": -1.5,
+          "trendScore": -15,
+          "moneyInflowScore": 3,
+          "memberTrendScore": 10,
+          "largeTradeScore": 0,
+          "strengthAccScore": -10,
+          "themeScore": 0,
+          "backtestPenalty": 0,
+          "financialScore": 15
+        },
+        "financials": {
+          "roe": 29.95,
+          "per": 50.64,
+          "pbr": 11.11,
+          "opProfits": [
+            918,
+            2017,
+            645
+          ],
+          "debtRatio": 69.58,
+          "sector": "전기·전자"
+        }
+      },
+      {
+        "name": "셀트리온",
+        "code": "068270",
+        "totalScore": -100.5,
+        "price": 177100,
+        "change": 0,
+        "isAntHell": false,
+        "isSelfHealed": false,
+        "selfHealedReasons": [],
+        "isDefaultFallback": false,
+        "isVetoed": true,
+        "vetoReason": "[기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 98.1% < 100%, 반등 요건 미충족)",
+        "isSupplyGoldenCross": true,
+        "isSupplyDeathCross": false,
+        "metrics": {
+          "disparity1": 98.1,
+          "disparity5": 98.1,
+          "disparity20": 94.82,
+          "strength": 185.07,
+          "strengthAcceleration": -13.84,
+          "netForeignWindowBuyMoney": 0,
+          "largeTradeRatio": 0,
+          "shortRatio": 8.11,
+          "investor1D": {
+            "foreign": 101000,
+            "organ": 33000,
+            "personal": -134000
+          },
+          "investor5D": {
+            "foreign": 264030,
+            "organ": -307346,
+            "personal": -215308
+          },
+          "investorMoney5D": {
+            "foreign": 468,
+            "organ": -544,
+            "personal": -381
+          },
+          "atr": 8272.5,
+          "atrPercent": 4.86,
+          "transactionValue": 28103017800,
+          "volumeRate": 19.27,
+          "creditBalance": 0.82,
+          "sector": "제약",
+          "rsi": 31.7,
+          "maAlignment": "역배열 (하락 추세 지속)"
+        },
+        "scores": {
+          "strengthScore": 15,
+          "disparityScore": -5,
+          "shortScore": 3,
+          "supplyScore": 35,
+          "indexRelativeScore": -1.5,
+          "trendScore": -15,
+          "moneyInflowScore": 3,
+          "memberTrendScore": 0,
+          "largeTradeScore": 0,
+          "strengthAccScore": -10,
+          "themeScore": 0,
+          "backtestPenalty": 0,
+          "financialScore": 0
+        },
+        "financials": {
+          "roe": 7.28,
+          "per": 41.79,
+          "pbr": 2.37,
+          "opProfits": [
+            5761,
+            11537,
+            4322
+          ],
+          "debtRatio": 29.99,
+          "sector": "제약"
+        }
+      },
+      {
         "name": "JW신약",
         "code": "067290",
-        "totalScore": -92.7,
+        "totalScore": -114.5,
         "price": 2775,
-        "change": 5.4,
+        "change": 5.51,
         "isAntHell": false,
         "isSelfHealed": false,
         "selfHealedReasons": [],
@@ -552,8 +684,8 @@
           "disparity1": 113.08,
           "disparity5": 113.26,
           "disparity20": 147.39,
-          "strength": 100.45,
-          "strengthAcceleration": 25.6,
+          "strength": 99.13,
+          "strengthAcceleration": -2.56,
           "netForeignWindowBuyMoney": 0,
           "largeTradeRatio": 0,
           "shortRatio": 0,
@@ -574,24 +706,24 @@
           },
           "atr": 196.45,
           "atrPercent": 8.41,
-          "transactionValue": 10585198629,
-          "volumeRate": 16.4,
+          "transactionValue": 13908825931,
+          "volumeRate": 21.34,
           "creditBalance": 1.39,
           "sector": "제약",
           "rsi": 73,
           "maAlignment": "혼조세"
         },
         "scores": {
-          "strengthScore": 7.5,
+          "strengthScore": -5,
           "disparityScore": 10,
           "shortScore": 5,
           "supplyScore": 15,
-          "indexRelativeScore": 1.8,
+          "indexRelativeScore": 2.5,
           "trendScore": 5,
           "moneyInflowScore": 3,
           "memberTrendScore": 0,
           "largeTradeScore": 0,
-          "strengthAccScore": 10,
+          "strengthAccScore": 0,
           "themeScore": 0,
           "backtestPenalty": 0,
           "financialScore": 0
@@ -610,101 +742,101 @@
         }
       },
       {
-        "name": "이수페타시스",
-        "code": "007660",
-        "totalScore": -121.5,
-        "price": 115400,
+        "name": "삼성바이오로직스",
+        "code": "207940",
+        "totalScore": -115.5,
+        "price": 1401000,
         "change": 0,
         "isAntHell": false,
         "isSelfHealed": false,
         "selfHealedReasons": [],
         "isDefaultFallback": false,
         "isVetoed": true,
-        "vetoReason": "[기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 95.53% < 100%, 반등 요건 미충족)",
+        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 99.27% < 기준: 100%) | [기술적 분석] 단기 하락 및 체결강도 약세 (1일 이격도: 96.08%, 체결강도: 99.27%)",
         "isSupplyGoldenCross": false,
         "isSupplyDeathCross": false,
         "metrics": {
-          "disparity1": 94.81,
-          "disparity5": 95.53,
-          "disparity20": 92.25,
-          "strength": 211.82,
-          "strengthAcceleration": 111.82,
-          "netForeignWindowBuyMoney": 35,
+          "disparity1": 96.08,
+          "disparity5": 100.45,
+          "disparity20": 101.6,
+          "strength": 99.27,
+          "strengthAcceleration": -7.09,
+          "netForeignWindowBuyMoney": 23,
           "largeTradeRatio": 0,
-          "shortRatio": 18.71,
+          "shortRatio": 9.58,
           "investor1D": {
-            "foreign": 53000,
-            "organ": 0,
-            "personal": -53000
+            "foreign": 1904,
+            "organ": -11083,
+            "personal": 8489
           },
           "investor5D": {
-            "foreign": 507466,
-            "organ": -876262,
-            "personal": 371220
+            "foreign": 39635,
+            "organ": -25967,
+            "personal": -13213
           },
           "investorMoney5D": {
-            "foreign": 586,
-            "organ": -1011,
-            "personal": 428
+            "foreign": 555,
+            "organ": -364,
+            "personal": -185
           },
-          "atr": 12100,
-          "atrPercent": 10.51,
-          "transactionValue": 22249658000,
-          "volumeRate": 27.74,
-          "creditBalance": 2.44,
-          "sector": "전기·전자",
-          "rsi": 41.7,
-          "maAlignment": "역배열 (하락 추세 지속)"
+          "atr": 61925,
+          "atrPercent": 4.51,
+          "transactionValue": 19454658500,
+          "volumeRate": 14.52,
+          "creditBalance": 0.07,
+          "sector": "제약",
+          "rsi": 51.3,
+          "maAlignment": "혼조세"
         },
         "scores": {
-          "strengthScore": 15,
-          "disparityScore": -5,
-          "shortScore": -10,
-          "supplyScore": 22,
+          "strengthScore": -5,
+          "disparityScore": 8,
+          "shortScore": 3,
+          "supplyScore": 17,
           "indexRelativeScore": -1.5,
-          "trendScore": -15,
+          "trendScore": 5,
           "moneyInflowScore": 3,
           "memberTrendScore": 10,
           "largeTradeScore": 0,
-          "strengthAccScore": 10,
+          "strengthAccScore": -5,
           "themeScore": 0,
           "backtestPenalty": 0,
           "financialScore": 0
         },
         "financials": {
-          "roe": 29.95,
-          "per": 51.13,
-          "pbr": 11.21,
+          "roe": 19.56,
+          "per": 52.72,
+          "pbr": 8.69,
           "opProfits": [
-            918,
-            2017,
-            645
+            13849,
+            21186,
+            6406
           ],
-          "debtRatio": 69.58,
-          "sector": "전기·전자"
+          "debtRatio": 51.4,
+          "sector": "제약"
         }
       },
       {
         "name": "기아",
         "code": "000270",
-        "totalScore": -121.5,
-        "price": 142000,
+        "totalScore": -116.5,
+        "price": 141600,
         "change": 0,
         "isAntHell": false,
         "isSelfHealed": false,
         "selfHealedReasons": [],
         "isDefaultFallback": false,
         "isVetoed": true,
-        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 91.21% < 기준: 100%) | [기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 94.72% < 100%, 반등 요건 미충족)",
+        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 91.09% < 기준: 100%) | [기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 94.72% < 100%, 반등 요건 미충족)",
         "isSupplyGoldenCross": false,
         "isSupplyDeathCross": false,
         "metrics": {
           "disparity1": 97.54,
           "disparity5": 94.72,
           "disparity20": 94.51,
-          "strength": 91.21,
-          "strengthAcceleration": -8.79,
-          "netForeignWindowBuyMoney": 62,
+          "strength": 91.09,
+          "strengthAcceleration": 0.1,
+          "netForeignWindowBuyMoney": 113,
           "largeTradeRatio": 0,
           "shortRatio": 9.34,
           "investor1D": {
@@ -718,14 +850,14 @@
             "personal": -31045
           },
           "investorMoney5D": {
-            "foreign": 983,
-            "organ": -944,
+            "foreign": 980,
+            "organ": -942,
             "personal": -44
           },
           "atr": 9345,
           "atrPercent": 6.03,
-          "transactionValue": 25775445200,
-          "volumeRate": 15.95,
+          "transactionValue": 33615767300,
+          "volumeRate": 20.83,
           "creditBalance": 0.19,
           "sector": "운송장비·부품",
           "rsi": 39.8,
@@ -741,14 +873,14 @@
           "moneyInflowScore": 3,
           "memberTrendScore": 10,
           "largeTradeScore": 0,
-          "strengthAccScore": -5,
+          "strengthAccScore": 0,
           "themeScore": 0,
           "backtestPenalty": 0,
           "financialScore": 0
         },
         "financials": {
           "roe": 11.9,
-          "per": 7.43,
+          "per": 7.41,
           "pbr": 0.9,
           "opProfits": [
             135002,
@@ -760,86 +892,11 @@
         }
       },
       {
-        "name": "한미반도체",
-        "code": "042700",
-        "totalScore": -125.5,
-        "price": 281000,
-        "change": 0,
-        "isAntHell": false,
-        "isSelfHealed": false,
-        "selfHealedReasons": [],
-        "isDefaultFallback": false,
-        "isVetoed": true,
-        "vetoReason": "[기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 91.87% < 100%, 반등 요건 미충족) | [재무 분석] 고PBR 버블 (38.61배)",
-        "isSupplyGoldenCross": false,
-        "isSupplyDeathCross": false,
-        "metrics": {
-          "disparity1": 93.5,
-          "disparity5": 91.87,
-          "disparity20": 96.9,
-          "strength": 114.63,
-          "strengthAcceleration": -1.29,
-          "netForeignWindowBuyMoney": -37,
-          "largeTradeRatio": 0,
-          "shortRatio": 11.4,
-          "investor1D": {
-            "foreign": -54000,
-            "organ": 0,
-            "personal": 54000
-          },
-          "investor5D": {
-            "foreign": 858779,
-            "organ": -3262234,
-            "personal": 2382853
-          },
-          "investorMoney5D": {
-            "foreign": 2413,
-            "organ": -9167,
-            "personal": 6696
-          },
-          "atr": 33550,
-          "atrPercent": 11.37,
-          "transactionValue": 67230420750,
-          "volumeRate": 24.73,
-          "creditBalance": 1.72,
-          "sector": "기계·장비",
-          "rsi": 52.2,
-          "maAlignment": "혼조세"
-        },
-        "scores": {
-          "strengthScore": 11,
-          "disparityScore": -5,
-          "shortScore": 3,
-          "supplyScore": 5,
-          "indexRelativeScore": -1.5,
-          "trendScore": 5,
-          "moneyInflowScore": 7,
-          "memberTrendScore": 0,
-          "largeTradeScore": 0,
-          "strengthAccScore": 0,
-          "themeScore": 0,
-          "backtestPenalty": 0,
-          "financialScore": 0
-        },
-        "financials": {
-          "roe": 30.8,
-          "per": 125.84,
-          "pbr": 38.61,
-          "opProfits": [
-            1984,
-            2784,
-            251
-          ],
-          "debtRatio": 16.8,
-          "sector": "기계·장비"
-        }
-      },
-      {
         "name": "SK네트웍스",
         "code": "001740",
-        "totalScore": -126.5,
-        "price": 10430,
-        "change": 9.65,
+        "totalScore": -117.5,
+        "price": 10180,
+        "change": 6.82,
         "isAntHell": false,
         "isSelfHealed": false,
         "selfHealedReasons": [],
@@ -852,8 +909,8 @@
           "disparity1": 97.57,
           "disparity5": 90.15,
           "disparity20": 88.88,
-          "strength": 116.54,
-          "strengthAcceleration": -5.82,
+          "strength": 108.9,
+          "strengthAcceleration": -0.98,
           "netForeignWindowBuyMoney": -1,
           "largeTradeRatio": 0,
           "shortRatio": 1.17,
@@ -869,13 +926,13 @@
           },
           "investorMoney5D": {
             "foreign": 28,
-            "organ": -11,
-            "personal": -18
+            "organ": -10,
+            "personal": -17
           },
           "atr": 1842.5,
           "atrPercent": 17.67,
-          "transactionValue": 49276503615,
-          "volumeRate": 81.75,
+          "transactionValue": 57069199320,
+          "volumeRate": 94.76,
           "creditBalance": 0.75,
           "sector": "유통",
           "rsi": 46.9,
@@ -888,18 +945,18 @@
           "supplyScore": 7,
           "indexRelativeScore": 2.5,
           "trendScore": 5,
-          "moneyInflowScore": 3,
+          "moneyInflowScore": 7,
           "memberTrendScore": 0,
           "largeTradeScore": 0,
-          "strengthAccScore": -5,
+          "strengthAccScore": 0,
           "themeScore": 0,
           "backtestPenalty": 0,
           "financialScore": 0
         },
         "financials": {
           "roe": 4.76,
-          "per": 46.36,
-          "pbr": 1,
+          "per": 45.24,
+          "pbr": 0.98,
           "opProfits": [
             292,
             611,
@@ -910,86 +967,86 @@
         }
       },
       {
-        "name": "대한광통신",
-        "code": "010170",
-        "totalScore": -130.5,
-        "price": 14950,
-        "change": 4.04,
+        "name": "계양전기",
+        "code": "012200",
+        "totalScore": -126.5,
+        "price": 7620,
+        "change": 21.92,
         "isAntHell": false,
         "isSelfHealed": false,
         "selfHealedReasons": [],
         "isDefaultFallback": false,
         "isVetoed": true,
-        "vetoReason": "[기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 90.12% < 100%, 반등 요건 미충족) | [재무 분석] ROE 적자 | [재무 분석] 3분기 연속 영업손실 | [재무 분석] 고PBR 버블 (30.45배)",
+        "vetoReason": "[기술적 분석] 5일 이격도 과열 (112.19%, 기준: 108% 초과) | [재무 분석] ROE 적자 | [재무 분석] 부채비율 과다 (955.21%)",
         "isSupplyGoldenCross": false,
         "isSupplyDeathCross": false,
         "metrics": {
-          "disparity1": 92.52,
-          "disparity5": 90.12,
-          "disparity20": 80.65,
-          "strength": 104.32,
-          "strengthAcceleration": -15.77,
+          "disparity1": 129.8,
+          "disparity5": 112.19,
+          "disparity20": 98.14,
+          "strength": 108.79,
+          "strengthAcceleration": -0.34,
           "netForeignWindowBuyMoney": 0,
           "largeTradeRatio": 0,
-          "shortRatio": 1.44,
+          "shortRatio": 0.91,
           "investor1D": {
-            "foreign": 113000,
+            "foreign": -223000,
             "organ": 0,
-            "personal": -113000
+            "personal": 223000
           },
           "investor5D": {
-            "foreign": -1294676,
-            "organ": -168907,
-            "personal": 1361376
+            "foreign": 169145,
+            "organ": -108,
+            "personal": -183705
           },
           "investorMoney5D": {
-            "foreign": -194,
-            "organ": -25,
-            "personal": 204
+            "foreign": 13,
+            "organ": 0,
+            "personal": -14
           },
-          "atr": 2739,
-          "atrPercent": 16.77,
-          "transactionValue": 101674451295,
-          "volumeRate": 86.16,
-          "creditBalance": 0,
-          "sector": "전기·전자",
-          "rsi": 32.5,
-          "maAlignment": "혼조세"
+          "atr": 696.5,
+          "atrPercent": 11.14,
+          "transactionValue": 43972263145,
+          "volumeRate": 108.86,
+          "creditBalance": 0.02,
+          "sector": "기계·장비",
+          "rsi": 43.3,
+          "maAlignment": "역배열 (하락 추세 지속)"
         },
         "scores": {
-          "strengthScore": 7.5,
-          "disparityScore": -5,
+          "strengthScore": 11,
+          "disparityScore": 10,
           "shortScore": 5,
-          "supplyScore": 6,
-          "indexRelativeScore": 1,
-          "trendScore": 5,
-          "moneyInflowScore": 10,
+          "supplyScore": 7,
+          "indexRelativeScore": 2.5,
+          "trendScore": -15,
+          "moneyInflowScore": 3,
           "memberTrendScore": 0,
           "largeTradeScore": 0,
-          "strengthAccScore": -10,
+          "strengthAccScore": 0,
           "themeScore": 0,
           "backtestPenalty": 0,
           "financialScore": 0
         },
         "financials": {
-          "roe": -28.75,
-          "per": -61.78,
-          "pbr": 30.45,
+          "roe": -92.88,
+          "per": -5.87,
+          "pbr": 10.38,
           "opProfits": [
-            -548,
-            -272,
-            -37
+            -487,
+            -348,
+            14
           ],
-          "debtRatio": 116.7,
-          "sector": "전기·전자"
+          "debtRatio": 955.21,
+          "sector": "기계·장비"
         }
       },
       {
         "name": "서산",
         "code": "079650",
-        "totalScore": -131.5,
-        "price": 9480,
-        "change": 18.23,
+        "totalScore": -127.5,
+        "price": 9280,
+        "change": 14.66,
         "isAntHell": true,
         "isSelfHealed": true,
         "selfHealedReasons": [
@@ -997,15 +1054,15 @@
         ],
         "isDefaultFallback": false,
         "isVetoed": true,
-        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 97.14% < 기준: 100%) | [수급 분석] 고이격 상태에서 외인/기관 순매도(설거지) 감지 (5일 이격도: 157.79%, 외인: -41254, 기관: -91044) | [기술적 분석] 5일 이격도 과열 (157.79%, 기준: 108% 초과) | [재무 분석] ROE 적자",
+        "vetoReason": "[수급 분석] 고이격 상태에서 외인/기관 순매도(설거지) 감지 (5일 이격도: 157.79%, 외인: -41254, 기관: -91044) | [기술적 분석] 5일 이격도 과열 (157.79%, 기준: 108% 초과) | [재무 분석] ROE 적자",
         "isSupplyGoldenCross": false,
         "isSupplyDeathCross": false,
         "metrics": {
           "disparity1": 100,
           "disparity5": 157.79,
           "disparity20": 258.51,
-          "strength": 97.14,
-          "strengthAcceleration": 3.71,
+          "strength": 91.69,
+          "strengthAcceleration": -0.15,
           "netForeignWindowBuyMoney": 0,
           "largeTradeRatio": 0,
           "shortRatio": 0.06,
@@ -1020,13 +1077,13 @@
             "personal": -202582
           },
           "investorMoney5D": {
-            "foreign": 21,
+            "foreign": 20,
             "organ": 0,
             "personal": -19
           },
           "atr": 212.65,
           "atrPercent": 5.74,
-          "transactionValue": 46816661605,
+          "transactionValue": 53376704825,
           "volumeRate": 0,
           "creditBalance": 0,
           "sector": "비금속",
@@ -1040,7 +1097,7 @@
           "supplyScore": -12,
           "indexRelativeScore": 2.5,
           "trendScore": 15,
-          "moneyInflowScore": 3,
+          "moneyInflowScore": 7,
           "memberTrendScore": 0,
           "largeTradeScore": 0,
           "strengthAccScore": 0,
@@ -1050,8 +1107,8 @@
         },
         "financials": {
           "roe": -0.31,
-          "per": -193.47,
-          "pbr": 2.71,
+          "per": -189.39,
+          "pbr": 2.66,
           "opProfits": [
             -22,
             -27,
@@ -1059,6 +1116,156 @@
           ],
           "debtRatio": 5.22,
           "sector": "비금속"
+        }
+      },
+      {
+        "name": "한미반도체",
+        "code": "042700",
+        "totalScore": -129,
+        "price": 278000,
+        "change": 0,
+        "isAntHell": false,
+        "isSelfHealed": false,
+        "selfHealedReasons": [],
+        "isDefaultFallback": false,
+        "isVetoed": true,
+        "vetoReason": "[재무 분석] 고PBR 버블 (38.2배)",
+        "isSupplyGoldenCross": false,
+        "isSupplyDeathCross": false,
+        "metrics": {
+          "disparity1": 93.5,
+          "disparity5": 91.87,
+          "disparity20": 96.9,
+          "strength": 104.2,
+          "strengthAcceleration": -2.44,
+          "netForeignWindowBuyMoney": -37,
+          "largeTradeRatio": 0,
+          "shortRatio": 11.4,
+          "investor1D": {
+            "foreign": -54000,
+            "organ": 0,
+            "personal": 54000
+          },
+          "investor5D": {
+            "foreign": 858779,
+            "organ": -3262234,
+            "personal": 2382853
+          },
+          "investorMoney5D": {
+            "foreign": 2387,
+            "organ": -9069,
+            "personal": 6624
+          },
+          "atr": 33550,
+          "atrPercent": 11.37,
+          "transactionValue": 77914300000,
+          "volumeRate": 28.68,
+          "creditBalance": 1.72,
+          "sector": "기계·장비",
+          "rsi": 52.2,
+          "maAlignment": "혼조세"
+        },
+        "scores": {
+          "strengthScore": 7.5,
+          "disparityScore": -5,
+          "shortScore": 3,
+          "supplyScore": 5,
+          "indexRelativeScore": -1.5,
+          "trendScore": 5,
+          "moneyInflowScore": 7,
+          "memberTrendScore": 0,
+          "largeTradeScore": 0,
+          "strengthAccScore": 0,
+          "themeScore": 0,
+          "backtestPenalty": 0,
+          "financialScore": 0
+        },
+        "financials": {
+          "roe": 30.8,
+          "per": 124.5,
+          "pbr": 38.2,
+          "opProfits": [
+            1984,
+            2784,
+            251
+          ],
+          "debtRatio": 16.8,
+          "sector": "기계·장비"
+        }
+      },
+      {
+        "name": "보해양조",
+        "code": "000890",
+        "totalScore": -130.5,
+        "price": 3630,
+        "change": -8.1,
+        "isAntHell": false,
+        "isSelfHealed": false,
+        "selfHealedReasons": [],
+        "isDefaultFallback": false,
+        "isVetoed": true,
+        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 76.19% < 기준: 90%) | [기술적 분석] 실시간 급락 낙칼 감지 (당일 등락률: -8.1% <= 기준: -1.5%) | [기술적 분석] 5일 이격도 과열 (132.08%, 기준: 108% 초과)",
+        "isSupplyGoldenCross": false,
+        "isSupplyDeathCross": false,
+        "metrics": {
+          "disparity1": 129.88,
+          "disparity5": 132.08,
+          "disparity20": 147.43,
+          "strength": 76.19,
+          "strengthAcceleration": 0.44,
+          "netForeignWindowBuyMoney": 0,
+          "largeTradeRatio": 0,
+          "shortRatio": 0.16,
+          "investor1D": {
+            "foreign": 47000,
+            "organ": 0,
+            "personal": -47000
+          },
+          "investor5D": {
+            "foreign": -261350,
+            "organ": -33190,
+            "personal": 312340
+          },
+          "investorMoney5D": {
+            "foreign": -9,
+            "organ": -1,
+            "personal": 11
+          },
+          "atr": 119.4,
+          "atrPercent": 5.61,
+          "transactionValue": 54780196988,
+          "volumeRate": 432.65,
+          "creditBalance": 0.68,
+          "sector": "음식료·담배",
+          "rsi": 81.9,
+          "maAlignment": "정배열 (강력한 추세 상승)"
+        },
+        "scores": {
+          "strengthScore": -25,
+          "disparityScore": 10,
+          "shortScore": 5,
+          "supplyScore": 4,
+          "indexRelativeScore": -1.5,
+          "trendScore": 15,
+          "moneyInflowScore": 12,
+          "memberTrendScore": 0,
+          "largeTradeScore": 0,
+          "strengthAccScore": 0,
+          "themeScore": 0,
+          "backtestPenalty": 0,
+          "financialScore": 0
+        },
+        "financials": {
+          "roe": 8.75,
+          "per": 15.12,
+          "pbr": 1.16,
+          "opProfits": [
+            -39,
+            76,
+            21
+          ],
+          "debtRatio": 62.18,
+          "sector": "음식료·담배"
         }
       },
       {
@@ -1133,60 +1340,60 @@
         }
       },
       {
-        "name": "보해양조",
-        "code": "000890",
-        "totalScore": -134.5,
-        "price": 3710,
-        "change": -6.96,
+        "name": "대한광통신",
+        "code": "010170",
+        "totalScore": -133,
+        "price": 14830,
+        "change": 2.99,
         "isAntHell": false,
         "isSelfHealed": false,
         "selfHealedReasons": [],
         "isDefaultFallback": false,
         "isVetoed": true,
-        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 77.19% < 기준: 100%) | [기술적 분석] 실시간 급락 낙칼 감지 (당일 등락률: -6.96% <= 기준: -1.5%) | [기술적 분석] 5일 이격도 과열 (132.08%, 기준: 108% 초과)",
+        "vetoReason": "[기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 90.12% < 100%, 반등 요건 미충족) | [재무 분석] ROE 적자 | [재무 분석] 3분기 연속 영업손실 | [재무 분석] 고PBR 버블 (30.2배)",
         "isSupplyGoldenCross": false,
         "isSupplyDeathCross": false,
         "metrics": {
-          "disparity1": 129.88,
-          "disparity5": 132.08,
-          "disparity20": 147.43,
-          "strength": 77.19,
-          "strengthAcceleration": 4.01,
+          "disparity1": 92.52,
+          "disparity5": 90.12,
+          "disparity20": 80.65,
+          "strength": 95.57,
+          "strengthAcceleration": -0.23,
           "netForeignWindowBuyMoney": 0,
           "largeTradeRatio": 0,
-          "shortRatio": 0.16,
+          "shortRatio": 1.44,
           "investor1D": {
-            "foreign": 47000,
+            "foreign": 113000,
             "organ": 0,
-            "personal": -47000
+            "personal": -113000
           },
           "investor5D": {
-            "foreign": -261350,
-            "organ": -33190,
-            "personal": 312340
+            "foreign": -1294676,
+            "organ": -168907,
+            "personal": 1361376
           },
           "investorMoney5D": {
-            "foreign": -10,
-            "organ": -1,
-            "personal": 12
+            "foreign": -192,
+            "organ": -25,
+            "personal": 202
           },
-          "atr": 119.4,
-          "atrPercent": 5.61,
-          "transactionValue": 49704462437,
-          "volumeRate": 390.06,
-          "creditBalance": 0.68,
-          "sector": "음식료·담배",
-          "rsi": 81.9,
-          "maAlignment": "정배열 (강력한 추세 상승)"
+          "atr": 2739,
+          "atrPercent": 16.77,
+          "transactionValue": 116461410405,
+          "volumeRate": 99.21,
+          "creditBalance": 0,
+          "sector": "전기·전자",
+          "rsi": 32.5,
+          "maAlignment": "혼조세"
         },
         "scores": {
-          "strengthScore": -25,
-          "disparityScore": 10,
+          "strengthScore": -5,
+          "disparityScore": -5,
           "shortScore": 5,
-          "supplyScore": 4,
-          "indexRelativeScore": -1.5,
-          "trendScore": 15,
-          "moneyInflowScore": 8,
+          "supplyScore": 6,
+          "indexRelativeScore": 1,
+          "trendScore": 5,
+          "moneyInflowScore": 10,
           "memberTrendScore": 0,
           "largeTradeScore": 0,
           "strengthAccScore": 0,
@@ -1195,91 +1402,16 @@
           "financialScore": 0
         },
         "financials": {
-          "roe": 8.75,
-          "per": 15.46,
-          "pbr": 1.19,
+          "roe": -28.75,
+          "per": -61.28,
+          "pbr": 30.2,
           "opProfits": [
-            -39,
-            76,
-            21
+            -548,
+            -272,
+            -37
           ],
-          "debtRatio": 62.18,
-          "sector": "음식료·담배"
-        }
-      },
-      {
-        "name": "계양전기",
-        "code": "012200",
-        "totalScore": -135,
-        "price": 7550,
-        "change": 21.28,
-        "isAntHell": false,
-        "isSelfHealed": false,
-        "selfHealedReasons": [],
-        "isDefaultFallback": false,
-        "isVetoed": true,
-        "vetoReason": "[기술적 분석] 5일 이격도 과열 (112.19%, 기준: 108% 초과) | [재무 분석] ROE 적자 | [재무 분석] 부채비율 과다 (955.21%)",
-        "isSupplyGoldenCross": false,
-        "isSupplyDeathCross": false,
-        "metrics": {
-          "disparity1": 129.8,
-          "disparity5": 112.19,
-          "disparity20": 98.14,
-          "strength": 104.11,
-          "strengthAcceleration": -5.24,
-          "netForeignWindowBuyMoney": 0,
-          "largeTradeRatio": 0,
-          "shortRatio": 0.91,
-          "investor1D": {
-            "foreign": -223000,
-            "organ": 0,
-            "personal": 223000
-          },
-          "investor5D": {
-            "foreign": 169145,
-            "organ": -108,
-            "personal": -183705
-          },
-          "investorMoney5D": {
-            "foreign": 13,
-            "organ": 0,
-            "personal": -14
-          },
-          "atr": 696.5,
-          "atrPercent": 11.14,
-          "transactionValue": 37301457945,
-          "volumeRate": 93.03,
-          "creditBalance": 0.02,
-          "sector": "기계·장비",
-          "rsi": 43.3,
-          "maAlignment": "역배열 (하락 추세 지속)"
-        },
-        "scores": {
-          "strengthScore": 7.5,
-          "disparityScore": 10,
-          "shortScore": 5,
-          "supplyScore": 7,
-          "indexRelativeScore": 2.5,
-          "trendScore": -15,
-          "moneyInflowScore": 3,
-          "memberTrendScore": 0,
-          "largeTradeScore": 0,
-          "strengthAccScore": -5,
-          "themeScore": 0,
-          "backtestPenalty": 0,
-          "financialScore": 0
-        },
-        "financials": {
-          "roe": -92.88,
-          "per": -5.81,
-          "pbr": 10.29,
-          "opProfits": [
-            -487,
-            -348,
-            14
-          ],
-          "debtRatio": 955.21,
-          "sector": "기계·장비"
+          "debtRatio": 116.7,
+          "sector": "전기·전자"
         }
       },
       {
@@ -1293,15 +1425,15 @@
         "selfHealedReasons": [],
         "isDefaultFallback": false,
         "isVetoed": true,
-        "vetoReason": "[기술적 분석] 실시간 급락 낙칼 감지 (당일 등락률: -29.98% <= 기준: -1.5%) | [기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 73.24% < 100%, 반등 요건 미충족) | [재무 분석] ROE 적자 | [재무 분석] 3분기 연속 영업손실",
+        "vetoReason": "[기술적 분석] 실시간 급락 낙칼 감지 (당일 등락률: -29.98% <= 기준: -1.5%) | [재무 분석] ROE 적자 | [재무 분석] 3분기 연속 영업손실",
         "isSupplyGoldenCross": false,
         "isSupplyDeathCross": false,
         "metrics": {
           "disparity1": 72.42,
           "disparity5": 73.24,
           "disparity20": 69.92,
-          "strength": 151.19,
-          "strengthAcceleration": 4.07,
+          "strength": 157.67,
+          "strengthAcceleration": 4.92,
           "netForeignWindowBuyMoney": 0,
           "largeTradeRatio": 0,
           "shortRatio": 1.44,
@@ -1322,8 +1454,8 @@
           },
           "atr": 149.95,
           "atrPercent": 19.1,
-          "transactionValue": 3585790153,
-          "volumeRate": 1096.09,
+          "transactionValue": 3652554070,
+          "volumeRate": 1116.82,
           "creditBalance": 0.49,
           "sector": "제약",
           "rsi": 39.7,
@@ -1368,7 +1500,7 @@
         "selfHealedReasons": [],
         "isDefaultFallback": false,
         "isVetoed": true,
-        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 57.12% < 기준: 100%) | [기술적 분석] 5일 이격도 과열 (127.4%, 기준: 108% 초과)",
+        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 57.12% < 기준: 80%) | [기술적 분석] 5일 이격도 과열 (127.4%, 기준: 108% 초과)",
         "isSupplyGoldenCross": false,
         "isSupplyDeathCross": false,
         "metrics": {
@@ -1435,23 +1567,23 @@
       {
         "name": "삼기에너지솔루션즈",
         "code": "419050",
-        "totalScore": -146.5,
-        "price": 1713,
-        "change": 18.32,
+        "totalScore": -149,
+        "price": 1723,
+        "change": 18.66,
         "isAntHell": false,
         "isSelfHealed": false,
         "selfHealedReasons": [],
         "isDefaultFallback": false,
         "isVetoed": true,
-        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 92.83% < 기준: 100%) | [기술적 분석] 5일 이격도 과열 (114.06%, 기준: 108% 초과) | [재무 분석] ROE 적자 | [재무 분석] 부채비율 과다 (227.87%)",
+        "vetoReason": "[기술적 분석] 5일 이격도 과열 (114.06%, 기준: 108% 초과) | [재무 분석] ROE 적자 | [재무 분석] 부채비율 과다 (227.87%)",
         "isSupplyGoldenCross": false,
         "isSupplyDeathCross": false,
         "metrics": {
           "disparity1": 129.99,
           "disparity5": 114.06,
           "disparity20": 104.55,
-          "strength": 92.83,
-          "strengthAcceleration": -7.22,
+          "strength": 89.22,
+          "strengthAcceleration": -2.68,
           "netForeignWindowBuyMoney": 0,
           "largeTradeRatio": 0,
           "shortRatio": 0.35,
@@ -1472,15 +1604,15 @@
           },
           "atr": 105.8,
           "atrPercent": 7.29,
-          "transactionValue": 12414814214,
-          "volumeRate": 139.82,
+          "transactionValue": 13766772652,
+          "volumeRate": 155.33,
           "creditBalance": 3.67,
           "sector": "운송장비·부품",
           "rsi": 50.6,
           "maAlignment": "역배열 (하락 추세 지속)"
         },
         "scores": {
-          "strengthScore": -5,
+          "strengthScore": -12.5,
           "disparityScore": 10,
           "shortScore": 5,
           "supplyScore": 8,
@@ -1489,15 +1621,15 @@
           "moneyInflowScore": 3,
           "memberTrendScore": 0,
           "largeTradeScore": 0,
-          "strengthAccScore": -5,
+          "strengthAccScore": 0,
           "themeScore": 0,
           "backtestPenalty": 0,
           "financialScore": 0
         },
         "financials": {
           "roe": -11.15,
-          "per": -10.98,
-          "pbr": 1.53,
+          "per": -11.04,
+          "pbr": 1.54,
           "opProfits": [
             -47,
             -96,
@@ -1508,107 +1640,182 @@
         }
       },
       {
-        "name": "알테오젠",
-        "code": "196170",
-        "totalScore": -148.5,
-        "price": 370500,
+        "name": "한온시스템",
+        "code": "018880",
+        "totalScore": -153.5,
+        "price": 3935,
+        "change": 0.38,
+        "isAntHell": false,
+        "isSelfHealed": false,
+        "selfHealedReasons": [],
+        "isDefaultFallback": false,
+        "isVetoed": true,
+        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 60.18% < 기준: 80%) | [기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 90.7% < 100%, 반등 요건 미충족) | [재무 분석] ROE 적자",
+        "isSupplyGoldenCross": false,
+        "isSupplyDeathCross": false,
+        "metrics": {
+          "disparity1": 97.31,
+          "disparity5": 90.7,
+          "disparity20": 92.42,
+          "strength": 60.18,
+          "strengthAcceleration": -3.64,
+          "netForeignWindowBuyMoney": -17,
+          "largeTradeRatio": 0,
+          "shortRatio": 8.69,
+          "investor1D": {
+            "foreign": -570000,
+            "organ": 0,
+            "personal": 570000
+          },
+          "investor5D": {
+            "foreign": 5487517,
+            "organ": -2089582,
+            "personal": -3363643
+          },
+          "investorMoney5D": {
+            "foreign": 216,
+            "organ": -82,
+            "personal": -132
+          },
+          "atr": 503.75,
+          "atrPercent": 11.16,
+          "transactionValue": 10284699897,
+          "volumeRate": 25.46,
+          "creditBalance": 1.26,
+          "sector": "기계·장비",
+          "rsi": 36.9,
+          "maAlignment": "정배열 (강력한 추세 상승)"
+        },
+        "scores": {
+          "strengthScore": -25,
+          "disparityScore": -5,
+          "shortScore": 3,
+          "supplyScore": 7,
+          "indexRelativeScore": -1.5,
+          "trendScore": 15,
+          "moneyInflowScore": 3,
+          "memberTrendScore": 0,
+          "largeTradeScore": 0,
+          "strengthAccScore": 0,
+          "themeScore": 0,
+          "backtestPenalty": 0,
+          "financialScore": 0
+        },
+        "financials": {
+          "roe": -3.16,
+          "per": -15.31,
+          "pbr": 1.07,
+          "opProfits": [
+            -3297,
+            -1349,
+            1075
+          ],
+          "debtRatio": 164.6,
+          "sector": "기계·장비"
+        }
+      },
+      {
+        "name": "금호건설",
+        "code": "002990",
+        "totalScore": -156.5,
+        "price": 6290,
+        "change": 29.82,
+        "isAntHell": true,
+        "isSelfHealed": false,
+        "selfHealedReasons": [],
+        "isDefaultFallback": false,
+        "isVetoed": true,
+        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 51.6% < 기준: 80%) | [수급 분석] 고이격 상태에서 외인/기관 순매도(설거지) 감지 (5일 이격도: 114.19%, 외인: -25000, 기관: -46000) | [기술적 분석] 5일 이격도 과열 (114.19%, 기준: 108% 초과) | [재무 분석] 부채비율 과다 (551.07%)",
+        "isSupplyGoldenCross": false,
+        "isSupplyDeathCross": false,
+        "metrics": {
+          "disparity1": 129.89,
+          "disparity5": 114.19,
+          "disparity20": 121.47,
+          "strength": 51.6,
+          "strengthAcceleration": 22.57,
+          "netForeignWindowBuyMoney": 0,
+          "largeTradeRatio": 0.36277595947382685,
+          "shortRatio": 2.18,
+          "investor1D": {
+            "foreign": -25000,
+            "organ": -46000,
+            "personal": 71000
+          },
+          "investor5D": {
+            "foreign": -64949,
+            "organ": -27699,
+            "personal": 92648
+          },
+          "investorMoney5D": {
+            "foreign": -4,
+            "organ": -2,
+            "personal": 6
+          },
+          "atr": 358.5,
+          "atrPercent": 7.4,
+          "transactionValue": 28135924530,
+          "volumeRate": 477.48,
+          "creditBalance": 0,
+          "sector": "건설",
+          "rsi": 65.2,
+          "maAlignment": "혼조세"
+        },
+        "scores": {
+          "strengthScore": -25,
+          "disparityScore": 10,
+          "shortScore": 5,
+          "supplyScore": -30,
+          "indexRelativeScore": 2.5,
+          "trendScore": 5,
+          "moneyInflowScore": 8,
+          "memberTrendScore": 0,
+          "largeTradeScore": 8,
+          "strengthAccScore": 10,
+          "themeScore": 0,
+          "backtestPenalty": 0,
+          "financialScore": 0
+        },
+        "financials": {
+          "roe": 31.93,
+          "per": 3.67,
+          "pbr": 0.92,
+          "opProfits": [
+            -2756,
+            768,
+            137
+          ],
+          "debtRatio": 551.07,
+          "sector": "건설"
+        }
+      },
+      {
+        "name": "HPSP",
+        "code": "403870",
+        "totalScore": -161.5,
+        "price": 50600,
         "change": 0,
         "isAntHell": false,
         "isSelfHealed": false,
         "selfHealedReasons": [],
         "isDefaultFallback": false,
         "isVetoed": true,
-        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 71.97% < 기준: 100%) | [기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 98.33% < 100%, 반등 요건 미충족) | [재무 분석] 고PBR 버블 (44.87배)",
-        "isSupplyGoldenCross": false,
-        "isSupplyDeathCross": false,
-        "metrics": {
-          "disparity1": 95.67,
-          "disparity5": 98.33,
-          "disparity20": 100.7,
-          "strength": 71.97,
-          "strengthAcceleration": -28.03,
-          "netForeignWindowBuyMoney": 0,
-          "largeTradeRatio": 0,
-          "shortRatio": 5.02,
-          "investor1D": {
-            "foreign": 106000,
-            "organ": 72000,
-            "personal": -178000
-          },
-          "investor5D": {
-            "foreign": 95842,
-            "organ": 29810,
-            "personal": -131734
-          },
-          "investorMoney5D": {
-            "foreign": 355,
-            "organ": 110,
-            "personal": -488
-          },
-          "atr": 29425,
-          "atrPercent": 8.32,
-          "transactionValue": 8702417250,
-          "volumeRate": 2.89,
-          "creditBalance": 2.89,
-          "sector": "일반서비스",
-          "rsi": 46.6,
-          "maAlignment": "혼조세"
-        },
-        "scores": {
-          "strengthScore": -25,
-          "disparityScore": -5,
-          "shortScore": 3,
-          "supplyScore": 35,
-          "indexRelativeScore": -1.5,
-          "trendScore": 5,
-          "moneyInflowScore": 0,
-          "memberTrendScore": 0,
-          "largeTradeScore": 0,
-          "strengthAccScore": -10,
-          "themeScore": 0,
-          "backtestPenalty": 0,
-          "financialScore": 0
-        },
-        "financials": {
-          "roe": 29.86,
-          "per": 140.71,
-          "pbr": 44.87,
-          "opProfits": [
-            366,
-            1627,
-            837
-          ],
-          "debtRatio": 42.24,
-          "sector": "일반서비스"
-        }
-      },
-      {
-        "name": "HPSP",
-        "code": "403870",
-        "totalScore": -171.5,
-        "price": 53100,
-        "change": 0,
-        "isAntHell": true,
-        "isSelfHealed": false,
-        "selfHealedReasons": [],
-        "isDefaultFallback": false,
-        "isVetoed": true,
-        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 93.51% < 기준: 100%) | [기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 86.12% < 100%, 반등 요건 미충족)",
+        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 70.34% < 기준: 90%)",
         "isSupplyGoldenCross": false,
         "isSupplyDeathCross": false,
         "metrics": {
           "disparity1": 95.29,
           "disparity5": 86.12,
           "disparity20": 100.73,
-          "strength": 93.51,
-          "strengthAcceleration": -6.49,
-          "netForeignWindowBuyMoney": -7,
+          "strength": 70.34,
+          "strengthAcceleration": -29.66,
+          "netForeignWindowBuyMoney": -42,
           "largeTradeRatio": 0,
           "shortRatio": 5.31,
           "investor1D": {
-            "foreign": -283000,
-            "organ": -40000,
-            "personal": 323000
+            "foreign": -160000,
+            "organ": 0,
+            "personal": 160000
           },
           "investor5D": {
             "foreign": -3653790,
@@ -1616,30 +1823,30 @@
             "personal": 1835517
           },
           "investorMoney5D": {
-            "foreign": -1940,
-            "organ": 990,
-            "personal": 975
+            "foreign": -1849,
+            "organ": 944,
+            "personal": 929
           },
           "atr": 9057.5,
           "atrPercent": 16,
-          "transactionValue": 20484335050,
-          "volumeRate": 9.85,
+          "transactionValue": 60575147100,
+          "volumeRate": 29.46,
           "creditBalance": 3.04,
           "sector": "기계·장비",
           "rsi": 54.7,
           "maAlignment": "정배열 (강력한 추세 상승)"
         },
         "scores": {
-          "strengthScore": -5,
-          "disparityScore": -15,
+          "strengthScore": -25,
+          "disparityScore": -5,
           "shortScore": 3,
-          "supplyScore": -16,
+          "supplyScore": 5,
           "indexRelativeScore": -1.5,
           "trendScore": 15,
-          "moneyInflowScore": 3,
+          "moneyInflowScore": 7,
           "memberTrendScore": 0,
           "largeTradeScore": 0,
-          "strengthAccScore": -5,
+          "strengthAccScore": -10,
           "themeScore": 0,
           "backtestPenalty": 0,
           "financialScore": 0
@@ -1660,25 +1867,25 @@
       {
         "name": "현대차",
         "code": "005380",
-        "totalScore": -176.5,
-        "price": 510000,
+        "totalScore": -168.5,
+        "price": 504000,
         "change": 0,
         "isAntHell": false,
         "isSelfHealed": false,
         "selfHealedReasons": [],
         "isDefaultFallback": false,
         "isVetoed": true,
-        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 75.89% < 기준: 100%) | [기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 98.27% < 100%, 반등 요건 미충족)",
+        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 68.33% < 기준: 100%) | [기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 98.27% < 100%, 반등 요건 미충족)",
         "isSupplyGoldenCross": false,
         "isSupplyDeathCross": false,
         "metrics": {
           "disparity1": 102,
           "disparity5": 98.27,
           "disparity20": 93.07,
-          "strength": 75.89,
-          "strengthAcceleration": -24.11,
-          "netForeignWindowBuyMoney": -327,
-          "largeTradeRatio": 0.651223508948597,
+          "strength": 68.33,
+          "strengthAcceleration": -6.75,
+          "netForeignWindowBuyMoney": -420,
+          "largeTradeRatio": 0.6530805245467844,
           "shortRatio": 15.12,
           "investor1D": {
             "foreign": -90000,
@@ -1691,14 +1898,14 @@
             "personal": 775746
           },
           "investorMoney5D": {
-            "foreign": 1281,
-            "organ": -5102,
-            "personal": 3956
+            "foreign": 1266,
+            "organ": -5042,
+            "personal": 3910
           },
           "atr": 49250,
           "atrPercent": 8.03,
-          "transactionValue": 139444465500,
-          "volumeRate": 21.86,
+          "transactionValue": 181543806500,
+          "volumeRate": 28.58,
           "creditBalance": 0.95,
           "sector": "운송장비·부품",
           "rsi": 30.9,
@@ -1713,16 +1920,16 @@
           "trendScore": 5,
           "moneyInflowScore": 10,
           "memberTrendScore": 0,
-          "largeTradeScore": 5,
-          "strengthAccScore": -10,
+          "largeTradeScore": 8,
+          "strengthAccScore": -5,
           "themeScore": 0,
           "backtestPenalty": 0,
           "financialScore": 0
         },
         "financials": {
           "roe": 7.5,
-          "per": 14.43,
-          "pbr": 1.16,
+          "per": 14.27,
+          "pbr": 1.15,
           "opProfits": [
             177814,
             138419,
@@ -1731,161 +1938,11 @@
           "debtRatio": 190.29,
           "sector": "운송장비·부품"
         }
-      },
-      {
-        "name": "하나마이크론",
-        "code": "067310",
-        "totalScore": -184,
-        "price": 50600,
-        "change": 0,
-        "isAntHell": true,
-        "isSelfHealed": false,
-        "selfHealedReasons": [],
-        "isDefaultFallback": false,
-        "isVetoed": true,
-        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 87.97% < 기준: 100%) | [기술적 분석] 5일선 아래 흘러내림 종목 제외 (5일 이격도: 97.11% < 100%, 반등 요건 미충족)",
-        "isSupplyGoldenCross": false,
-        "isSupplyDeathCross": false,
-        "metrics": {
-          "disparity1": 94.96,
-          "disparity5": 97.11,
-          "disparity20": 105.39,
-          "strength": 87.97,
-          "strengthAcceleration": -12.03,
-          "netForeignWindowBuyMoney": -7,
-          "largeTradeRatio": 0,
-          "shortRatio": 5.77,
-          "investor1D": {
-            "foreign": -109000,
-            "organ": -4000,
-            "personal": 113000
-          },
-          "investor5D": {
-            "foreign": 683289,
-            "organ": -853689,
-            "personal": 196059
-          },
-          "investorMoney5D": {
-            "foreign": 346,
-            "organ": -432,
-            "personal": 99
-          },
-          "atr": 5185,
-          "atrPercent": 10.58,
-          "transactionValue": 10676539050,
-          "volumeRate": 9.85,
-          "creditBalance": 3.91,
-          "sector": "전기·전자",
-          "rsi": 62.9,
-          "maAlignment": "정배열 (강력한 추세 상승)"
-        },
-        "scores": {
-          "strengthScore": -12.5,
-          "disparityScore": -15,
-          "shortScore": 3,
-          "supplyScore": -16,
-          "indexRelativeScore": -1.5,
-          "trendScore": 15,
-          "moneyInflowScore": 3,
-          "memberTrendScore": 0,
-          "largeTradeScore": 0,
-          "strengthAccScore": -10,
-          "themeScore": 0,
-          "backtestPenalty": 0,
-          "financialScore": 0
-        },
-        "financials": {
-          "roe": 24.53,
-          "per": 88,
-          "pbr": 8.42,
-          "opProfits": [
-            -20,
-            800,
-            823
-          ],
-          "debtRatio": 195.46,
-          "sector": "전기·전자"
-        }
-      },
-      {
-        "name": "오텍",
-        "code": "067170",
-        "totalScore": -202.5,
-        "price": 3435,
-        "change": 29.87,
-        "isAntHell": true,
-        "isSelfHealed": false,
-        "selfHealedReasons": [],
-        "isDefaultFallback": false,
-        "isVetoed": true,
-        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 11.77% < 기준: 100%) | [수급 분석] 고이격 상태에서 외인/기관 순매도(설거지) 감지 (5일 이격도: 132.78%, 외인: -69948, 기관: -30520) | [기술적 분석] 5일 이격도 과열 (132.78%, 기준: 108% 초과) | [재무 분석] ROE 적자 | [재무 분석] 3분기 연속 영업손실 | [재무 분석] 부채비율 과다 (346.65%)",
-        "isSupplyGoldenCross": false,
-        "isSupplyDeathCross": false,
-        "metrics": {
-          "disparity1": 129.87,
-          "disparity5": 132.78,
-          "disparity20": 127.19,
-          "strength": 11.77,
-          "strengthAcceleration": 0,
-          "netForeignWindowBuyMoney": 0,
-          "largeTradeRatio": 0,
-          "shortRatio": 1.49,
-          "investor1D": {
-            "foreign": -69948,
-            "organ": -30520,
-            "personal": 107835
-          },
-          "investor5D": {
-            "foreign": -52278,
-            "organ": -31681,
-            "personal": 112381
-          },
-          "investorMoney5D": {
-            "foreign": -2,
-            "organ": -1,
-            "personal": 4
-          },
-          "atr": 429.2,
-          "atrPercent": 12.49,
-          "transactionValue": 3790755710,
-          "volumeRate": 53.76,
-          "creditBalance": 0.36,
-          "sector": "운송장비·부품",
-          "rsi": 63,
-          "maAlignment": "역배열 (하락 추세 지속)"
-        },
-        "scores": {
-          "strengthScore": -25,
-          "disparityScore": 10,
-          "shortScore": 5,
-          "supplyScore": -30,
-          "indexRelativeScore": 2.5,
-          "trendScore": -15,
-          "moneyInflowScore": 0,
-          "memberTrendScore": 0,
-          "largeTradeScore": 0,
-          "strengthAccScore": 0,
-          "themeScore": 0,
-          "backtestPenalty": 0,
-          "financialScore": 0
-        },
-        "financials": {
-          "roe": -16.78,
-          "per": -9.11,
-          "pbr": 0.75,
-          "opProfits": [
-            -346,
-            -163,
-            -121
-          ],
-          "debtRatio": 346.65,
-          "sector": "운송장비·부품"
-        }
       }
     ]
   },
   "halfHourKey": "2026-6-25-9-30",
-  "tenMinKey": "2026-6-25-9-30",
+  "tenMinKey": "2026-6-25-9-40",
   "hourKey": "2026-6-25-9-30",
-  "savedTime": "06.25 09:35"
+  "savedTime": "06.25 09:50"
 }
