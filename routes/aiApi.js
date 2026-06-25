@@ -884,9 +884,11 @@ let fetchingAiSignalPromise = null;
 // --- Routes ---
 
 router.get('/pulse', async (req, res) => {
+    console.log(`📥 [aiApi] GET /pulse received, force = ${req.query.force}`);
     try {
         const force = req.query.force === 'true';
         const result = await executeHourlyPulse(force);
+
         const outData = result.data || result;
         res.json({ 
             time: result.time || '--:--', 

@@ -18,6 +18,7 @@ import { runStartupGuard, startStartupGuardDaemon } from './lib/startupGuard.js'
 
 
 dotenv.config();
+process.env.MOCK_GEMINI = 'false';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
