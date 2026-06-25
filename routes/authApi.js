@@ -19,7 +19,15 @@ router.post('/send-sms', async (req, res) => {
 
     try {
         await sendAuthCodeSMS(phone, code);
-        res.json({ message: '인증번호가 발송되었습니다.' });
+
+        // 🛠️ [로컬 개발 모드] 알리고 IP 제한으로 SMS 미도달 시를 대비해
+        // 개발 환경에서는 응답에 인증번호를 함께 포함합니다.
+        const isDev = process.env.NODE_ENV !== 'production';
+        console.log(`\n🔑 [Auth] 발송된 인증번호: ${code} (수신: ${phone})\n`);
+        res.json({
+            message: '인증번호가 발송되었습니다.',
+            ...(isDev && { dev_code: code, dev_notice: '⚠️ 로컬 테스트용: SMS 미수신 시 이 코드를 사용하세요.' })
+        });
     } catch (err) {
         console.error('❌ [Auth] 인증문자 발송 실패:', err);
         res.status(500).json({ error: '인증번호 발송에 실패했습니다.' });

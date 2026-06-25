@@ -29,12 +29,15 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
     return () => clearInterval(timer);
   }, [isCodeSent, isVerified, timeLeft]);
 
+  const [devNotice, setDevNotice] = useState('');
+
   const handleSendCode = async () => {
     if (!phone) {
       setError('휴대폰 번호를 먼저 입력해주세요.');
       return;
     }
     setError('');
+    setDevNotice('');
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/auth/send-sms`, {
@@ -46,8 +49,15 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
       if (!res.ok) throw new Error(data.error);
       setIsCodeSent(true);
       setIsVerified(false);
-      setTimeLeft(180); // 3 minutes
-      alert('인증번호가 발송되었습니다. 3분 이내에 입력해주세요.');
+      setTimeLeft(180);
+
+      // 🛠️ 로컬 개발: 서버가 dev_code를 반환하면 자동 입력
+      if (data.dev_code) {
+        setAuthCode(data.dev_code);
+        setDevNotice(`🛠️ 로컬 테스트 모드: SMS 대신 인증번호 [${data.dev_code}]가 자동 입력되었습니다.`);
+      } else {
+        alert('인증번호가 발송되었습니다. 3분 이내에 입력해주세요.');
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -225,10 +235,22 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 p-3 mb-6 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400 font-medium"
+            className="flex items-center gap-2 p-3 mb-4 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400 font-medium"
           >
             <AlertTriangle size={14} className="shrink-0" />
             <span>{error}</span>
+          </motion.div>
+        )}
+
+        {/* 🛠️ 로컬 개발 모드 안내 배너 */}
+        {devNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-start gap-2 p-3 mb-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-xs text-yellow-300 font-medium"
+          >
+            <span className="shrink-0 mt-0.5">⚠️</span>
+            <span>{devNotice}</span>
           </motion.div>
         )}
 

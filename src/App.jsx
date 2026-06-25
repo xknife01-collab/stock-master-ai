@@ -15,6 +15,7 @@ import GainerSection from './components/Dashboard/GainerSection';
 import ConditionSearch from './components/ConditionSearch';
 import AISignalSection from './components/AI/AISignalSection';
 import PortfolioSection from './components/Portfolio/PortfolioSection';
+import TradingJournal from './components/Portfolio/TradingJournal';
 import StockPopup from './components/StockPopup';
 import AuthModal from './components/Auth/AuthModal';
 
@@ -308,7 +309,10 @@ const App = () => {
           </div>
         </div>
 
-        {/* 7. Floating UI */}
+        {/* 7. AI 트레이딩 일지 (성과 공개 대시보드) */}
+        <TradingJournal user={user} />
+
+        {/* 8. Floating UI */}
         <FloatingAlerts alerts={alerts} />
         <FooterTicker stocks={stocks} />
 
