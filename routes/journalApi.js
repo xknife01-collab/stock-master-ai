@@ -22,17 +22,23 @@ router.get('/', async (req, res) => {
 // 2. 트레이딩 일지 등록
 router.post('/', async (req, res) => {
     const { trade_date, stock_name, symbol, signal_type, buy_price, sell_price, quantity, ai_signal, memo } = req.body;
-    if (!trade_date || !stock_name || !buy_price || !quantity) {
+    const isNoTrade = signal_type === 'NOTRADE' || signal_type === 'VETO';
+    
+    if (!trade_date || !stock_name || 
+        (!isNoTrade && (!buy_price || !quantity)) || 
+        (isNoTrade && (buy_price === undefined || quantity === undefined))) {
         return res.status(400).json({ error: '필수 필드 누락' });
     }
 
-    const buyTotal = parseFloat(buy_price) * parseInt(quantity);
-    const sellTotal = sell_price ? parseFloat(sell_price) * parseInt(quantity) : null;
-    const profit_amount = sellTotal !== null ? Math.round(sellTotal - buyTotal) : null;
-    const profit_rate = (sellTotal !== null && buyTotal > 0)
+    const finalBuyPrice = isNoTrade ? 0 : parseFloat(buy_price);
+    const finalQuantity = isNoTrade ? 0 : parseInt(quantity);
+    const buyTotal = finalBuyPrice * finalQuantity;
+    const sellTotal = (sell_price && !isNoTrade) ? parseFloat(sell_price) * finalQuantity : null;
+    const profit_amount = (sellTotal !== null && !isNoTrade) ? Math.round(sellTotal - buyTotal) : null;
+    const profit_rate = (sellTotal !== null && buyTotal > 0 && !isNoTrade)
         ? parseFloat(((sellTotal - buyTotal) / buyTotal * 100).toFixed(2))
         : null;
-    const status = sell_price ? 'closed' : 'open';
+    const status = isNoTrade ? 'closed' : (sell_price ? 'closed' : 'open');
 
     try {
         const { data, error } = await supabase
@@ -42,9 +48,9 @@ router.post('/', async (req, res) => {
                 stock_name,
                 symbol: symbol || null,
                 signal_type: signal_type || 'AI',
-                buy_price: parseFloat(buy_price),
-                sell_price: sell_price ? parseFloat(sell_price) : null,
-                quantity: parseInt(quantity),
+                buy_price: finalBuyPrice,
+                sell_price: (sell_price && !isNoTrade) ? parseFloat(sell_price) : null,
+                quantity: finalQuantity,
                 profit_amount,
                 profit_rate,
                 status,
@@ -159,11 +165,12 @@ router.get('/summary', async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('trading_journal')
-            .select('profit_amount, profit_rate, status, trade_date')
+            .select('profit_amount, profit_rate, status, trade_date, quantity, signal_type')
             .eq('status', 'closed');
         if (error) throw error;
 
-        const closed = data || [];
+        // 실제 매수한 거래만 통계에 포함 (관망 및 VETO 차단 거래 제외)
+        const closed = (data || []).filter(d => d.quantity > 0 && d.signal_type !== 'NOTRADE' && d.signal_type !== 'VETO');
         const totalTrades = closed.length;
         const winTrades = closed.filter(d => (d.profit_amount || 0) > 0).length;
         const totalProfit = closed.reduce((sum, d) => sum + (d.profit_amount || 0), 0);

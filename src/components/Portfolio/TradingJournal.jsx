@@ -186,21 +186,53 @@ const TradingJournal = ({ user }) => {
                         </div>
                         <div>
                             <label className="block text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">매수가 (1주당, 원)</label>
-                            <input type="number" placeholder="₩ 1주 단가" value={form.buy_price} onChange={e => setForm(f => ({ ...f, buy_price: e.target.value }))} required
-                                className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-2 px-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/40 font-mono" />
+                            <input type="number" placeholder="₩ 1주 단가" value={form.buy_price} 
+                                onChange={e => setForm(f => ({ ...f, buy_price: e.target.value }))} 
+                                required={form.signal_type !== 'NOTRADE' && form.signal_type !== 'VETO'}
+                                disabled={form.signal_type === 'NOTRADE' || form.signal_type === 'VETO'}
+                                className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-2 px-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/40 font-mono disabled:opacity-50" />
                         </div>
                         <div>
                             <label className="block text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">수량 (주)</label>
-                            <input type="number" placeholder="주" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} required
-                                className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-2 px-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/40 font-mono" />
+                            <input type="number" placeholder="주" value={form.quantity} 
+                                onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} 
+                                required={form.signal_type !== 'NOTRADE' && form.signal_type !== 'VETO'}
+                                disabled={form.signal_type === 'NOTRADE' || form.signal_type === 'VETO'}
+                                className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-2 px-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/40 font-mono disabled:opacity-50" />
                         </div>
                         <div>
                             <label className="block text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">신호 유형</label>
-                            <select value={form.signal_type} onChange={e => setForm(f => ({ ...f, signal_type: e.target.value }))}
+                            <select 
+                                value={form.signal_type} 
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    setForm(f => {
+                                        const next = { ...f, signal_type: val };
+                                        if (val === 'NOTRADE' || val === 'VETO') {
+                                            next.buy_price = '0';
+                                            next.quantity = '0';
+                                            if (!f.stock_name || f.stock_name === '시장 관망 (대기)' || f.stock_name === 'VETO 시장 진입 차단') {
+                                                next.stock_name = val === 'NOTRADE' ? '시장 관망 (대기)' : 'VETO 시장 진입 차단';
+                                            }
+                                        } else {
+                                            if (f.buy_price === '0') next.buy_price = '';
+                                            if (f.quantity === '0') next.quantity = '';
+                                            if (f.stock_name === '시장 관망 (대기)' || f.stock_name === 'VETO 시장 진입 차단') next.stock_name = '';
+                                        }
+                                        return next;
+                                    });
+                                }}
                                 className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-emerald-500/40">
-                                <option value="AI">AI 신호</option>
-                                <option value="MANUAL">수동 판단</option>
-                                <option value="CONDITION">조건검색</option>
+                                <option value="AI" className="bg-[#141822] text-white">AI 신호</option>
+                                <option value="MANUAL" className="bg-[#141822] text-white">수동 판단</option>
+                                <option value="CONDITION" className="bg-[#141822] text-white">조건검색</option>
+                                <option value="QUANT" className="bg-[#141822] text-white">퀀트/알고리즘</option>
+                                <option value="THEME" className="bg-[#141822] text-white">재료/테마</option>
+                                <option value="VALUE" className="bg-[#141822] text-white">가치/실적</option>
+                                <option value="QUANT_BOARD" className="bg-[#141822] text-white">계량 전광판</option>
+                                <option value="RISK_CENTER" className="bg-[#141822] text-white">실시간 리스크 센터</option>
+                                <option value="NOTRADE" className="bg-[#141822] text-white">관망 (No Trade)</option>
+                                <option value="VETO" className="bg-[#141822] text-white">VETO 차단 (Risk Off)</option>
                             </select>
                         </div>
                         <div>
@@ -242,35 +274,100 @@ const TradingJournal = ({ user }) => {
                     journal.map(entry => {
                         const isOpen = entry.status === 'open';
                         const isProfit = (entry.profit_amount || 0) > 0;
+                        const isNoTrade = entry.signal_type === 'NOTRADE' || entry.signal_type === 'VETO' || entry.quantity === 0;
+                        
                         return (
                             <div key={entry.id}
-                                className={`glass-card p-4 rounded-2xl border-l-4 transition-all ${isOpen ? 'border-l-blue-500 bg-blue-500/5' : isProfit ? 'border-l-emerald-500 bg-emerald-500/5' : 'border-l-red-500 bg-red-500/5'}`}>
+                                className={`glass-card p-4 rounded-2xl border-l-4 transition-all ${
+                                    isNoTrade 
+                                        ? (entry.signal_type === 'VETO' ? 'border-l-red-500 bg-red-500/5' : 'border-l-amber-500 bg-amber-500/5')
+                                        : isOpen 
+                                        ? 'border-l-blue-500 bg-blue-500/5' 
+                                        : isProfit 
+                                        ? 'border-l-emerald-500 bg-emerald-500/5' 
+                                        : 'border-l-red-500 bg-red-500/5'
+                                }`}>
                                 <div className="flex items-start justify-between gap-4">
                                     {/* 왼쪽: 종목 정보 */}
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <span className="font-black text-sm text-white">{entry.stock_name}</span>
                                             {entry.symbol && <span className="text-[9px] font-mono text-white/30">{entry.symbol}</span>}
-                                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider border ${entry.signal_type === 'AI' ? 'text-purple-400 bg-purple-500/10 border-purple-500/20' : 'text-blue-400 bg-blue-500/10 border-blue-500/20'}`}>
-                                                {entry.signal_type}
+                                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider border ${
+                                                entry.signal_type === 'NOTRADE'
+                                                    ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                                                    : entry.signal_type === 'VETO'
+                                                    ? 'text-red-400 bg-red-500/10 border-red-500/20'
+                                                    : entry.signal_type === 'AI'
+                                                    ? 'text-purple-400 bg-purple-500/10 border-purple-500/20'
+                                                    : entry.signal_type === 'MANUAL'
+                                                    ? 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+                                                    : entry.signal_type === 'CONDITION'
+                                                    ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20'
+                                                    : entry.signal_type === 'QUANT'
+                                                    ? 'text-teal-400 bg-teal-500/10 border-teal-500/20'
+                                                    : entry.signal_type === 'THEME'
+                                                    ? 'text-pink-400 bg-pink-500/10 border-pink-500/20'
+                                                    : entry.signal_type === 'VALUE'
+                                                    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                                                    : entry.signal_type === 'QUANT_BOARD'
+                                                    ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20'
+                                                    : entry.signal_type === 'RISK_CENTER'
+                                                    ? 'text-orange-400 bg-orange-500/10 border-orange-500/20'
+                                                    : 'text-white/40 bg-white/5 border border-white/10'
+                                            }`}>
+                                                {entry.signal_type === 'QUANT_BOARD' 
+                                                    ? '계량 전광판' 
+                                                    : entry.signal_type === 'RISK_CENTER' 
+                                                    ? '리스크 센터' 
+                                                    : entry.signal_type === 'QUANT'
+                                                    ? '퀀트'
+                                                    : entry.signal_type === 'THEME'
+                                                    ? '테마'
+                                                    : entry.signal_type === 'VALUE'
+                                                    ? '가치분석'
+                                                    : entry.signal_type === 'VETO'
+                                                    ? 'VETO 차단'
+                                                    : entry.signal_type === 'NOTRADE'
+                                                    ? 'NO TRADE'
+                                                    : entry.signal_type}
                                             </span>
-                                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 ${isOpen ? 'text-blue-400 bg-blue-500/10 border border-blue-500/20' : 'text-white/40 bg-white/5 border border-white/10'}`}>
-                                                {isOpen ? <><Clock size={8} /> 보유중</> : <><CheckCircle size={8} /> 청산완료</>}
-                                            </span>
+                                            {!isNoTrade && (
+                                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 ${isOpen ? 'text-blue-400 bg-blue-500/10 border border-blue-500/20' : 'text-white/40 bg-white/5 border border-white/10'}`}>
+                                                    {isOpen ? <><Clock size={8} /> 보유중</> : <><CheckCircle size={8} /> 청산완료</>}
+                                                </span>
+                                            )}
                                         </div>
-                                        <div className="flex items-center gap-3 mt-1.5 text-[10px] font-mono text-white/40 flex-wrap">
-                                            <span>매수 {entry.trade_date}</span>
-                                            <span>₩{formatNum(entry.buy_price)}/주</span>
-                                            <span>{entry.quantity}주</span>
-                                            {entry.sell_price && <span className="text-emerald-400">매도 ₩{formatNum(entry.sell_price)}/주</span>}
-                                            {entry.sell_date && <span className="text-emerald-400">청산일 {entry.sell_date}</span>}
-                                        </div>
+                                        {isNoTrade ? (
+                                            <div className="flex items-center gap-3 mt-1.5 text-[10px] font-mono text-amber-400/80 flex-wrap">
+                                                <span className={entry.signal_type === 'VETO' ? 'text-red-400 font-bold' : 'text-amber-400 font-bold'}>
+                                                    {entry.signal_type === 'VETO' ? '차단 결정일' : '관망 결정일'}: {entry.trade_date}
+                                                </span>
+                                                <span className="text-white/30">(실제 매매 없음)</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-3 mt-1.5 text-[10px] font-mono text-white/40 flex-wrap">
+                                                <span>매수 {entry.trade_date}</span>
+                                                <span>₩{formatNum(entry.buy_price)}/주</span>
+                                                <span>{entry.quantity}주</span>
+                                                {entry.sell_price && <span className="text-emerald-400">매도 ₩{formatNum(entry.sell_price)}/주</span>}
+                                                {entry.sell_date && <span className="text-emerald-400">청산일 {entry.sell_date}</span>}
+                                            </div>
+                                        )}
                                         {entry.memo && <p className="text-[9px] text-white/30 mt-1 truncate">{entry.memo}</p>}
                                     </div>
 
                                     {/* 오른쪽: 수익 + 액션 */}
                                     <div className="text-right shrink-0">
-                                        {!isOpen && entry.profit_amount != null ? (
+                                        {isNoTrade ? (
+                                            <div className={`text-xs font-black px-2 py-0.5 rounded inline-block uppercase tracking-wider ${
+                                                entry.signal_type === 'VETO'
+                                                    ? 'text-red-400 bg-red-500/10 border border-red-500/20'
+                                                    : 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                                            }`}>
+                                                RISK OFF
+                                            </div>
+                                        ) : !isOpen && entry.profit_amount != null ? (
                                             <>
                                                 <div className={`text-base font-black font-mono ${isProfit ? 'text-emerald-400' : 'text-red-400'}`}>
                                                     {isProfit ? '+' : ''}₩{formatNum(entry.profit_amount)}
