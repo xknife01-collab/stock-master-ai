@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { BookOpen, Plus, TrendingUp, TrendingDown, CheckCircle, Clock, Trash2, BarChart2, DollarSign, Target, Award } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { BookOpen, Plus, TrendingUp, TrendingDown, CheckCircle, Clock, Trash2, BarChart2, DollarSign, Target, Award, Edit2 } from 'lucide-react';
 import { API_URL } from '../../config.js';
 
 const ADMIN_EMAIL = 'zkfnth01@naver.com'; // 대표 관리자 전용
 
 const TradingJournal = ({ user }) => {
     const isAdmin = user?.email === ADMIN_EMAIL;
+    const journalRef = useRef(null);
     const [journal, setJournal] = useState([]);
     const [summary, setSummary] = useState(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -14,6 +15,7 @@ const TradingJournal = ({ user }) => {
     const [sellDateInput, setSellDateInput] = useState(new Date().toISOString().slice(0, 10));
     const [loading, setLoading] = useState(false);
     const [deleteLoadingId, setDeleteLoadingId] = useState(null);
+    const [editingId, setEditingId] = useState(null);
 
     // 신규 등록 폼
     const [form, setForm] = useState({
@@ -49,13 +51,15 @@ const TradingJournal = ({ user }) => {
         fetchSummary();
     }, []);
 
-    // 거래 등록
+    // 거래 등록 및 수정
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
-            const res = await fetch(`${API_URL}/api/journal`, {
-                method: 'POST',
+            const url = editingId ? `${API_URL}/api/journal/${editingId}` : `${API_URL}/api/journal`;
+            const method = editingId ? 'PUT' : 'POST';
+            const res = await fetch(url, {
+                method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(form)
             });
@@ -66,14 +70,34 @@ const TradingJournal = ({ user }) => {
                     buy_price: '', sell_price: '', sell_date: '', quantity: '', memo: ''
                 });
                 setIsFormOpen(false);
+                setEditingId(null);
                 fetchJournal();
                 fetchSummary();
             } else {
                 const err = await res.json().catch(() => ({}));
-                alert('등록 실패: ' + (err.error || '서버 오류'));
+                alert((editingId ? '수정 실패: ' : '등록 실패: ') + (err.error || '서버 오류'));
             }
         } catch (e) { console.error(e); }
         setLoading(false);
+    };
+
+    const handleEditClick = (entry) => {
+        setEditingId(entry.id);
+        setForm({
+            trade_date: entry.trade_date,
+            stock_name: entry.stock_name,
+            symbol: entry.symbol || '',
+            signal_type: entry.signal_type || 'AI',
+            buy_price: entry.buy_price != null ? String(entry.buy_price) : '',
+            sell_price: entry.sell_price != null ? String(entry.sell_price) : '',
+            sell_date: entry.sell_date || '',
+            quantity: entry.quantity != null ? String(entry.quantity) : '',
+            memo: entry.memo || ''
+        });
+        setIsFormOpen(true);
+        if (journalRef.current) {
+            journalRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     };
 
     // 매도 청산
@@ -119,8 +143,26 @@ const TradingJournal = ({ user }) => {
 
     const formatNum = (n) => n != null ? Number(n).toLocaleString() : '-';
 
+    const getHoldingPeriodText = (tradeDate, sellDate, isOpen) => {
+        if (!tradeDate) return '';
+        const start = new Date(tradeDate);
+        const end = isOpen ? new Date() : (sellDate ? new Date(sellDate) : null);
+        if (!isOpen && !sellDate) return '';
+        
+        const d1 = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+        const d2 = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+        
+        const diffDays = Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
+        if (diffDays < 0) return '0일';
+        if (isOpen) {
+            return `보유 ${diffDays + 1}일차`;
+        } else {
+            return diffDays === 0 ? '당일 청산' : `보유 ${diffDays}일`;
+        }
+    };
+
     return (
-        <section className="mb-8">
+        <section ref={journalRef} className="mb-8">
             {/* 헤더 */}
             <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-6">
                 <div className="flex items-center gap-2.5">
@@ -166,7 +208,8 @@ const TradingJournal = ({ user }) => {
             {isFormOpen && isAdmin && (
                 <div className="glass-card border border-emerald-500/20 bg-emerald-500/5 p-5 rounded-2xl mb-6">
                     <h3 className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <Plus size={13} /> 새 거래 기록 등록
+                        {editingId ? <Edit2 size={13} /> : <Plus size={13} />}
+                        {editingId ? `거래 기록 수정 (${form.stock_name})` : '새 거래 기록 등록'}
                     </h3>
                     <form onSubmit={handleSubmit} className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         <div>
@@ -253,9 +296,9 @@ const TradingJournal = ({ user }) => {
                         <div className="col-span-2 md:col-span-3 flex gap-2">
                             <button type="submit" disabled={loading}
                                 className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all">
-                                {loading ? '저장 중...' : '거래 기록 저장'}
+                                {loading ? '저장 중...' : (editingId ? '수정 완료' : '거래 기록 저장')}
                             </button>
-                            <button type="button" onClick={() => setIsFormOpen(false)}
+                            <button type="button" onClick={() => { setIsFormOpen(false); setEditingId(null); }}
                                 className="px-4 bg-white/5 hover:bg-white/10 text-white/50 py-2.5 rounded-xl text-xs font-black transition-all">
                                 취소
                             </button>
@@ -350,8 +393,21 @@ const TradingJournal = ({ user }) => {
                                                 <span>매수 {entry.trade_date}</span>
                                                 <span>₩{formatNum(entry.buy_price)}/주</span>
                                                 <span>{entry.quantity}주</span>
-                                                {entry.sell_price && <span className="text-emerald-400">매도 ₩{formatNum(entry.sell_price)}/주</span>}
-                                                {entry.sell_date && <span className="text-emerald-400">청산일 {entry.sell_date}</span>}
+                                                {entry.sell_price && (
+                                                    <span className="text-emerald-400">
+                                                        매도 {entry.sell_date || entry.trade_date} ₩{formatNum(entry.sell_price)}/주
+                                                    </span>
+                                                )}
+                                                {!isOpen && (
+                                                    <span className="text-emerald-500/80 bg-emerald-500/10 px-1.5 py-0.5 rounded text-[9px] font-sans font-black tracking-tighter">
+                                                        {getHoldingPeriodText(entry.trade_date, entry.sell_date, false)}
+                                                    </span>
+                                                )}
+                                                {isOpen && (
+                                                    <span className="text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded text-[9px] font-sans font-black tracking-tighter">
+                                                        {getHoldingPeriodText(entry.trade_date, null, true)}
+                                                    </span>
+                                                )}
                                             </div>
                                         )}
                                         {entry.memo && <p className="text-[9px] text-white/30 mt-1 truncate">{entry.memo}</p>}
@@ -412,6 +468,13 @@ const TradingJournal = ({ user }) => {
                                                         </button>
                                                     )
                                                 )}
+                                                {/* 수정 버튼 */}
+                                                <button
+                                                    onClick={() => handleEditClick(entry)}
+                                                    className="text-white/20 hover:text-blue-400 p-1 rounded transition-all"
+                                                    title="수정">
+                                                    <Edit2 size={11} />
+                                                </button>
                                                 {/* 삭제 버튼 */}
                                                 <button
                                                     onClick={() => handleDelete(entry.id)}
