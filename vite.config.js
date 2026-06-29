@@ -9,6 +9,8 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+    host: true,
+    allowedHosts: ['.ngrok-free.dev', '.ngrok-free.app', '.ngrok.app'],
     watch: {
       ignored: ['**/*.json', '**/scratch/**', '**/tests/**']
     },

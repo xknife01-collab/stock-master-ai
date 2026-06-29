@@ -2,6 +2,14 @@ const getFallbackUrl = () => {
   if (typeof window === 'undefined') return 'https://stock-master-ai.onrender.com';
   const { protocol, hostname, port } = window.location;
   
+  // Detect if we are running via ngrok tunnel
+  const isNgrok = hostname.includes('ngrok-free.dev') || 
+                  hostname.includes('ngrok-free.app') || 
+                  hostname.includes('ngrok.app');
+  if (isNgrok) {
+    return `${protocol}//${hostname}`;
+  }
+
   // Detect if we are running in local development or local network testing
   const isLocal = hostname === 'localhost' || 
                   hostname === '127.0.0.1' || 
