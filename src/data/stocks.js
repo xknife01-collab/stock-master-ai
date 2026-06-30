@@ -7,4 +7,5 @@ export const INITIAL_STOCKS = [
   { id: 6, name: '현대차', symbol: '005380', market: 'KR', price: 232000, change: 0, isOwned: false },
   { id: 7, name: '기아', symbol: '000270', market: 'KR', price: 121000, change: 0, isOwned: false },
   { id: 8, name: 'LG에너지솔루션', symbol: '373220', market: 'KR', price: 412000, change: 0, isOwned: false },
+  { id: 9, name: '주성엔지니어링', symbol: '036930', market: 'KR', price: 32000, change: 0, isOwned: false },
 ];

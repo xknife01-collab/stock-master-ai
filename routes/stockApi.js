@@ -410,6 +410,7 @@ router.get('/history/:symbol', async (req, res) => {
 // 3. 종목 상세 펀더멘털 정보 조회 (Supabase 캐시 우선 및 Stale-While-Revalidate 방식)
 router.get('/detail/:symbol', ensureToken, async (req, res) => {
     const { symbol } = req.params;
+    const force = req.query.force === 'true';
     
     try {
         // 3-1. Supabase 캐시 우선 조회
@@ -425,7 +426,8 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
             }
         }
 
-        const isCacheValid = cachedData && 
+        const isCacheValid = !force && 
+                             cachedData && 
                              cachedData.fundamental && 
                              cachedData.advanced && 
                              cachedData.advanced.transactionValue !== undefined && 

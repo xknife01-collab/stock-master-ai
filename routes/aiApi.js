@@ -1475,14 +1475,15 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             ];
         }
 
-        // 6대 반도체 핵심 주도주 상시 후보군 편입 보장
+        // 7대 반도체 핵심 주도주 상시 후보군 편입 보장
         const coreMainstream = [
             { code: '005930', name: '삼성전자' },
             { code: '000660', name: 'SK하이닉스' },
             { code: '042700', name: '한미반도체' },
             { code: '007660', name: '이수페타시스' },
             { code: '403870', name: 'HPSP' },
-            { code: '067310', name: '하나마이크론' }
+            { code: '067310', name: '하나마이크론' },
+            { code: '036930', name: '주성엔지니어링' }
         ];
         
         coreMainstream.forEach(c => {
@@ -2228,7 +2229,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             const vetoReasons = [];
 
             // 체결강도 절대 약세 VETO (오르는 말에 올라타기 위해, 당일 상승 중(changePct > 0)이거나 정배열 상승 추세인 경우 체결강도 하한선을 80%~90%로 대폭 하향하여 VETO 차단 방지)
-            const isCoreSemiconductor = ['005930', '000660', '042700', '007660', '403870', '067310'].includes(c.code);
+            const isCoreSemiconductor = ['005930', '000660', '042700', '007660', '403870', '067310', '036930'].includes(c.code);
             const isUptrend = maAlignment.includes('정배열') || (changePct > 0);
             
             let minStrengthRequired = forceRecommend ? 90 : (isSafe ? 100 : 95);
@@ -2540,7 +2541,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
         });
 
         // 재무 점수가 합산된 최종 점수 기준으로 재정렬 및 상위 25개 선정 (6대 핵심 반도체주 포함 보장)
-        const coreCodes = ['005930', '000660', '042700', '007660', '403870', '067310'];
+        const coreCodes = ['005930', '000660', '042700'];
         const coreItems = sortedScored.filter(c => coreCodes.includes(c.code));
         const nonCoreItems = sortedScored.filter(c => !coreCodes.includes(c.code));
 

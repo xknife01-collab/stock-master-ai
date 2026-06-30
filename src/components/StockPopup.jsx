@@ -12,6 +12,23 @@ const StockPopup = ({ item, onClose }) => {
   const [realTimeData, setRealTimeData] = useState({ price: item.price, change: item.change });
   const [loadingRealTime, setLoadingRealTime] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleForceRefresh = async () => {
+    if (!item.symbol || isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      const res = await fetch(`${API_URL}/api/stock-detail/detail/${item.symbol}?force=true`);
+      const data = await res.json();
+      if (data.fundamental) {
+        setStockDetail(data.fundamental);
+      }
+    } catch (e) {
+      console.error('Manual force refresh fail', e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const getRiskDetails = () => {
     if (!stockDetail) return { score: 50, level: '보통', color: 'text-blue-500', bgColor: 'bg-blue-500', badgeColor: 'bg-blue-50 text-blue-600 border-blue-200', list: [] };
@@ -47,7 +64,7 @@ const StockPopup = ({ item, onClose }) => {
       const pVal = investor.personal1D !== undefined ? investor.personal1D : investor.personal5D;
       const isRealtime = investor.isRealtime;
       
-      if (isRealtime && pVal > 0 && fVal < 0 && oVal < 0) {
+      if ((isRealtime || investor.isTodayData) && pVal > 0 && fVal < 0 && oVal < 0) {
         score += 20;
         list.push({ type: 'danger', label: '개미지옥 수급 패턴 감지', desc: '장중 외인과 기관이 대량 매도하여 탈출 중인 물량을 개인이 홀로 떠받치는 고위험 설거지 수급입니다.' });
       }
@@ -166,7 +183,26 @@ const StockPopup = ({ item, onClose }) => {
       fetch(`${API_URL}/api/stock-detail/detail/${item.symbol}`)
         .then(res => res.json())
         .then(data => {
-          if (data.fundamental) setStockDetail(data.fundamental);
+          if (data.fundamental) {
+            setStockDetail(data.fundamental);
+            
+            // 실시간 백그라운드 갱신: 장중이거나 혹은 당일 마감 데이터가 아직 없는 경우에만 실행
+            const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+            const curHHMM = krNow.getUTCHours().toString().padStart(2, '0') + krNow.getUTCMinutes().toString().padStart(2, '0');
+            const krDay = krNow.getUTCDay();
+            const isWeekend = krDay === 0 || krDay === 6;
+            const isMarketActive = !isWeekend && curHHMM >= '0900' && curHHMM <= '1540';
+            const hasTodayData = data.fundamental.advanced?.investor?.isTodayData;
+            
+            if (isMarketActive || !hasTodayData) {
+              fetch(`${API_URL}/api/stock-detail/detail/${item.symbol}?force=true`)
+                .then(res2 => res2.json())
+                .then(data2 => {
+                  if (data2.fundamental) setStockDetail(data2.fundamental);
+                })
+                .catch(e => console.error('Silent detail refresh fail', e));
+            }
+          }
         })
         .catch(e => console.error('Detail load fail', e))
         .finally(() => setLoadingDetail(false));
@@ -356,9 +392,31 @@ const StockPopup = ({ item, onClose }) => {
                       <div className="w-1 h-3 bg-[#7000ff] rounded-full"></div>
                       3대 주체별 수급 현황
                     </div>
-                    <span className={`text-[9px] font-bold ${stockDetail.advanced?.investor?.isRealtime ? 'text-emerald-500' : 'text-amber-500'}`}>
-                      {stockDetail.advanced?.investor?.isRealtime ? '● 당일 실시간' : '● 전 영업일 기준'}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[9px] font-bold ${
+                        stockDetail.advanced?.investor?.isRealtime 
+                          ? 'text-emerald-500' 
+                          : stockDetail.advanced?.investor?.isTodayData 
+                            ? 'text-emerald-500' 
+                            : 'text-amber-500'
+                      }`}>
+                        {stockDetail.advanced?.investor?.isRealtime 
+                          ? '● 당일 실시간' 
+                          : stockDetail.advanced?.investor?.isTodayData 
+                            ? '● 당일 기준' 
+                            : '● 전 영업일 기준'}
+                      </span>
+                      <button 
+                        onClick={handleForceRefresh}
+                        className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600 transition-colors"
+                        title="실시간 수급 새로고침"
+                        disabled={isRefreshing}
+                      >
+                        <svg className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.5" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
 
                   {stockDetail.advanced?.investor && (() => {
@@ -366,7 +424,7 @@ const StockPopup = ({ item, onClose }) => {
                     const oVal = stockDetail.advanced.investor.organ1D !== undefined ? stockDetail.advanced.investor.organ1D : stockDetail.advanced.investor.organ5D;
                     const pVal = stockDetail.advanced.investor.personal1D !== undefined ? stockDetail.advanced.investor.personal1D : stockDetail.advanced.investor.personal5D;
                     const isRealtime = stockDetail.advanced.investor.isRealtime;
-                    return isRealtime && pVal > 0 && fVal < 0 && oVal < 0;
+                    return (isRealtime || stockDetail.advanced.investor.isTodayData) && pVal > 0 && fVal < 0 && oVal < 0;
                   })() && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5 shadow-[0_2px_8px_rgba(239,68,68,0.08)] animate-pulse">
                       <span className="text-lg">🚨</span>
