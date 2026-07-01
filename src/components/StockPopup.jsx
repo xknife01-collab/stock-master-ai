@@ -18,10 +18,18 @@ const StockPopup = ({ item, onClose }) => {
     if (!item.symbol || isRefreshing) return;
     setIsRefreshing(true);
     try {
+      // 1. 상세 수급 및 펀더멘털 강제 동기화
       const res = await fetch(`${API_URL}/api/stock-detail/detail/${item.symbol}?force=true`);
       const data = await res.json();
       if (data.fundamental) {
         setStockDetail(data.fundamental);
+      }
+      
+      // 2. 현재 활성화된 범위의 분봉/일봉 차트 강제 동기화
+      const resChart = await fetch(`${API_URL}/api/stock/history/${item.symbol}?range=${popupRange}&price=${item.price}&force=true`);
+      const dataChart = await resChart.json();
+      if (dataChart && Array.isArray(dataChart)) {
+        setPopupHistory(dataChart);
       }
     } catch (e) {
       console.error('Manual force refresh fail', e);

@@ -286,31 +286,42 @@ router.get('/history/:symbol', async (req, res) => {
                 // 캐시 유효성 판단
                 const now = new Date();
                 const updatedAt = new Date(data.updated_at);
-                let isStale = false;
+                const force = req.query.force === 'true';
+                let isStale = force;
 
-                if (range === '1D') {
-                    const isSameDay = now.getFullYear() === updatedAt.getFullYear() &&
-                                      now.getMonth() === updatedAt.getMonth() &&
-                                      now.getDate() === updatedAt.getDate();
-                    const ageMs = now.getTime() - updatedAt.getTime();
-                    // 1D 분봉이 오늘 날짜가 아니거나 5분 이상 경과한 경우 만료
-                    if (!isSameDay || ageMs > 300000) isStale = true;
-                } else {
-                    const isSameDay = now.getFullYear() === updatedAt.getFullYear() &&
-                                      now.getMonth() === updatedAt.getMonth() &&
-                                      now.getDate() === updatedAt.getDate();
-                    // 일봉 데이터가 당일 업데이트되지 않은 경우 만료
-                    if (!isSameDay) isStale = true;
+                if (!isStale) {
+                    if (range === '1D') {
+                        const isSameDay = now.getFullYear() === updatedAt.getFullYear() &&
+                                          now.getMonth() === updatedAt.getMonth() &&
+                                          now.getDate() === updatedAt.getDate();
+                        const ageMs = now.getTime() - updatedAt.getTime();
+                        // 1D 분봉이 오늘 날짜가 아니거나 60초 이상 경과한 경우 만료
+                        if (!isSameDay || ageMs > 60000) isStale = true;
+                    } else {
+                        const isSameDay = now.getFullYear() === updatedAt.getFullYear() &&
+                                          now.getMonth() === updatedAt.getMonth() &&
+                                          now.getDate() === updatedAt.getDate();
+                        // 일봉 데이터가 당일 업데이트되지 않은 경우 만료
+                        if (!isSameDay) isStale = true;
+                    }
                 }
 
                 if (isStale) {
-                    console.log(`🔄 [History API - Stale While Revalidate] ${range} chart is stale for ${targetSymbol}. Triggering background refresh...`);
+                    console.log(`🔄 [History API] ${range} chart is stale (or forced) for ${targetSymbol}.`);
                     if (range === '1D') {
-                        syncSingleStock(targetSymbol).catch(err => {
-                            console.error(`⚠️ [History 1D Background Sync Failed] ${targetSymbol}:`, err.message);
-                        });
+                        try {
+                            console.log(`📡 [History 1D Sync] Fetching fresh 1D chart synchronously for ${targetSymbol}`);
+                            const freshDetail = await syncSingleStock(targetSymbol);
+                            if (freshDetail && freshDetail.advanced?.chartHistory?.['1D']) {
+                                let chart1D = freshDetail.advanced.chartHistory['1D'];
+                                chart1D = filter1DChartIfNeeded(chart1D);
+                                return res.json(chart1D);
+                            }
+                        } catch (err) {
+                            console.error(`⚠️ [History 1D Synchronous Sync Failed] ${targetSymbol}:`, err.message);
+                        }
                     } else {
-                        // 일봉 차트 백그라운드 갱신 수행
+                        // 일봉 차트 백그라운드 갱신 수행 (사용자 지연 방지)
                         (async () => {
                             try {
                                 const chartData = await fetchStockChartFromKIS(targetSymbol, range);
