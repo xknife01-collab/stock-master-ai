@@ -1,23 +1,39 @@
-import { fetchStockPrice, fetchStockAnalytics, fetchStockIntradayInvestorEstimate } from '../lib/kisCore.js';
+import { fetchStockFullDetailFromKIS, fetchStockIntradayInvestorEstimate } from '../lib/kisCore.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
 (async () => {
     try {
-        console.log("=== SK Hynix (000660) Real-time Data Fetch ===");
+        console.log("Fetching SK Hynix (000660) details...");
+        const detail = await fetchStockFullDetailFromKIS('000660', null, false);
+        const estimate = await fetchStockIntradayInvestorEstimate('000660');
+
+        console.log("\n=================== SK HYNIX (000660) DETAIL ===================");
+        console.log("Price:", detail?.fundamental?.price);
+        console.log("Change Rate (%):", detail?.fundamental?.change);
+        console.log("Sector:", detail?.fundamental?.sector);
         
-        const priceInfo = await fetchStockPrice("000660");
-        console.log("\n[1] Price Info:");
-        console.log(priceInfo);
+        console.log("\n------------------- Technical Indicators -------------------");
+        console.log("RSI:", detail?.advanced?.technical?.rsi);
+        console.log("MA5:", detail?.advanced?.technical?.ma5);
+        console.log("MA20:", detail?.advanced?.technical?.ma20);
+        console.log("MA60:", detail?.advanced?.technical?.ma60);
+        console.log("MA Alignment:", detail?.advanced?.technical?.maAlignment);
+        console.log("Bollinger Bands:", JSON.stringify(detail?.advanced?.technical?.bollinger, null, 2));
 
-        const analyticsInfo = await fetchStockAnalytics("000660");
-        console.log("\n[2] Analytics & Technical Indicators:");
-        console.log(JSON.stringify(analyticsInfo, null, 2));
+        console.log("\n------------------- Advanced Data -------------------");
+        console.log("Short Ratio:", detail?.advanced?.shortRatio);
+        console.log("Strength (체결강도):", detail?.advanced?.strength);
+        console.log("Strength Acceleration:", detail?.advanced?.strengthAcceleration);
+        console.log("Transaction Value (거래대금):", detail?.advanced?.transactionValue);
+        console.log("Volume Rate (거래량 대비):", detail?.advanced?.volumeRate);
+        console.log("Investor Trend (isRealtime):", detail?.advanced?.investor?.isRealtime);
+        console.log("Investor Buy/Sell:", JSON.stringify(detail?.advanced?.investor, null, 2));
 
-        const estimateInfo = await fetchStockIntradayInvestorEstimate("000660");
-        console.log("\n[3] Intraday Investor Estimate:");
-        console.log(estimateInfo);
+        console.log("\n=================== INTRADAY ESTIMATE ===================");
+        console.log("Estimate:", JSON.stringify(estimate, null, 2));
 
-        console.log("\n=============================================");
     } catch (e) {
-        console.error("Failed to analyze SK Hynix:", e);
+        console.error("Failed to run analysis:", e);
     }
 })();
