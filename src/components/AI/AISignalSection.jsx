@@ -17,6 +17,33 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
   const getStatusBadge = (c) => {
     const badges = [];
 
+    const disparity1 = parseFloat(c.metrics?.disparity1) || 100;
+    const strengthAcc = parseFloat(c.metrics?.strengthAcceleration) || 0;
+    const strength = parseFloat(c.metrics?.strength) || 100;
+    const largeRatio = parseFloat(c.metrics?.largeTradeRatio) || 0;
+    const netForeignMoney = parseFloat(c.metrics?.netForeignWindowBuyMoney) || 0;
+    const largeTradeScore = parseFloat(c.scores?.largeTradeScore) || 0;
+    const transactionValue = parseFloat(c.metrics?.transactionValue) || 0;
+
+    const dailyTradeValue亿 = transactionValue / 100000000;
+    const dynamicForeignThreshold = -Math.max(3.0, dailyTradeValue亿 * 0.01);
+
+    const riskReasons = [];
+    if (disparity1 < 98.0) riskReasons.push("당일선 이탈");
+    if (strengthAcc <= -10 && strength < 90) riskReasons.push("체결감속");
+    if (largeRatio >= 0.20 && largeTradeScore < 0) riskReasons.push("대형 매도우위");
+    if (netForeignMoney <= dynamicForeignThreshold) riskReasons.push("외국계 이탈");
+
+    const riskPoints = riskReasons.length;
+
+    if (riskPoints >= 2) {
+      badges.push(
+        <span key="immediate-sell" className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-red-600 border border-red-400 text-white shadow-lg shadow-red-950/60 select-none animate-pulse flex items-center gap-1">
+          🚨 즉각 매도 (조기 청산 권고)
+        </span>
+      );
+    }
+
     if (c.isVetoed) {
       let rawReason = c.vetoReason || '필터배제';
       let cleanReason = rawReason.replace(/^\[[^\]]+\]\s*/g, '');
@@ -881,8 +908,26 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                 ) : (
                   <div className="flex flex-col gap-2">
                     {sortedCandidates.map((c, idx) => {
-                      const isExpanded = expandedCand ? (expandedCand === c.code) : (idx === 0);
+                      const isExpanded = expandedCand === c.code;
+                      const disparity1 = parseFloat(c.metrics?.disparity1) || 100;
+                      const strengthAcc = parseFloat(c.metrics?.strengthAcceleration) || 0;
+                      const strength = parseFloat(c.metrics?.strength) || 100;
+                      const largeRatio = parseFloat(c.metrics?.largeTradeRatio) || 0;
+                      const netForeignMoney = parseFloat(c.metrics?.netForeignWindowBuyMoney) || 0;
+                      const largeTradeScore = parseFloat(c.scores?.largeTradeScore) || 0;
                       const atrPercent = c.metrics?.atrPercent || 5.0;
+                      const transactionValue = parseFloat(c.metrics?.transactionValue) || 0;
+
+                      const dailyTradeValue亿 = transactionValue / 100000000;
+                      const dynamicForeignThreshold = -Math.max(3.0, dailyTradeValue亿 * 0.01);
+
+                      const isDisp1Risk = disparity1 < 98.0;
+                      const isAccRisk = strengthAcc <= -10 && strength < 90;
+                      const isBlockDumpRisk = largeRatio >= 0.20 && largeTradeScore < 0;
+                      const isForeignExitRisk = netForeignMoney <= dynamicForeignThreshold;
+
+                      const activeRiskCount = [isDisp1Risk, isAccRisk, isBlockDumpRisk, isForeignExitRisk].filter(Boolean).length;
+                      const isImmediateSell = activeRiskCount >= 2;
                       const cPrice = parseFloat(c.price || 0);
                       const tp = cPrice * (1 + 3.0 * (atrPercent / 100));
                       const sl = cPrice * (1 - 1.5 * (atrPercent / 100));
@@ -890,7 +935,13 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                       return (
                         <div 
                           key={c.code} 
-                          className={`glass-card border border-white/5 bg-white/[0.01] rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? 'bg-white/[0.03] border-white/10 shadow-lg' : 'hover:bg-white/[0.02]'}`}
+                          className={`glass-card border rounded-2xl overflow-hidden transition-all duration-300 ${
+                            isImmediateSell 
+                              ? 'border-red-500/40 bg-red-500/[0.02] shadow-[0_0_20px_rgba(239,68,68,0.1)]' 
+                              : isExpanded 
+                                ? 'bg-white/[0.03] border-white/10 shadow-lg border-white/5' 
+                                : 'hover:bg-white/[0.02] border-white/5 bg-white/[0.01]'
+                          }`}
                         >
                           {/* Collapsed Header Bar */}
                           <div 
@@ -918,33 +969,51 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                               </div>
                             </div>
                             
-                            <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto border-t sm:border-t-0 border-white/5 pt-2 sm:pt-0">
-                              {/* Badges */}
-                              <div className="flex gap-2">
-                                {getStatusBadge(c)}
+                            <div className="flex flex-col sm:items-end justify-center gap-2 w-full sm:w-auto border-t sm:border-t-0 border-white/5 pt-2 sm:pt-0">
+                              <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                                {/* Badges */}
+                                <div className="flex gap-2">
+                                  {getStatusBadge(c)}
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                  {/* Total Score */}
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-[9px] text-white/30 font-bold uppercase tracking-widest">계량 종합</span>
+                                    <span className={`text-sm font-black font-mono ${c.isVetoed ? 'text-white/40' : (c.totalScore >= 40 ? 'text-[#00ffab]' : 'text-white/80')}`}>
+                                      {c.totalScore !== undefined && c.totalScore !== null ? c.totalScore.toFixed(0) : '0'}점
+                                    </span>
+                                  </div>
+                                  
+                                  {/* Expand Arrow */}
+                                  <div className="text-white/30">
+                                    {isExpanded ? (
+                                      <svg className="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 15l7-7 7 7" />
+                                      </svg>
+                                    ) : (
+                                      <svg className="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                                      </svg>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
 
-                              <div className="flex items-center gap-3">
-                                {/* Total Score */}
-                                <div className="flex flex-col items-end">
-                                  <span className="text-[9px] text-white/30 font-bold uppercase tracking-widest">계량 종합</span>
-                                  <span className={`text-sm font-black font-mono ${c.isVetoed ? 'text-white/40' : (c.totalScore >= 40 ? 'text-[#00ffab]' : 'text-white/80')}`}>
-                                    {c.totalScore !== undefined && c.totalScore !== null ? c.totalScore.toFixed(0) : '0'}점
-                                  </span>
-                                </div>
-                                
-                                {/* Expand Arrow */}
-                                <div className="text-white/30">
-                                  {isExpanded ? (
-                                    <svg className="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 15l7-7 7 7" />
-                                    </svg>
-                                  ) : (
-                                    <svg className="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                  )}
-                                </div>
+                              {/* 4대 실시간 수급 리스크 계기판 */}
+                              <div className="flex flex-wrap gap-1.5 text-[9px] font-bold sm:justify-end w-full">
+                                <span className={`px-2 py-0.5 rounded border ${isDisp1Risk ? 'bg-red-500/10 border-red-500/30 text-[#ff3d68]' : 'bg-white/5 border-white/10 text-white/60'}`}>
+                                  1일선: {disparity1.toFixed(1)}% {isDisp1Risk ? '▼' : '▲'}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded border ${isAccRisk ? 'bg-red-500/10 border-red-500/30 text-[#ff3d68]' : 'bg-white/5 border-white/10 text-white/60'}`}>
+                                  체결가속: {strengthAcc > 0 ? '+' : ''}{strengthAcc.toFixed(1)}%p {isAccRisk ? '▼' : '▲'}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded border ${isBlockDumpRisk ? 'bg-red-500/10 border-red-500/30 text-[#ff3d68]' : 'bg-white/5 border-white/10 text-white/60'}`}>
+                                  대형수급: {(largeRatio * 100).toFixed(0)}% {isBlockDumpRisk ? '⚠️' : '✓'}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded border ${isForeignExitRisk ? 'bg-red-500/10 border-red-500/30 text-[#ff3d68]' : 'bg-white/5 border-white/10 text-white/60'}`}>
+                                  외국계: {netForeignMoney > 0 ? '+' : ''}{netForeignMoney.toFixed(1)}억 {isForeignExitRisk ? '▼' : '▲'}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -970,6 +1039,7 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                                       {renderScoreBar('외인/기관 수급', c.scores?.supplyScore || 0, 35)}
                                       {renderScoreBar('시장 연동 상대강도', c.scores?.indexRelativeScore || 0, 20)}
                                       {renderScoreBar('이동평균 추세', c.scores?.trendScore || 0, 15)}
+                                      {renderScoreBar('당일선 가격 이격도', c.scores?.disparityScore || 0, 15)}
                                       {renderScoreBar('자금 유입 규모', c.scores?.moneyInflowScore || 0, 15)}
                                       {renderScoreBar('외국계 창구 수급', c.scores?.memberTrendScore || 0, 10)}
                                       {renderScoreBar('대형 체결 (블록오더)', c.scores?.largeTradeScore || 0, 8)}

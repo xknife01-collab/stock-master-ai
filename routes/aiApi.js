@@ -948,13 +948,24 @@ export const isMarketOpen = () => {
 export const executeHourlyPulse = async (force = false) => {
     // 한국 시간(KST) 강제 보정
     const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
-    const currentHalfHour = now.getUTCMinutes() < 30 ? '00' : '30';
-    const currentHalfHourKey = `${now.getUTCFullYear()}-${now.getUTCMonth()+1}-${now.getUTCDate()}-${now.getUTCHours()}-${currentHalfHour}`;
+    const hour = now.getUTCHours();
+    const minutes = now.getUTCMinutes();
     
-    const currentTenMinute = Math.floor(now.getUTCMinutes() / 10) * 10;
-    const currentTenMinKey = `${now.getUTCFullYear()}-${now.getUTCMonth()+1}-${now.getUTCDate()}-${now.getUTCHours()}-${currentTenMinute.toString().padStart(2, '0')}`;
+    // 오전 09:00 ~ 10:30 KST 골든아워에는 15분 간격, 그 외에는 30분 간격으로 캐시 제어
+    const isMorning = (hour === 9 || (hour === 10 && minutes < 30));
+    let currentHalfHourKey;
+    if (isMorning) {
+        const current15Minute = Math.floor(minutes / 15) * 15;
+        currentHalfHourKey = `${now.getUTCFullYear()}-${now.getUTCMonth()+1}-${now.getUTCDate()}-${hour}-${current15Minute.toString().padStart(2, '0')}`;
+    } else {
+        const currentHalfHour = minutes < 30 ? '00' : '30';
+        currentHalfHourKey = `${now.getUTCFullYear()}-${now.getUTCMonth()+1}-${now.getUTCDate()}-${hour}-${currentHalfHour}`;
+    }
     
-    const timeStr = now.getUTCHours().toString().padStart(2, '0') + ':' + now.getUTCMinutes().toString().padStart(2, '0');
+    const currentTenMinute = Math.floor(minutes / 10) * 10;
+    const currentTenMinKey = `${now.getUTCFullYear()}-${now.getUTCMonth()+1}-${now.getUTCDate()}-${hour}-${currentTenMinute.toString().padStart(2, '0')}`;
+    
+    const timeStr = hour.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0');
 
     // 1. 이미 진행 중인 작업이 있으면 해당 약속 반환
     if (fetchingAiSignalPromise) {
@@ -1816,6 +1827,8 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                         prevTransactionValue: parseNum(staleRow.advanced?.prevTransactionValue, 0),
                         volumeRate: parseNum(staleRow.advanced?.volumeRate, 100),
                         creditBalance: parseNum(staleRow.advanced?.creditBalance, 0),
+                        openPrice: parseNum(staleRow.advanced?.openPrice, 0),
+                        highPrice: parseNum(staleRow.advanced?.highPrice, 0),
                         sector: staleRow.fundamental?.sector || '기타',
                         isSelfHealed: staleRow.advanced?.isSelfHealed || false,
                         selfHealedReasons: staleRow.advanced?.selfHealedReasons || [],
@@ -1848,6 +1861,8 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                         prevTransactionValue: 0,
                         volumeRate: 100,
                         creditBalance: 0,
+                        openPrice: c.price || 0,
+                        highPrice: c.price || 0,
                         sector: '기타',
                         isSelfHealed: false,
                         selfHealedReasons: [],
@@ -2033,16 +2048,14 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             else if (str >= 80) strengthScore = -25; // 80% ~ 90% 미만: 강한 매도 우위 패널티
             else strengthScore = -50; // 80% 미만: 초강력 매도 우위/거래 침체 극단 패널티
 
-            // 2. 5일/1일 이격도 점수 (Max 10점, 수급 이탈 감안 자동 보정)
-            if (disp5 >= 100 && disp1 >= 100) {
-                disparityScore = 10; // 정배열 강세 돌파
-            } else if (disp5 >= 100 && disp1 < 100 && !isDumping) {
-                disparityScore = 8; // 건전한 눌림목 (쌍끌이 매도 없는 조정)
-            } else if (disp5 < 100 && disp1 >= 100 && strVal >= 105) {
-                disparityScore = 6; // 단기 낙폭과대 반등 시도
+            // 2. 1일선 이격도 중심 수급 점수 (Max 15점, 과열 감점 없이 공격성 극대화)
+            if (disp1 >= 99.5 || changePct >= 0) {
+                disparityScore = 15; // 당일 상승세 또는 지지선 부근: 최고점 (15점) 부여하여 상승세 극대화
+            } else if (disp1 >= 98.0 && !isDumping) {
+                disparityScore = 10; // 약한 지지 구간
             } else {
-                // 추세 하락 또는 설거지 구간
-                disparityScore = isDumping ? -15 : -5; // 쌍끌이 매도 시 강력한 패널티(-15), 아닐 시 완화(-5)
+                // 당일 추세 붕괴 및 세력 이탈 구간 (하방 디펜스는 안전장치들이 처리하므로 감점만 소폭 적용)
+                disparityScore = isDumping ? -10 : 0;
             }
 
             // 3. 공매도 비중 점수 (Max 5점)
@@ -2053,6 +2066,11 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             else shortScore = -10;
 
             // 4. 수급 점수 (Max 35점)
+            const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+            const kstHour = krNow.getUTCHours();
+            const kstMinutes = krNow.getUTCMinutes();
+            const isMorningSession = (kstHour === 9 || (kstHour === 10 && kstMinutes < 30));
+
             const inv5D = m.investor5D || { foreign: 0, organ: 0, personal: 0 };
             const invMoney5D = m.investorMoney5D || { foreign: 0, organ: 0, personal: 0 };
 
@@ -2078,15 +2096,34 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             const isSupplyDeathCross = isPrevBuying && isTodaySelling && isPriceDropping;
             
             let goldenCrossBonus = 0;
-            if (isSupplyGoldenCross && str >= 95) { // 체결강도가 최소 95% 이상으로 뒷받침될 때만 전환형 수급 골든크로스로 인정하여 보너스 점수 부여
-                supplyScore = 35; // 5일 누적 감점 전면 면제 및 만점 부여
-                goldenCrossBonus = 25; // 전환 초입 보너스 점수 가산
-                console.log(`✨ [Supply Golden Cross] ${c.name} (${c.code}) - 수급 변곡점 감지! 5일 누적 감점 면제 및 +25점 보너스 부여 (오늘 외인: ${inv1D.foreign}, 기관: ${inv1D.organ} 순매수)`);
+            if (isMorningSession) {
+                // 오전 09:00~10:30 가집계 부재 시 대체 수급 점수 계산
+                const volRate = m.volumeRate || 100;
+                let volRateScore = 0;
+                if (volRate >= 300) volRateScore = 20;
+                else if (volRate >= 200) volRateScore = 15;
+                else if (volRate >= 100) volRateScore = 10;
+                
+                let orderbookImbalanceScore = 0;
+                const checkStr = m.strength || 100;
+                const largeRatio = m.largeTrade?.largeRatio || 0;
+                if (checkStr >= 108 && largeRatio >= 0.15) orderbookImbalanceScore = 15;
+                else if (checkStr >= 102) orderbookImbalanceScore = 10;
+                else if (checkStr >= 97) orderbookImbalanceScore = 5;
+                
+                supplyScore = volRateScore + orderbookImbalanceScore;
+                console.log(`📡 [Morning Supply Substitute] ${c.name} (${c.code}) - 거래대금 급증 점수: ${volRateScore}점, 호가잔량 프록시 점수: ${orderbookImbalanceScore}점 => 대체 수급점수: ${supplyScore}점`);
             } else {
-                if (inv1D.foreign === 0 && inv1D.organ === 0) {
-                    supplyScore = score5D;
+                if (isSupplyGoldenCross && str >= 95) { // 체결강도가 최소 95% 이상으로 뒷받침될 때만 전환형 수급 골든크로스로 인정하여 보너스 점수 부여
+                    supplyScore = 35; // 5일 누적 감점 전면 면제 및 만점 부여
+                    goldenCrossBonus = 25; // 전환 초입 보너스 점수 가산
+                    console.log(`✨ [Supply Golden Cross] ${c.name} (${c.code}) - 수급 변곡점 감지! 5일 누적 감점 면제 및 +25점 보너스 부여 (오늘 외인: ${inv1D.foreign}, 기관: ${inv1D.organ} 순매수)`);
                 } else {
-                    supplyScore = Math.round(score1D * 0.7 + score5D * 0.3);
+                    if (inv1D.foreign === 0 && inv1D.organ === 0) {
+                        supplyScore = score5D;
+                    } else {
+                        supplyScore = Math.round(score1D * 0.7 + score5D * 0.3);
+                    }
                 }
             }
 
@@ -2263,22 +2300,22 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             }
 
             // 상승장, 강제 추천, 또는 강력한 쌍끌이 돌파/정배열 우상향 시 기술적 제한 임계값 완화
-            let limitDisp5 = forceRecommend ? 120 : (isStrongBreakout ? 112 : 108);
+            let limitDisp5 = forceRecommend ? 120 : (isStrongBreakout ? 112 : (isMorningSession ? 112 : 108));
             
             // 수급(체결강도)이 강력하게 동반되는 상승 랠리 종목에 대해 이격도 제한을 대폭 상향하여 올라타도록 완화
             const isGenuineRally = (checkStrVal >= 105) && (strengthAcc >= 0) && (!isDumping || isUptrend);
             const isSuperGenuineRally = (checkStrVal >= 115) && (strengthAcc >= 3);
             
             if (isGenuineRally || isCoreSemiconductor) {
-                limitDisp5 = Math.max(limitDisp5, 115); // 주도주 및 강수급 상승 랠리 이격 제한 115%로 완화
+                limitDisp5 = Math.max(limitDisp5, isMorningSession ? 118 : 115); // 주도주 및 강수급 상승 랠리 이격 제한 완화
             }
             if (isSuperGenuineRally) {
                 limitDisp5 = Math.max(limitDisp5, 120); // 초강력 수급 가속 종목은 이격 제한 120%까지 허용 (오르는 말에 승차)
             }
             
-            let limitRsi = isSafe ? 75 : ((isBullMarket || isStrongBreakout) ? 85 : 78);
+            let limitRsi = isSafe ? 75 : ((isBullMarket || isStrongBreakout) ? 85 : (isMorningSession ? 82 : 78));
             if (isGenuineRally || isCoreSemiconductor) {
-                limitRsi = Math.max(limitRsi, 82); // 상승 랠리 종목은 RSI 한계선 82로 상향
+                limitRsi = Math.max(limitRsi, isMorningSession ? 85 : 82); // 상승 랠리 종목은 RSI 한계선 상향
             }
 
             const isSuperLeader = totalScore >= 70;
@@ -2286,6 +2323,22 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             if (forceRecommend || (isSuperLeader && !isDumping) || (isSupplyGoldenCross && str >= 95 && !isDumping)) {
                 limitDisp5 = 999;
                 limitRsi = 95;
+            }
+
+            // --- 3중 실시간 안전장치 (불트랩 VETO) ---
+            const openPrice = m.openPrice || 0;
+            const highPrice = m.highPrice || 0;
+
+            // 필터 1: 시초가 이탈 보호 (Melt-down 보호)
+            if (!forceRecommend && openPrice > 0 && priceNow < openPrice) {
+                isVetoed = true;
+                vetoReasons.push(`[불트랩 방지] 현재가(${priceNow.toLocaleString()}원)가 시초가(${openPrice.toLocaleString()}원)를 하회 (음봉 전환)`);
+            }
+
+            // 필터 2: 고점 대비 과낙폭 차단 (Anti-trap 보호)
+            if (!forceRecommend && highPrice > 0 && priceNow <= highPrice * 0.975) {
+                isVetoed = true;
+                vetoReasons.push(`[불트랩 방지] 현재가(${priceNow.toLocaleString()}원)가 당일 고점(${highPrice.toLocaleString()}원) 대비 2.5% 이상 하락 (피뢰침 차단)`);
             }
 
             // 실시간 당일 낙폭 VETO 필터 (낙칼 차단기)
@@ -2301,13 +2354,57 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                 
                 let isVetoRebounding = (disp5 < 100) && (disp1 >= 100) && (parseFloat(m.strength) >= 100) && (parseFloat(c.change || m.change || '0') > 0 || !isDumping);
                 
+                // --- 분봉 마이크로 돌파 및 골든크로스 판정 ---
+                let isMicroGoldenCross = false;
+                let isMicroDeadCrossOrBent = false;
+                if (m.chartHistory && Array.isArray(m.chartHistory['1D']) && m.chartHistory['1D'].length >= 16) {
+                    const chart1D = m.chartHistory['1D'];
+                    const len = chart1D.length;
+                    
+                    const wma3 = (chart1D[len - 1].price * 3 + chart1D[len - 2].price * 2 + chart1D[len - 3].price * 1) / 6;
+                    
+                    let wma15Sum = 0;
+                    for (let i = 1; i <= 15; i++) {
+                        wma15Sum += chart1D[len - i].price * (16 - i);
+                    }
+                    const wma15 = wma15Sum / 120;
+                    
+                    const prevWma3 = (chart1D[len - 2].price * 3 + chart1D[len - 3].price * 2 + chart1D[len - 4].price * 1) / 6;
+                    let prevWma15Sum = 0;
+                    for (let i = 1; i <= 15; i++) {
+                        prevWma15Sum += chart1D[len - i - 1].price * (16 - i);
+                    }
+                    const prevWma15 = prevWma15Sum / 120;
+                    
+                    const isCross = (prevWma3 <= prevWma15 && wma3 > wma15);
+                    const isUptrendExtension = (wma3 > wma15 && (wma3 - wma15) > (prevWma3 - prevWma15));
+                    isMicroGoldenCross = isCross || isUptrendExtension;
+
+                    // 필터 3 감지용: 3분 WMA < 15분 WMA (데드크로스) 또는 3분 WMA < 3분 WMA 직전값 (하향 꺾임)
+                    isMicroDeadCrossOrBent = (wma3 < wma15) || (wma3 < prevWma3);
+                }
+
+                // 필터 3: 분봉 데드크로스/꺾임 및 수급 약세 (체결강도 < 95% 및 가속도 < 0) 감지 시 VETO
+                if (!forceRecommend && isMicroDeadCrossOrBent && strengthAcc < 0 && checkStrVal < 95) {
+                    isVetoed = true;
+                    vetoReasons.push(`[불트랩 방지] 분봉 데드크로스/꺾임 감지 및 수급 약세 (체결강도: ${checkStrVal}%, 가속도: ${strengthAcc}%p)`);
+                }
+
                 // Super Leader, 수급 골든크로스(체결강도 지지 필요), 또는 체결강도 가속도 돌입이면서 수급 이탈이 없을 때는 5일선 아래 VETO를 바이패스합니다.
+                // 또한, 분봉 상 마이크로 골든크로스(3분 WMA > 15분 WMA)가 활성화되고 체결강도 가속도가 10%p 이상 폭발하며 volumeRate가 150% 이상일 때도 Bypass 적용
+                const isMicroBreakoutActive = isMicroGoldenCross && (strengthAcc >= 10) && ((m.volumeRate || 100) >= 150) && !isDumping;
+
+                if (isMicroBreakoutActive) {
+                    console.log(`✨ [Bypass Active] ${c.name} (${c.code}) - 분봉 마이크로 돌파 감지(3분WMA > 15분WMA) 및 체결강도 가속도 폭발(+${strengthAcc}%p, volumeRate: ${m.volumeRate}%). 5일선 하향 VETO 적용을 Bypass합니다.`);
+                }
+
                 let shouldBypassTrends = forceRecommend || 
                     (isSuperLeader && !isDumping) || 
                     (isSupplyGoldenCross && str >= 95 && !isDumping) || 
                     (strengthAcc >= 5 && !isDumping) ||
                     (isBullMarket && str >= 105 && !isDumping) ||
-                    (isBullMarket && strengthAcc >= 3 && !isDumping);
+                    (isBullMarket && strengthAcc >= 3 && !isDumping) ||
+                    isMicroBreakoutActive;
 
                 // 안전모드 및 지수 지지선 붕괴 시 모든 기술적 우양향 예외/반등 우회 규칙 원천 박탈
                 // 단, 반도체 대장주 및 수급이 살아있는 진짜 상승 랠리 종목(isGenuineRally)은 실시간 추세 매매를 위해 예외(Bypass)를 허용함
