@@ -1035,15 +1035,15 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                                       <div className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-3 flex items-center gap-1.5">
                                         <span>📊 계량 가중치 분석 (Detail Scores)</span>
                                       </div>
-                                      {renderScoreBar('당일 체결강도', c.scores?.strengthScore || 0, 30)}
-                                      {renderScoreBar('외인/기관 수급', c.scores?.supplyScore || 0, 35)}
+                                      {renderScoreBar('당일 체결강도', c.scores?.strengthScore || 0, 40)}
+                                      {renderScoreBar('외인/기관 수급', c.scores?.supplyScore || 0, 45)}
                                       {renderScoreBar('시장 연동 상대강도', c.scores?.indexRelativeScore || 0, 20)}
                                       {renderScoreBar('이동평균 추세', c.scores?.trendScore || 0, 15)}
                                       {renderScoreBar('당일선 가격 이격도', c.scores?.disparityScore || 0, 15)}
                                       {renderScoreBar('자금 유입 규모', c.scores?.moneyInflowScore || 0, 15)}
                                       {renderScoreBar('외국계 창구 수급', c.scores?.memberTrendScore || 0, 10)}
                                       {renderScoreBar('대형 체결 (블록오더)', c.scores?.largeTradeScore || 0, 8)}
-                                      {renderScoreBar('체결강도 가속도', c.scores?.strengthAccScore || 0, 10)}
+                                      {renderScoreBar('체결강도 가속도', c.scores?.strengthAccScore || 0, 20)}
                                       {c.scores?.financialScore !== undefined && c.scores.financialScore !== 0 && 
                                         renderScoreBar('하락장 재무 안전성', c.scores.financialScore, 20)
                                       }
