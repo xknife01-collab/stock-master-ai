@@ -1037,7 +1037,7 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                                       </div>
                                       {renderScoreBar('당일 체결강도', c.scores?.strengthScore || 0, 40)}
                                       {renderScoreBar('외인/기관 수급', c.scores?.supplyScore || 0, 45)}
-                                      {renderScoreBar('시장 연동 상대강도', c.scores?.indexRelativeScore || 0, 20)}
+                                      {renderScoreBar('시장 연동 상대강도', c.scores?.indexRelativeScore || 0, 30)}
                                       {renderScoreBar('이동평균 추세', c.scores?.trendScore || 0, 15)}
                                       {renderScoreBar('당일선 가격 이격도', c.scores?.disparityScore || 0, 15)}
                                       {renderScoreBar('자금 유입 규모', c.scores?.moneyInflowScore || 0, 15)}

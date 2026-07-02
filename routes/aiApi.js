@@ -2231,19 +2231,20 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                 }
             }
 
-            // 지수 대비 상대 강도 계산 (5점 만점)
+            // 지수 대비 상대 강도 계산 (최대 30점 상향)
             const stockChangePct = parseFloat(c.change || m.change || '0');
             const relativeDailyChange = stockChangePct - indexChangePct;
-            if (relativeDailyChange >= 3.0) relativeIndexScore = 5.0;
-            else if (relativeDailyChange >= 1.5) relativeIndexScore = 3.5;
-            else if (relativeDailyChange >= 0.5) relativeIndexScore = 2.0;
+            if (relativeDailyChange >= 4.0) relativeIndexScore = 10.0;
+            else if (relativeDailyChange >= 2.5) relativeIndexScore = 7.0;
+            else if (relativeDailyChange >= 1.5) relativeIndexScore = 5.0;
+            else if (relativeDailyChange >= 0.5) relativeIndexScore = 3.0;
             else if (relativeDailyChange >= -0.5) relativeIndexScore = 1.0;
-            else relativeIndexScore = -3.0;
+            else relativeIndexScore = -5.0;
 
             if (isMomentumBypass) {
                 relativeIndexScore += 5.0; // 모멘텀 바이패스(기관/외인 수급 돌파주) 상대강도 가산점 부여
             }
-            indexRelativeScore = Math.max(-10, Math.min(25, (gain30mScore + gain60mScore + gain120mScore + accelBonus + relativeIndexScore)));
+            indexRelativeScore = Math.max(-15, Math.min(30, (gain30mScore + gain60mScore + gain120mScore + accelBonus + relativeIndexScore)));
 
             // 6. 하락장(Safe Mode) 동적 가중치 배율 적용 (Option 2)
             if (isSafe) {
@@ -2520,12 +2521,28 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                 }
             }
 
-            // 단기 가격 하락 추세 검출 (30분/1시간 전 대비)
+            // 단기 가격 하락 추세 검출 (칼같이 필터링: 모멘텀 바이패스 및 강제추천 여부와 관계없이 철저히 배제)
             if (m.chartHistory && Array.isArray(m.chartHistory['1D']) && m.chartHistory['1D'].length > 0) {
                 const chart1D = m.chartHistory['1D'];
                 const priceNow = m.price || c.price || 0;
                 const len = chart1D.length;
-                if (len >= 35) {
+
+                // 1) 장 초반 동적 계단식 하락 감지 (10분 이상 데이터가 쌓였을 때 작동)
+                if (len >= 10) {
+                    const stepSize = Math.max(3, Math.min(15, Math.floor(len / 3)));
+                    const priceMid = chart1D[len - 1 - stepSize]?.price || 0;
+                    const priceStart = chart1D[len - 1 - 2 * stepSize]?.price || 0;
+
+                    if (priceMid > 0 && priceStart > 0) {
+                        if (priceNow < priceMid && priceMid < priceStart) {
+                            isVetoed = true;
+                            vetoReasons.push(`[기술적 분석] 단기 주가 계단식 하락 추세 감지 (장중 동적 관측: ${priceStart}원 -> ${priceMid}원 -> ${priceNow}원)`);
+                        }
+                    }
+                }
+
+                // 2) 고정 30분/60분 계단식 하락 및 급락 감지
+                if (len >= 35 && !isVetoed) {
                     const price30m = chart1D[len - 30]?.price || 0;
                     const price60m = len >= 65 ? (chart1D[len - 60]?.price || 0) : (chart1D[0]?.price || 0);
                     
@@ -3008,10 +3025,10 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                         c.vetoReason.includes('이격도') || 
                         c.vetoReason.includes('RSI') || 
                         c.vetoReason.includes('쌍끌이')
-                    ) && !c.vetoReason.includes('ROE') && !c.vetoReason.includes('손실') && !c.vetoReason.includes('부채') && !c.vetoReason.includes('체결강도');
+                    ) && !c.vetoReason.includes('ROE') && !c.vetoReason.includes('손실') && !c.vetoReason.includes('부채') && !c.vetoReason.includes('체결강도') && !c.vetoReason.includes('계단식 하락') && !c.vetoReason.includes('급락') && !c.vetoReason.includes('VWAP');
                     
                     if (isSafe || isIndexSupportBroken) {
-                        if (c.vetoReason.includes('5일선 아래') || c.vetoReason.includes('낙칼') || c.vetoReason.includes('급락')) {
+                        if (c.vetoReason.includes('5일선 아래') || c.vetoReason.includes('낙칼') || c.vetoReason.includes('급락') || c.vetoReason.includes('계단식 하락') || c.vetoReason.includes('VWAP')) {
                             onlyTechVeto = false;
                         }
                     }
@@ -3323,7 +3340,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
 
         [실시간 시장 포착 후보 종목 및 퀀트 점수표 (적용 모드: ${isSafe ? '하락장 재무방어 모드 🛡️' : '상승장 모멘텀 모드 🚀'})]
         아래 후보들은 상한선이 없는 상대 점수(Unbounded Relative Score)를 기준으로 정렬되어 있습니다.
-        기본 점수(체결강도 40점, 수급 45점, 지수 상대강도 25점, 이격도 15점, 공매도 5점)에 개별 종목의 10만 원 기준 환산 자금 유입 가산점(최대 15점) 및 정배열 추세 가산점(+15점 / 역배열 -15점), 체결가속도 가산점(최대 20점)이 반영되어 총점이 100점을 돌파할 수 있습니다.
+        기본 점수(체결강도 40점, 수급 45점, 지수 상대강도 30점, 이격도 15점, 공매도 5점)에 개별 종목의 10만 원 기준 환산 자금 유입 가산점(최대 15점) 및 정배열 추세 가산점(+15점 / 역배열 -15점), 체결가속도 가산점(최대 20점)이 반영되어 총점이 100점을 돌파할 수 있습니다.
         종합점수가 90~100점 이상인 종목은 수급, 단기 가격 속도, 거래 강도 모두에서 시장을 압도하는 초강세 주도주이므로 최우선 추천 대상(TOP PICK)으로 적극 고려해야 합니다.
         ${scoredCandidatesCtx}
 
