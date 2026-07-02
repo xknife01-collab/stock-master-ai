@@ -25,9 +25,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // --- Cron Jobs ---
-// 1. 장중 시간(KST 09:00 - 15:50) 월~금요일 매 10분마다 Pulse 실행 (AI 시장 분석)
-// 서버의 로컬 타임존 설정에 영향을 받지 않도록 Asia/Seoul 타임존을 명시적으로 지정하여 스케줄링합니다.
-cron.schedule('*/10 9-15 * * 1-5', async () => {
+// 1. 장중 시간(KST 09:15 - 15:30) 월~금요일 매 15분/30분마다 Pulse 실행 (AI 시장 분석)
+const runCronPulse = async () => {
     console.log('⏰ [Cron] 장중 시간(KST) - Pulse 자동 실행 시작...');
     try {
         await executeHourlyPulse();
@@ -35,10 +34,14 @@ cron.schedule('*/10 9-15 * * 1-5', async () => {
     } catch (e) {
         console.error('❌ [Cron] Pulse 자동 실행 실패:', e.message);
     }
-}, {
-    scheduled: true,
-    timezone: "Asia/Seoul"
-});
+};
+
+// 골든아워 (오전 09:15 ~ 10:30 KST) 매 15분 실행
+cron.schedule('15,30,45 9 * * 1-5', runCronPulse, { scheduled: true, timezone: "Asia/Seoul" });
+cron.schedule('0,15,30 10 * * 1-5', runCronPulse, { scheduled: true, timezone: "Asia/Seoul" });
+
+// 일반 시간 (오전 11:00 ~ 오후 15:30 KST) 매 30분 실행
+cron.schedule('0,30 11-15 * * 1-5', runCronPulse, { scheduled: true, timezone: "Asia/Seoul" });
 
 // Middleware
 app.use(cors({
