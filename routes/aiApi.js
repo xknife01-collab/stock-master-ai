@@ -1729,6 +1729,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                         const row = syncResult;
                         metricsMap[c.code] = {
                             price: row.fundamental?.price || 0,
+                            marketCap: row.fundamental?.marketCap || 0, // 시가총액 추가
                             disparity1: parseNum(row.advanced?.disparity1, 100),
                             disparity5: parseNum(row.advanced?.disparity5, 100),
                             disparity20: parseNum(row.advanced?.disparity20, 100),
@@ -1811,6 +1812,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                     
                     metricsMap[symbol] = {
                         price: staleRow.fundamental?.price || 0,
+                        marketCap: staleRow.fundamental?.marketCap || 0, // 시가총액 추가
                         disparity1: parseNum(staleRow.advanced?.disparity1, 100),
                         disparity5: parseNum(staleRow.advanced?.disparity5, 100),
                         disparity20: parseNum(staleRow.advanced?.disparity20, 100),
@@ -1857,6 +1859,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                     
                     metricsMap[symbol] = {
                         price: c.price || 0,
+                        marketCap: 0, // 디폴트 시가총액
                         disparity1: 100,
                         disparity5: 100,
                         disparity20: 100,
@@ -1988,7 +1991,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
 
         // 각 종목별 100점 만점 퀀트 스코어 계산 및 상세 점수표 구축
         const scoredCandidates = candidatePool.map(c => {
-            const m = metricsMap[c.code] || { price: c.price, disparity5: 100, disparity20: 100, strength: 100, shortRatio: 0, investor1D: { foreign: 0, organ: 0, personal: 0 }, investor5D: { foreign: 0, organ: 0, personal: 0 }, investorMoney5D: { foreign: 0, organ: 0, personal: 0 }, transactionValue: 0, prevTransactionValue: 0, volumeRate: 100, creditBalance: 0, sector: '기타' };
+            const m = metricsMap[c.code] || { price: c.price, marketCap: 0, disparity5: 100, disparity20: 100, strength: 100, shortRatio: 0, investor1D: { foreign: 0, organ: 0, personal: 0 }, investor5D: { foreign: 0, organ: 0, personal: 0 }, investorMoney5D: { foreign: 0, organ: 0, personal: 0 }, transactionValue: 0, prevTransactionValue: 0, volumeRate: 100, creditBalance: 0, sector: '기타' };
             
             // Sync with 2-minute real-time index dashboard data if available
             const realTimeStock = activeDashboard?.topStocks?.flat()?.find(s => s.s === c.code);
@@ -2030,6 +2033,13 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             // 3. 초소형/저유동성 VETO (당일 거래대금 10억원 미만)
             if (!forceRecommend && txVal < 1000000000) {
                 console.log(`🛡️ [저유동성 VETO 필터링 제외] ${c.name} (${c.code}) - 거래대금: ${(txVal / 100000000).toFixed(2)}억원 (기준: 10억원 미만)`);
+                return null;
+            }
+
+            // 3.5. 시가총액 하한 VETO (시가총액 700억 미만)
+            const marketCapEok = m.marketCap || 0;
+            if (!forceRecommend && marketCapEok > 0 && marketCapEok < 700) {
+                console.log(`🛡️ [시가총액 VETO 필터링 제외] ${c.name} (${c.code}) - 시가총액: ${marketCapEok}억원 (기준: 700억원 미만)`);
                 return null;
             }
 
@@ -2340,6 +2350,13 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             if (isHighDisparityZone && isDumping) {
                 isVetoed = true;
                 vetoReasons.push(`[수급 분석] 고이격 상태에서 외인/기관 순매도(설거지) 감지 (5일 이격도: ${disp5}%, 외인: ${inv1D.foreign}, 기관: ${inv1D.organ})`);
+            }
+
+            // 개미지옥 VETO (쌍끌이 매도 + 개인 순매수 집중)
+            const isAntHell = inv1D.foreign < 0 && inv1D.organ < 0 && inv1D.personal > 0;
+            if (!forceRecommend && isAntHell) {
+                isVetoed = true;
+                vetoReasons.push(`[수급 분석] 개미지옥 감지 (외인/기관 쌍끌이 순매도 및 개인 순매수 집중: 외인 ${inv1D.foreign.toLocaleString()}주, 기관 ${inv1D.organ.toLocaleString()}주, 개인 ${inv1D.personal.toLocaleString()}주)`);
             }
 
             // 상승장, 강제 추천, 또는 강력한 쌍끌이 돌파/정배열 우상향 시 기술적 제한 임계값 완화
