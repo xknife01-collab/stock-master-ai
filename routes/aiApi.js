@@ -3286,10 +3286,10 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             const normalizedTxValEok = (txVal * (100000 / (priceNow || 1))) / 100000000;
 
             return `[${idx + 1}위] ${c.name} (${c.code})${excludeBadge}${intradayVetoBadge}${fitTagText}${antHellBadge}${penaltyBadge}${integrityBadge}${spikeBadge}${inflectionBadge} - 퀀트 종합점수: ${c.totalScore}점 (상한선이 없는 상대강도 점수)
-    - [5일 이격도] 수치: ${c.metrics.disparity5}% / [1일 이격도] 수치: ${c.metrics.disparity1}% ➡️ 점수: ${c.scores.disparityScore}점 / 10점
+    - [5일 이격도] 수치: ${c.metrics.disparity5}% / [1일 이격도] 수치: ${c.metrics.disparity1}% ➡️ 점수: ${c.scores.disparityScore}점 / 15점
     - [체결강도] 수치: ${c.metrics.strength}% ➡️ 점수: ${c.scores.strengthScore}점 / ${isSafe ? 20 : 40}점
     - [체결강도 가속도] 수치: ${c.metrics.strengthAcceleration > 0 ? '+' : ''}${c.metrics.strengthAcceleration}%p ➡️ 점수: ${c.scores.strengthAccScore || 0}점 / 20점
-    - [지수 연동 & 상대 강도] ➡️ 점수: ${c.scores.indexRelativeScore}점 / ${isSafe ? 10 : 20}점
+    - [지수 연동 & 상대 강도] ➡️ 점수: ${c.scores.indexRelativeScore}점 / ${isSafe ? 15 : 30}점
     - [추세 점수(정배열)] 상태: ${c.metrics.maAlignment || '혼조세'} ➡️ 점수: ${c.scores.trendScore}점 / 15점 (정배열 시 +15점, 역배열 시 -15점)
     - [환산 자금 유입 가산점] 10만 원 환산 거래대금: ${normalizedTxValEok.toFixed(1)}억 원 ➡️ 점수: ${c.scores.moneyInflowScore || 0}점 / 15점 (10만 원 단가 환산 거래량 급증 보너스)
     - [공매도 비중] 수치: ${c.metrics.shortRatio}% ➡️ 점수: ${c.scores.shortScore}점 / 5점
