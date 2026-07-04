@@ -253,20 +253,23 @@ const saveRagDiary = async (news, signal) => {
 };
 
 
-const getAiCache = async (currentTenMinKey = null) => {
-    // 1. 만약 로컬 캐시가 존재하고, 우리가 찾는 tenMinKey가 이미 들어있다면 즉시 로컬 캐시 반환 (속도 극대화 & 레이스 컨디션 방지)
-    if (currentTenMinKey && fs.existsSync(aiCachePath)) {
+const getAiCache = async (pulseKey = null) => {
+    // 1. 로컬 캐시 파일이 존재하면 우선적으로 확인 (속도 극대화 & 네트워크 병목 제거)
+    if (fs.existsSync(aiCachePath)) {
         try {
             const localCache = JSON.parse(fs.readFileSync(aiCachePath, 'utf8'));
-            if (localCache && localCache.tenMinKey === currentTenMinKey && localCache.pulse) {
-                return localCache;
+            if (localCache && localCache.pulse) {
+                // 키가 매치되거나, 키를 전달받지 않았거나, 장외 시간인 경우에는 Supabase를 생략하고 즉시 로컬 캐시 사용
+                if (!pulseKey || localCache.pulseKey === pulseKey || localCache.tenMinKey === pulseKey || !isMarketOpen()) {
+                    return localCache;
+                }
             }
         } catch (e) {
             console.error('Error reading local cache early check:', e.message);
         }
     }
 
-    // 2. Supabase 클라우드 캐시 조회 우선 (서버리스 환경 대비)
+    // 2. Supabase 클라우드 캐시 조회 (서버리스 첫 기동 혹은 신규 펄스 캐시 동기화용)
     if (supabase) {
         try {
             const { data, error } = await supabase
@@ -287,7 +290,7 @@ const getAiCache = async (currentTenMinKey = null) => {
         }
     }
 
-    // 3. 클라우드 조회 실패 시 로컬 파일 폴백
+    // 3. 클라우드 조회 실패 시 로컬 파일 최종 폴백
     if (fs.existsSync(aiCachePath)) {
         try {
             return JSON.parse(fs.readFileSync(aiCachePath, 'utf8'));
@@ -299,12 +302,17 @@ const getAiCache = async (currentTenMinKey = null) => {
     return { signal: null, hourKey: null };
 };
 
-const saveAiCache = (pulseData, halfHourKey, tenMinKey, savedTime = null) => {
+const saveAiCache = (pulseData, halfHourKey, tenMinKey = null, savedTime = null) => {
     let dataToSave = pulseData.data || pulseData.signal || pulseData.prediction || pulseData;
     if (dataToSave.pulse) dataToSave = dataToSave.pulse;
     if (dataToSave.data) dataToSave = dataToSave.data;
     
     let finalSavedTime = savedTime;
+    // tenMinKey나 savedTime 변수에 날짜/시간 포맷(예: "07.04 09:15")이 들어온 경우 처리
+    if (!finalSavedTime && typeof tenMinKey === 'string' && tenMinKey.includes(':') && !tenMinKey.includes('-')) {
+        finalSavedTime = tenMinKey;
+    }
+    
     if (!finalSavedTime) {
         const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000);
         const dateStr = `${String(nowKst.getUTCMonth() + 1).padStart(2, '0')}.${String(nowKst.getUTCDate()).padStart(2, '0')}`;
@@ -314,8 +322,9 @@ const saveAiCache = (pulseData, halfHourKey, tenMinKey, savedTime = null) => {
     
     const cacheObj = { 
         pulse: dataToSave, 
+        pulseKey: halfHourKey,
         halfHourKey, 
-        tenMinKey, 
+        tenMinKey: halfHourKey, 
         hourKey: halfHourKey, // 하위 호환성 유지
         savedTime: finalSavedTime 
     };
@@ -323,7 +332,7 @@ const saveAiCache = (pulseData, halfHourKey, tenMinKey, savedTime = null) => {
     
     try {
         fs.writeFileSync(aiCachePath, jsonStr, 'utf8');
-        console.log(`💾 [Cache] AI 분석 캐시 저장 완료 (HalfHourKey: ${halfHourKey}, TenMinKey: ${tenMinKey}, SavedTime: ${finalSavedTime})`);
+        console.log(`💾 [Cache] AI 분석 캐시 저장 완료 (PulseKey: ${halfHourKey}, SavedTime: ${finalSavedTime})`);
     } catch (e) {
         console.error('❌ Local cache write failed:', e.message);
     }
@@ -945,27 +954,80 @@ export const isMarketOpen = () => {
 };
 
 // --- Pulse Logic (Extracted for Cron) ---
+export const getScheduledPulseInfo = (nowKst) => {
+    const year = nowKst.getUTCFullYear();
+    const month = nowKst.getUTCMonth() + 1;
+    const date = nowKst.getUTCDate();
+    const hour = nowKst.getUTCHours();
+    const minutes = nowKst.getUTCMinutes();
+    
+    const timeVal = hour * 60 + minutes;
+    
+    // KST 기준 거래 일정 스케줄 목록 (분 단위)
+    const schedules = [
+        555, // 09:15
+        570, // 09:30
+        585, // 09:45
+        600, // 10:00
+        615, // 10:15
+        630, // 10:30
+        660, // 11:00
+        690, // 11:30
+        720, // 12:00
+        750, // 12:30
+        780, // 13:00
+        810, // 13:30
+        840, // 14:00
+        870, // 14:30
+        900, // 15:00
+        930  // 15:30
+    ];
+    
+    // 현재 시각보다 작거나 같은 가장 최근 스케줄 조회
+    let lastSchedule = null;
+    for (let i = schedules.length - 1; i >= 0; i--) {
+        if (schedules[i] <= timeVal) {
+            lastSchedule = schedules[i];
+            break;
+        }
+    }
+    
+    let pulseKeyTime = "";
+    let isBeforeFirstPulse = false;
+    let targetDateStr = `${year}-${month}-${date}`;
+    
+    if (lastSchedule === null) {
+        // 첫 펄스 시각인 09:15 이전에는 전일의 마지막 펄스(15:30) 키로 매핑
+        isBeforeFirstPulse = true;
+        const prevDay = new Date(nowKst.getTime() - 24 * 60 * 60 * 1000);
+        targetDateStr = `${prevDay.getUTCFullYear()}-${prevDay.getUTCMonth() + 1}-${prevDay.getUTCDate()}`;
+        pulseKeyTime = "15:30";
+    } else {
+        const h = Math.floor(lastSchedule / 60);
+        const m = lastSchedule % 60;
+        pulseKeyTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
+    
+    const pulseKey = `${targetDateStr}-${pulseKeyTime}`;
+    const mmStr = String(month).padStart(2, '0');
+    const ddStr = String(date).padStart(2, '0');
+    const displayTime = isBeforeFirstPulse ? "" : `${mmStr}.${ddStr} ${pulseKeyTime}`;
+    
+    return {
+        pulseKey,
+        displayTime,
+        isBeforeFirstPulse,
+        pulseKeyTime
+    };
+};
+
+// --- Pulse Logic (Extracted for Cron) ---
 export const executeHourlyPulse = async (force = false) => {
     // 한국 시간(KST) 강제 보정
     const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
-    const hour = now.getUTCHours();
-    const minutes = now.getUTCMinutes();
+    const { pulseKey, displayTime, isBeforeFirstPulse } = getScheduledPulseInfo(now);
     
-    // 오전 09:00 ~ 10:30 KST 골든아워에는 15분 간격, 그 외에는 30분 간격으로 캐시 제어
-    const isMorning = (hour === 9 || (hour === 10 && minutes < 30));
-    let currentHalfHourKey;
-    if (isMorning) {
-        const current15Minute = Math.floor(minutes / 15) * 15;
-        currentHalfHourKey = `${now.getUTCFullYear()}-${now.getUTCMonth()+1}-${now.getUTCDate()}-${hour}-${current15Minute.toString().padStart(2, '0')}`;
-    } else {
-        const currentHalfHour = minutes < 30 ? '00' : '30';
-        currentHalfHourKey = `${now.getUTCFullYear()}-${now.getUTCMonth()+1}-${now.getUTCDate()}-${hour}-${currentHalfHour}`;
-    }
-    
-    const currentTenMinute = Math.floor(minutes / 10) * 10;
-    const currentTenMinKey = `${now.getUTCFullYear()}-${now.getUTCMonth()+1}-${now.getUTCDate()}-${hour}-${currentTenMinute.toString().padStart(2, '0')}`;
-    
-    const timeStr = hour.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0');
+    const timeStr = displayTime || (now.getUTCHours().toString().padStart(2, '0') + ':' + now.getUTCMinutes().toString().padStart(2, '0'));
 
     // 1. 이미 진행 중인 작업이 있으면 해당 약속 반환
     if (fetchingAiSignalPromise) {
@@ -973,8 +1035,9 @@ export const executeHourlyPulse = async (force = false) => {
         return await fetchingAiSignalPromise;
     }
 
-    const cache = await getAiCache(currentTenMinKey);
-    const marketOpen = isMarketOpen();
+    const cache = await getAiCache(pulseKey);
+    // 09:15 이전 시간대인 경우에는 장 운영 시간 외로 간주하여 캐시 제공만 활성화
+    const marketOpen = !isBeforeFirstPulse && isMarketOpen();
 
     // 2. 장외 시간 및 캐시 확인 (장외 시간이고 캐시가 없으면 diary에서 복구하여 즉각 제공)
     if (!force && !marketOpen) {
@@ -999,7 +1062,7 @@ export const executeHourlyPulse = async (force = false) => {
                     const min = String(kst.getUTCMinutes()).padStart(2, '0');
                     savedTime = `${mm}.${dd} ${hh}:${min}`;
                 }
-                saveAiCache({ pulse: { data: pulseData } }, currentHalfHourKey, currentTenMinKey, savedTime);
+                saveAiCache({ pulse: { data: pulseData } }, pulseKey, savedTime);
             }
         }
 
@@ -1008,15 +1071,15 @@ export const executeHourlyPulse = async (force = false) => {
             await refreshRecommendedPrices(pulseData);
             cleanSignal(pulseData);
             
-            // 기존 캐시에 savedTime이 없을 경우 hourKey/halfHourKey에서 파싱
-            if (!savedTime && cache && (cache.halfHourKey || cache.hourKey)) {
-                const parts = (cache.halfHourKey || cache.hourKey).split('-');
-                if (parts.length >= 5) {
+            // 기존 캐시에 savedTime이 없을 경우 pulseKey/hourKey/halfHourKey에서 파싱
+            if (!savedTime && cache && (cache.pulseKey || cache.halfHourKey || cache.hourKey)) {
+                const keyToUse = cache.pulseKey || cache.halfHourKey || cache.hourKey;
+                const parts = keyToUse.split('-');
+                if (parts.length >= 4) {
                     const mm = parts[1].padStart(2, '0');
                     const dd = parts[2].padStart(2, '0');
-                    const hh = parts[3].padStart(2, '0');
-                    const min = parts[4].padStart(2, '0');
-                    savedTime = `${mm}.${dd} ${hh}:${min}`;
+                    const timePart = parts[3]; // e.g. "09:15"
+                    savedTime = `${mm}.${dd} ${timePart}`;
                 }
             }
             
@@ -1028,22 +1091,21 @@ export const executeHourlyPulse = async (force = false) => {
         }
     }
 
-    // 3. 캐시 확인 (10분 단위로 캐시 체크!)
-    if (!force && cache && cache.tenMinKey === currentTenMinKey && cache.pulse) {
-        console.log(`✅ [Pulse] 이번 10분 주기(${currentTenMinKey})의 분석 결과가 이미 존재하여 캐시를 사용합니다.`);
+    // 3. 캐시 확인 (스케줄 기반 pulseKey 검사!)
+    if (!force && cache && (cache.pulseKey === pulseKey || cache.tenMinKey === pulseKey) && cache.pulse) {
+        console.log(`✅ [Pulse] 이번 스케줄 주기(${pulseKey})의 분석 결과가 이미 존재하여 캐시를 사용합니다.`);
         let pulseData = cache.pulse.data || cache.pulse;
         await refreshRecommendedPrices(pulseData);
         cleanSignal(pulseData);
         
         let savedTime = cache.savedTime;
-        if (!savedTime && cache.tenMinKey) {
-            const parts = cache.tenMinKey.split('-');
-            if (parts.length >= 5) {
+        if (!savedTime) {
+            const parts = pulseKey.split('-');
+            if (parts.length >= 4) {
                 const mm = parts[1].padStart(2, '0');
                 const dd = parts[2].padStart(2, '0');
-                const hh = parts[3].padStart(2, '0');
-                const min = parts[4].padStart(2, '0');
-                savedTime = `${mm}.${dd} ${hh}:${min}`;
+                const timePart = parts[3];
+                savedTime = `${mm}.${dd} ${timePart}`;
             }
         }
         
@@ -1058,7 +1120,7 @@ export const executeHourlyPulse = async (force = false) => {
     fetchingAiSignalPromise = (async () => {
         try {
             setRealtimeTaskActive(true);
-            const result = await _executeHourlyPulseInternal(currentHalfHourKey, currentTenMinKey, timeStr, cache, force);
+            const result = await _executeHourlyPulseInternal(pulseKey, pulseKey, timeStr, cache, force);
             return {
                 ...result,
                 marketOpen: true

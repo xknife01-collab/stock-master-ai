@@ -13,10 +13,18 @@ const ConditionSearch = ({ onOpenPopup, conditionAlerts }) => {
     fetch(`${API_URL}/api/condition-list`)
       .then(res => res.json())
       .then(data => {
-        setConditionList(data);
-        if (data.length > 0) setSelectedCondSeq(data[0].seq);
+        if (Array.isArray(data)) {
+          setConditionList(data);
+          if (data.length > 0) setSelectedCondSeq(data[0].seq);
+        } else {
+          console.error('Condition list is not an array:', data);
+          setConditionList([]);
+        }
       })
-      .catch(e => console.error('Condition list load fail', e));
+      .catch(e => {
+        console.error('Condition list load fail', e);
+        setConditionList([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -24,8 +32,18 @@ const ConditionSearch = ({ onOpenPopup, conditionAlerts }) => {
     setLoadingCondition(true);
     fetch(`${API_URL}/api/condition-search/${selectedCondSeq}`)
       .then(res => res.json())
-      .then(data => setConditionStocks(data))
-      .catch(e => console.error('Condition search fail', e))
+      .then(data => {
+        if (Array.isArray(data)) {
+          setConditionStocks(data);
+        } else {
+          console.error('Condition search result is not an array:', data);
+          setConditionStocks([]);
+        }
+      })
+      .catch(e => {
+        console.error('Condition search fail', e);
+        setConditionStocks([]);
+      })
       .finally(() => setLoadingCondition(false));
   }, [selectedCondSeq]);
 

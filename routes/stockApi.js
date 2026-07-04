@@ -12,6 +12,20 @@ const CACHE_TTL = 60000; // 1분
 
 const pendingHistoryPromises = new Map();
 
+const isMarketOpen = () => {
+    const now = new Date(Date.now() + 9 * 60 * 60 * 1000); // KST
+    const day = now.getUTCDay();
+    const hour = now.getUTCHours();
+    const min = now.getUTCMinutes();
+    
+    // 주말 제외 (토: 6, 일: 0)
+    if (day === 0 || day === 6) return false;
+    
+    // 장중 시간 (09:00 ~ 15:30)
+    const timeVal = hour * 100 + min;
+    return (timeVal >= 900 && timeVal <= 1530);
+};
+
 const generateMockChart = (basePrice, rangeType) => {
     let pointCount = 30;
     let step = 1;
@@ -91,9 +105,9 @@ router.get('/:symbol', async (req, res) => {
             if (!error && data && data.fundamental) {
                 cachedData = data;
                 
-                // 1분 이내의 캐시 데이터라면 실시간 호출 없이 즉시 반환 (0.1초 반응)
+                // 1분 이내의 캐시 데이터라면 실시간 호출 없이 즉시 반환 (0.1초 반응), 장중에만 백그라운드 갱신
                 const ageMs = Date.now() - new Date(data.updated_at).getTime();
-                if (ageMs > 60000) {
+                if (ageMs > 60000 && isMarketOpen()) {
                     // 1분 이상 지난 오래된 캐시인 경우, 백그라운드에서 비동기로 KIS와 동기화 수행
                     console.log(`🔄 [Price API - Stale While Revalidate] Price cache is stale (${(ageMs/1000).toFixed(1)}s old) for ${symbol}. Triggering background refresh...`);
                     syncSingleStock(symbol).catch(err => {
@@ -116,6 +130,16 @@ router.get('/:symbol', async (req, res) => {
 
     // 1-2. 캐시 미스인 경우 동기식으로 KIS에서 가져와 Supabase에 저장 후 반환
     try {
+        if (!isMarketOpen() && cachedData && cachedData.fundamental) {
+            return res.json({
+                name: cachedData.fundamental.name || symbol,
+                price: parseFloat(cachedData.fundamental.price) || 0,
+                change: parseFloat(cachedData.fundamental.change) || 0,
+                high: parseFloat(cachedData.fundamental.high) || 0,
+                low: parseFloat(cachedData.fundamental.low) || 0,
+                volume: parseFloat(cachedData.fundamental.volume) || 0
+            });
+        }
         console.log(`📡 [On-Demand Price] No cache found. Fetching fresh details for: ${symbol}`);
         const freshData = await syncSingleStock(symbol);
         if (freshData && freshData.fundamental) {
@@ -306,6 +330,11 @@ router.get('/history/:symbol', async (req, res) => {
                     }
                 }
 
+                // 시장이 닫혀있으면 캐시를 무조건 최신으로 인정 (불필요한 KIS 호출 원천 차단)
+                if (!isMarketOpen()) {
+                    isStale = false;
+                }
+
                 if (isStale) {
                     console.log(`🔄 [History API] ${range} chart is stale (or forced) for ${targetSymbol}.`);
                     if (range === '1D') {
@@ -437,13 +466,17 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
             }
         }
 
-        const isCacheValid = !force && 
+        // 시장이 닫혀 있으면 force=true를 무시하여 무의미한 실시간 호출 차단
+        const effectiveForce = force && isMarketOpen();
+
+        const isCacheValid = (!effectiveForce && 
                              cachedData && 
                              cachedData.fundamental && 
                              cachedData.advanced && 
                              cachedData.advanced.transactionValue !== undefined && 
                              cachedData.advanced.transactionValue !== null && 
-                             cachedData.advanced.transactionValue !== 0;
+                             cachedData.advanced.transactionValue !== 0) ||
+                             (!isMarketOpen() && cachedData && cachedData.fundamental && cachedData.advanced);
 
         if (isCacheValid) {
             registerActiveSymbol(symbol);
@@ -451,7 +484,7 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
             const ageMs = Date.now() - new Date(cachedData.updated_at).getTime();
             const isFresh = ageMs < 15 * 60 * 1000;
             
-            if (!isFresh) {
+            if (!isFresh && isMarketOpen()) {
                 // 캐시가 만료되었더라도 지연 발생 차단을 위해 즉각 기존 데이터를 리턴하고, 백그라운드 비동기로 캐시 갱신
                 console.log(`🔄 [Stale-While-Revalidate] Cache stale (${(ageMs/60000).toFixed(1)}m old) for ${symbol}. Triggering background refresh...`);
                 syncSingleStock(symbol).catch(err => {
@@ -466,16 +499,30 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
             return res.json({ fundamental });
         }
 
-        // 3-2. 캐시가 아예 없을 때에만 동기식 갱신 (첫 등록 대기용)
-        console.log(`📡 [On-Demand Detail] No cache or invalid cache found. Fetching fresh details for: ${symbol}`);
-        const freshData = await syncSingleStock(symbol);
-        
-        if (freshData && freshData.fundamental && freshData.advanced) {
-            registerActiveSymbol(symbol);
+        // 3-2. 캐시가 없거나 유효하지 않은 경우 동기식으로 가져오되, 실패 시 낡은 캐시라도 사용
+        try {
+            console.log(`📡 [On-Demand Detail] No cache or invalid cache found. Fetching fresh details for: ${symbol}`);
+            const freshData = await syncSingleStock(symbol);
+            
+            if (freshData && freshData.fundamental && freshData.advanced) {
+                registerActiveSymbol(symbol);
 
+                const fundamental = {
+                    ...freshData.fundamental,
+                    advanced: freshData.advanced
+                };
+                return res.json({ fundamental });
+            }
+        } catch (syncErr) {
+            console.error(`⚠️ [On-Demand Detail Sync Failed] ${symbol}:`, syncErr.message);
+        }
+
+        // KIS API 호출에 실패했을 때, 낡은 캐시 데이터가 있으면 폴백 반환 (매우 중요)
+        if (cachedData && cachedData.fundamental && cachedData.advanced) {
+            console.log(`⚡ [Detail API Fallback] Serving cached detail due to KIS sync failure for: ${symbol}`);
             const fundamental = {
-                ...freshData.fundamental,
-                advanced: freshData.advanced
+                ...cachedData.fundamental,
+                advanced: cachedData.advanced
             };
             return res.json({ fundamental });
         }
