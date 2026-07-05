@@ -465,7 +465,7 @@ const StockPopup = ({ item, onClose }) => {
                           <div className="flex justify-between text-[10px] font-black mb-1">
                             <span className="text-gray-600">🔴 외국인</span>
                             <span className={`font-mono ${fVal >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                              {fVal > 0 ? '+' : ''}{fVal.toLocaleString()}주
+                              {fVal > 0 ? '+' : ''}{fVal.toLocaleString()}주 (당일)
                             </span>
                           </div>
                           <div className="h-3 w-full bg-gray-200/50 rounded-full overflow-hidden relative flex">
@@ -477,7 +477,7 @@ const StockPopup = ({ item, onClose }) => {
                             )}
                           </div>
                           <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right flex justify-between items-center">
-                            <span>5일 누적 순매수 금액: <strong className={stockDetail.advanced.investor.foreignMoney5D >= 0 ? 'text-red-500' : 'text-blue-500'}>{stockDetail.advanced.investor.foreignMoney5D !== undefined ? `${stockDetail.advanced.investor.foreignMoney5D > 0 ? '+' : ''}${stockDetail.advanced.investor.foreignMoney5D}억원` : '정보 없음'}</strong></span>
+                            <span>[5일 누적] <strong className={stockDetail.advanced.investor.foreignMoney5D >= 0 ? 'text-red-500' : 'text-blue-500'}>{stockDetail.advanced.investor.foreignMoney5D !== undefined ? `${stockDetail.advanced.investor.foreignMoney5D > 0 ? '+' : ''}${stockDetail.advanced.investor.foreignMoney5D}억원` : '정보 없음'}</strong></span>
                             <span>외인 {stockDetail.advanced.investor.foreignConsecutiveDays}일 연속 순매수{stockDetail.advanced.investor.foreignConsecutiveVolume > 0 && ` (총 ${stockDetail.advanced.investor.foreignConsecutiveVolume.toLocaleString()}주)`}</span>
                           </div>
                         </div>
@@ -486,7 +486,7 @@ const StockPopup = ({ item, onClose }) => {
                           <div className="flex justify-between text-[10px] font-black mb-1">
                             <span className="text-gray-600">🔵 기관</span>
                             <span className={`font-mono ${oVal >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                              {oVal > 0 ? '+' : ''}{oVal.toLocaleString()}주
+                              {oVal > 0 ? '+' : ''}{oVal.toLocaleString()}주 (당일)
                             </span>
                           </div>
                           <div className="h-3 w-full bg-gray-200/50 rounded-full overflow-hidden relative flex">
@@ -498,7 +498,7 @@ const StockPopup = ({ item, onClose }) => {
                             )}
                           </div>
                           <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right flex justify-between items-center">
-                            <span>5일 누적 순매수 금액: <strong className={stockDetail.advanced.investor.organMoney5D >= 0 ? 'text-red-500' : 'text-blue-500'}>{stockDetail.advanced.investor.organMoney5D !== undefined ? `${stockDetail.advanced.investor.organMoney5D > 0 ? '+' : ''}${stockDetail.advanced.investor.organMoney5D}억원` : '정보 없음'}</strong></span>
+                            <span>[5일 누적] <strong className={stockDetail.advanced.investor.organMoney5D >= 0 ? 'text-red-500' : 'text-blue-500'}>{stockDetail.advanced.investor.organMoney5D !== undefined ? `${stockDetail.advanced.investor.organMoney5D > 0 ? '+' : ''}${stockDetail.advanced.investor.organMoney5D}억원` : '정보 없음'}</strong></span>
                             <span>기관 {stockDetail.advanced.investor.organConsecutiveDays}일 연속 순매수{stockDetail.advanced.investor.organConsecutiveVolume > 0 && ` (총 ${stockDetail.advanced.investor.organConsecutiveVolume.toLocaleString()}주)`}</span>
                           </div>
                         </div>
@@ -507,7 +507,7 @@ const StockPopup = ({ item, onClose }) => {
                           <div className="flex justify-between text-[10px] font-black mb-1">
                             <span className="text-gray-600">🟢 개인(개미)</span>
                             <span className={`font-mono ${pVal >= 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                              {pVal > 0 ? '+' : ''}{pVal.toLocaleString()}주
+                              {pVal > 0 ? '+' : ''}{pVal.toLocaleString()}주 (당일)
                             </span>
                           </div>
                           <div className="h-3 w-full bg-gray-200/50 rounded-full overflow-hidden relative flex">
@@ -519,7 +519,7 @@ const StockPopup = ({ item, onClose }) => {
                             )}
                           </div>
                           <div className="text-[8px] text-gray-400 font-bold mt-0.5 text-right flex justify-between items-center">
-                            <span>5일 누적 순매수 금액: <strong className={stockDetail.advanced.investor.personalMoney5D >= 0 ? 'text-red-500' : 'text-blue-500'}>{stockDetail.advanced.investor.personalMoney5D !== undefined ? `${stockDetail.advanced.investor.personalMoney5D > 0 ? '+' : ''}${stockDetail.advanced.investor.personalMoney5D}억원` : '정보 없음'}</strong></span>
+                            <span>[5일 누적] <strong className={stockDetail.advanced.investor.personalMoney5D >= 0 ? 'text-red-500' : 'text-blue-500'}>{stockDetail.advanced.investor.personalMoney5D !== undefined ? `${stockDetail.advanced.investor.personalMoney5D > 0 ? '+' : ''}${stockDetail.advanced.investor.personalMoney5D}억원` : '정보 없음'}</strong></span>
                             <span>개인 {stockDetail.advanced.investor.personalConsecutiveDays}일 연속 순매수{stockDetail.advanced.investor.personalConsecutiveVolume > 0 && ` (총 ${stockDetail.advanced.investor.personalConsecutiveVolume.toLocaleString()}주)`}</span>
                           </div>
                         </div>
