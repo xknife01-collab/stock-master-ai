@@ -501,8 +501,8 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
 
         // 3-2. 캐시가 없거나 유효하지 않은 경우 동기식으로 가져오되, 실패 시 낡은 캐시라도 사용
         try {
-            console.log(`📡 [On-Demand Detail] No cache or invalid cache found. Fetching fresh details for: ${symbol}`);
-            const freshData = await syncSingleStock(symbol);
+            console.log(`📡 [On-Demand Detail] No cache or invalid cache found. Fetching fresh details for: ${symbol} (Force: ${effectiveForce})`);
+            const freshData = await syncSingleStock(symbol, false, effectiveForce);
             
             if (freshData && freshData.fundamental && freshData.advanced) {
                 registerActiveSymbol(symbol);
