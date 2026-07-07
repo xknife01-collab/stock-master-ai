@@ -469,14 +469,31 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
         // 시장이 닫혀 있으면 force=true를 무시하여 무의미한 실시간 호출 차단
         const effectiveForce = force && isMarketOpen();
 
+        // 캐시 무결성 검증: 수급(investor), 기술 지표(technical) 및 일별 히스토리가 하나라도 유실되었거나 0값 더미로 오염된 경우 무효화
+        const investor = cachedData?.advanced?.investor;
+        const technical = cachedData?.advanced?.technical;
+        const isCacheContaminated = !investor || 
+                                    !technical ||
+                                    !investor.dailyHistory || 
+                                    investor.dailyHistory.length === 0 ||
+                                    (investor.isTodayData && 
+                                     investor.foreign1D === 0 && 
+                                     investor.organ1D === 0 && 
+                                     investor.personal1D === 0);
+
+        if (isCacheContaminated && cachedData) {
+            console.warn(`⚠️ [Cache Integrity Warning] Stock ${symbol} cache is contaminated or incomplete. Technical: ${!!technical}, DailyHistory: ${investor?.dailyHistory?.length || 0}. Forcing synchronous heal.`);
+        }
+
         const isCacheValid = (!effectiveForce && 
                              cachedData && 
                              cachedData.fundamental && 
                              cachedData.advanced && 
                              cachedData.advanced.transactionValue !== undefined && 
                              cachedData.advanced.transactionValue !== null && 
-                             cachedData.advanced.transactionValue !== 0) ||
-                             (!isMarketOpen() && cachedData && cachedData.fundamental && cachedData.advanced);
+                             cachedData.advanced.transactionValue !== 0 &&
+                             !isCacheContaminated) ||
+                             (!isMarketOpen() && cachedData && cachedData.fundamental && cachedData.advanced && !isCacheContaminated);
 
         if (isCacheValid) {
             registerActiveSymbol(symbol);
@@ -520,14 +537,90 @@ router.get('/detail/:symbol', ensureToken, async (req, res) => {
         // KIS API 호출에 실패했을 때, 낡은 캐시 데이터가 있으면 폴백 반환 (매우 중요)
         if (cachedData && cachedData.fundamental && cachedData.advanced) {
             console.log(`⚡ [Detail API Fallback] Serving cached detail due to KIS sync failure for: ${symbol}`);
+            
+            let advanced = { ...cachedData.advanced };
+            const investor = advanced.investor;
+            
+            // 캐시가 오늘자 0값 더미 데이터로 오염되어 있다면 자가 치유(Self-Healing) 실행 후 반환
+            if (investor && 
+                investor.isTodayData === true && 
+                investor.foreign1D === 0 && 
+                investor.organ1D === 0 && 
+                investor.personal1D === 0) {
+                
+                const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+                const todayStr = krNow.getUTCFullYear().toString() + 
+                                 (krNow.getUTCMonth() + 1).toString().padStart(2, '0') + 
+                                 krNow.getUTCDate().toString().padStart(2, '0');
+                
+                console.log(`ℹ️ [API Fallback Self-Healing] Recovering baseline for contaminated cached investor data of ${symbol}.`);
+                const cleanedHistory = (investor.dailyHistory || []).filter(h => h.date !== todayStr);
+                const prevRow = cleanedHistory[0] || { foreign: 0, organ: 0, personal: 0 };
+                
+                advanced.investor = {
+                    ...investor,
+                    isTodayData: false,
+                    isRealtime: false,
+                    foreign1D: prevRow.foreign,
+                    organ1D: prevRow.organ,
+                    personal1D: prevRow.personal,
+                    dailyHistory: cleanedHistory
+                };
+            }
+
             const fundamental = {
                 ...cachedData.fundamental,
-                advanced: cachedData.advanced
+                advanced: advanced
             };
             return res.json({ fundamental });
         }
 
-        res.status(500).json({ error: '상세 정보 조회에 실패했습니다.' });
+        // 캐시도 없고 KIS API 호출도 완전히 실패한 경우, UI 붕괴 방지를 위한 기본 정보 폴백 반환
+        console.warn(`🚨 [Detail API Disaster Fallback] No cache and KIS sync failed. Serving empty placeholder for: ${symbol}`);
+        
+        let stockName = '알 수 없는 종목';
+        let stockSector = '기타';
+        if (supabase) {
+            try {
+                const { data: masterInfo } = await supabase
+                    .from('stock_master_map')
+                    .select('name, bstp_kor_isnm')
+                    .eq('code', symbol)
+                    .maybeSingle();
+                if (masterInfo?.name) {
+                    stockName = masterInfo.name;
+                }
+                if (masterInfo?.bstp_kor_isnm) {
+                    stockSector = masterInfo.bstp_kor_isnm;
+                }
+            } catch (err) {
+                console.warn(`⚠️ [Disaster Fallback] Failed to resolve stock name:`, err.message);
+            }
+        }
+
+        const fallbackDetail = {
+            name: stockName,
+            price: 0,
+            change: '0',
+            per: '-',
+            pbr: '-',
+            roe: '-',
+            debtRatio: '-',
+            yield: '-',
+            sector: stockSector,
+            marketCap: 0,
+            finance: [],
+            consensus: [],
+            advanced: {
+                strength: '0',
+                transactionValue: 0,
+                creditBalance: '0',
+                shortRatio: '0',
+                investor: null,
+                technical: { rsi: '50' }
+            }
+        };
+        return res.json({ fundamental: fallbackDetail });
     } catch (e) {
         console.error(`❌ [Detail API Error] Exception for ${symbol}:`, e.message);
         res.status(500).json({ error: e.message });

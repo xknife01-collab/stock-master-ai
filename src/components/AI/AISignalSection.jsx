@@ -44,12 +44,27 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
       );
     }
 
+    if (c.metrics?.afterMarket) {
+      const am = c.metrics.afterMarket;
+      const isOvertimeDrop = am.change <= -1.5;
+      const isOvertimeWeakStrength = (am.volume > 100 && am.volumePower < 35);
+      if (isOvertimeDrop || isOvertimeWeakStrength) {
+        badges.push(
+          <span key="aftermarket-risk" className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-gradient-to-r from-red-600 to-amber-600 border border-red-400 text-white shadow-lg shadow-red-950/60 select-none animate-pulse flex items-center gap-1">
+            🚨 시간외 Gap-Down (시간외: {am.change}% / 체결강도: {am.volumePower}%)
+          </span>
+        );
+      }
+    }
+
     if (c.isVetoed) {
       let rawReason = c.vetoReason || '필터배제';
       let cleanReason = rawReason.replace(/^\[[^\]]+\]\s*/g, '');
       let badgeLabel = '';
       
-      if (rawReason.includes('낙칼') || rawReason.includes('급락') || rawReason.includes('폭락')) {
+      if (rawReason.includes('시간외') || rawReason.includes('Gap-Down') || rawReason.includes('갭하락')) {
+        badgeLabel = '🔴 시간외 Gap-Down';
+      } else if (rawReason.includes('낙칼') || rawReason.includes('급락') || rawReason.includes('폭락')) {
         badgeLabel = '🔴 낙칼/급락 경고';
       } else if (rawReason.includes('설거지')) {
         badgeLabel = '🔴 설거지 경고';
@@ -1143,6 +1158,19 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                                             <span>🎯 진입 및 청산 가이드 (ATR Target Boundary)</span>
                                           </div>
                                           <div className="text-[11px] text-white/50 leading-relaxed mb-3">
+                                            {c.metrics?.afterMarket && (c.metrics.afterMarket.change <= -1.5 || (c.metrics.afterMarket.volume > 100 && c.metrics.afterMarket.volumePower < 35)) && (
+                                              <div className="p-3 mb-3 rounded-xl bg-red-950/40 border border-red-500/30 text-red-400 text-[10px] font-bold leading-normal flex flex-col gap-1 shadow-[0_0_15px_rgba(239,68,68,0.15)] animate-pulse">
+                                                <span className="text-xs font-black flex items-center gap-1.5 text-red-300">
+                                                  ⚠️ 시간외 단일가 급락 (Gap-Down 위험 경보)
+                                                </span>
+                                                <p className="opacity-90">
+                                                  시간외 종가 등락률: <span className="font-mono font-black underline">{c.metrics.afterMarket.change}%</span> / 체결강도: <span className="font-mono font-black underline">{c.metrics.afterMarket.volumePower}%</span> / 거래량: <span className="font-mono">{c.metrics.afterMarket.volume?.toLocaleString()}주</span>.
+                                                </p>
+                                                <p className="text-white/80 font-black mt-1 uppercase border-t border-red-500/20 pt-1">
+                                                  💡 조기 청산 가이드: 시초가 전량 시장가 매도 대응 권장 (Exit SL 무조건 적용)
+                                                </p>
+                                              </div>
+                                            )}
                                             {c.isVetoed ? (
                                               <span className="text-[#ff3d68] font-bold">
                                                 [주의] 본 종목은 {c.vetoReason || '계량 안전성 필터 배제'} 조건에 감지된 상태이므로 신규 진입을 금지합니다.

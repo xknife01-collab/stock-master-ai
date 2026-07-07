@@ -139,34 +139,16 @@ const StockPopup = ({ item, onClose }) => {
 
   const riskInfo = getRiskDetails();
 
+  // 1. 기업 상세 정보 및 실시간 현재가 조회 (종목 변경 시에만 초기화 및 실행)
   useEffect(() => {
     if (!item) return;
 
-    // Reset tab and data immediately
+    // 종목 변경 시에만 탭 및 상세 데이터 초기화
     setActiveTab('basic');
     setRealTimeData({ price: item.price, change: item.change });
     setStockDetail(null);
-    setPopupHistory([]);
 
-    // Fetch history (initial = show loader, refresh = silent)
-    const fetchHistory = (isInitial = false) => {
-      if (isInitial) setLoadingPopup(true);
-      fetch(`${API_URL}/api/stock/history/${item.symbol || '005930'}?range=${popupRange}&price=${item.price}`)
-        .then(res => res.json())
-        .then(data => setPopupHistory(data))
-        .catch(e => console.error('History load fail', e))
-        .finally(() => { if (isInitial) setLoadingPopup(false); });
-    };
-
-    fetchHistory(true);
-
-    // 1분마다 자동 갱신 (1D 범위일 때만)
-    let interval;
-    if (popupRange === '1D') {
-      interval = setInterval(() => fetchHistory(false), 60000);
-    }
-
-    // Fetch real-time price if it's a stock
+    // 실시간 현재가 조회 (종목 코드 패턴인 경우에만 KIS API로 실시간 현재가 로드)
     if (item.symbol && /^\d{6}$/.test(item.symbol)) {
       setLoadingRealTime(true);
       fetch(`${API_URL}/api/stock/${item.symbol}`)
@@ -185,7 +167,7 @@ const StockPopup = ({ item, onClose }) => {
       setRealTimeData({ price: item.price, change: item.change });
     }
 
-    // Fetch fundamental details if it's a KR stock code (6 digits)
+    // 기업 상세 정보(수급 및 펀더멘털) 조회
     if (item.symbol && /^\d{6}$/.test(item.symbol)) {
       setLoadingDetail(true);
       fetch(`${API_URL}/api/stock-detail/detail/${item.symbol}`)
@@ -194,7 +176,7 @@ const StockPopup = ({ item, onClose }) => {
           if (data.fundamental) {
             setStockDetail(data.fundamental);
             
-            // 실시간 백그라운드 갱신: 장중이거나 혹은 당일 마감 데이터가 아직 없는 경우에만 실행
+            // 장중이거나 혹은 당일 마감 데이터가 아직 없는 경우 백그라운드 강제 동기화 실행
             const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
             const curHHMM = krNow.getUTCHours().toString().padStart(2, '0') + krNow.getUTCMinutes().toString().padStart(2, '0');
             const krDay = krNow.getUTCDay();
@@ -216,6 +198,29 @@ const StockPopup = ({ item, onClose }) => {
         .finally(() => setLoadingDetail(false));
     } else {
       setStockDetail(null);
+    }
+  }, [item]);
+
+  // 2. 주가/지수 추이 차트 데이터 조회 (종목 혹은 차트 범위 변경 시 실행)
+  useEffect(() => {
+    if (!item) return;
+
+    setPopupHistory([]);
+
+    const fetchHistory = (isInitial = false) => {
+      if (isInitial) setLoadingPopup(true);
+      fetch(`${API_URL}/api/stock/history/${item.symbol || '005930'}?range=${popupRange}&price=${item.price}`)
+        .then(res => res.json())
+        .then(data => setPopupHistory(data))
+        .catch(e => console.error('History load fail', e))
+        .finally(() => { if (isInitial) setLoadingPopup(false); });
+    };
+
+    fetchHistory(true);
+
+    let interval;
+    if (popupRange === '1D') {
+      interval = setInterval(() => fetchHistory(false), 60000);
     }
 
     return () => { if (interval) clearInterval(interval); };
@@ -830,7 +835,22 @@ const StockPopup = ({ item, onClose }) => {
             </div>
           )}
 
-          {loadingDetail && (
+          {!loadingDetail && !isRefreshing && !stockDetail && item.symbol && /^\d{6}$/.test(item.symbol) && (
+            <div className="mt-6 border-t border-gray-100 pt-6 flex flex-col items-center justify-center py-12 gap-3 text-center animate-in fade-in duration-500">
+              <span className="text-2xl">⚠️</span>
+              <div className="text-xs font-bold text-gray-500 max-w-[280px] leading-relaxed">
+                현재 KIS API 및 서버 부하로 인해 실시간 분석 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
+              </div>
+              <button 
+                onClick={handleForceRefresh}
+                className="mt-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-black transition-all border border-gray-200 shadow-sm cursor-pointer"
+              >
+                다시 불러오기
+              </button>
+            </div>
+          )}
+
+          {(loadingDetail || isRefreshing) && (
             <div className="mt-6 border-t border-gray-100 pt-6 flex flex-col items-center justify-center py-12 gap-3">
               <div className="w-6 h-6 border-2 border-[#7000ff] border-t-transparent rounded-full animate-spin"></div>
               <div className="text-xs font-bold text-gray-400">분석 중...</div>

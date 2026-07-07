@@ -1757,7 +1757,8 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                     technical: row.advanced?.technical || null,
                     strengthAcceleration: parseNum(row.advanced?.strengthAcceleration, 0),
                     memberTrend: row.advanced?.memberTrend || null,
-                    largeTrade: row.advanced?.largeTrade || null
+                    largeTrade: row.advanced?.largeTrade || null,
+                    afterMarket: row.advanced?.afterMarket || null
                 };
             });
             console.log(`⚡ [Pulse] 캐시로부터 ${freshData.length}개 종목의 유효한 퀀트 지표 로드 완료.`);
@@ -1826,7 +1827,8 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                             technical: row.advanced?.technical || null,
                             strengthAcceleration: parseNum(row.advanced?.strengthAcceleration, 0),
                             memberTrend: row.advanced?.memberTrend || null,
-                            largeTrade: row.advanced?.largeTrade || null
+                            largeTrade: row.advanced?.largeTrade || null,
+                            afterMarket: row.advanced?.afterMarket || null
                         };
                         
                         // cacheData & cachedRows 의 해당 row 교체 (이후 재무 데이터 조회 루프 등에서 사용됨)
@@ -1911,7 +1913,8 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                         technical: staleRow.advanced?.technical || null,
                         strengthAcceleration: parseNum(staleRow.advanced?.strengthAcceleration, 0),
                         memberTrend: staleRow.advanced?.memberTrend || null,
-                        largeTrade: staleRow.advanced?.largeTrade || null
+                        largeTrade: staleRow.advanced?.largeTrade || null,
+                        afterMarket: staleRow.advanced?.afterMarket || null
                     };
                 } else {
                     console.log(`⚠️ [Default Fallback] ${c.name} (${symbol}) - 캐시가 전무하여 디폴트 값을 지정하고 백그라운드 동기화를 트리거합니다.`);
@@ -1946,7 +1949,8 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                         technical: null,
                         strengthAcceleration: 0,
                         memberTrend: { foreignBuyVolume: 0, foreignSellVolume: 0, foreignNetBuy: 0 },
-                        largeTrade: { totalLargeValue: 0, buyLargeValue: 0, sellLargeValue: 0, largeRatio: 0 }
+                        largeTrade: { totalLargeValue: 0, buyLargeValue: 0, sellLargeValue: 0, largeRatio: 0 },
+                        afterMarket: null
                     };
                 }
             }
@@ -2499,6 +2503,22 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                 vetoReasons.push(`[기술적 분석] 실시간 급락 낙칼 감지 (당일 등락률: ${changePct}% <= 기준: ${knifeThreshold}%)`);
             }
 
+            // 필터 2.5: 시간외 단일가 갭하락(Gap-Down) 리스크 차단기
+            if (!forceRecommend && m.afterMarket) {
+                const amChange = m.afterMarket.change || 0;
+                const amVol = m.afterMarket.volume || 0;
+                const amVolPower = m.afterMarket.volumePower || 100;
+                
+                // 시간외 급락 -1.5% 이하 또는 거래대금이 수반되는 경우(체결량 > 100) 시간외 체결강도 극단적 약세(35% 미만)
+                const isOvertimeDrop = amChange <= -1.5;
+                const isOvertimeWeakStrength = (amVol > 100 && amVolPower < 35);
+                
+                if (isOvertimeDrop || isOvertimeWeakStrength) {
+                    isVetoed = true;
+                    vetoReasons.push(`[시간외 Risk] Gap-Down 위험 감지 (시간외 급락: ${amChange}% / 체결강도: ${amVolPower}%)`);
+                }
+            }
+
             if (!isVetoed || vetoReasons.length > 0) {
                 const isPriceBelow5MA = disp5 < 100;
                 const isDownwardDrift = disp1 < 100 && parseFloat(m.strength || 100) < 100;
@@ -2655,7 +2675,8 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                     creditBalance: m.creditBalance,
                     sector: m.sector,
                     rsi: rsiVal,
-                    maAlignment: maAlignment // Added maAlignment to metrics
+                    maAlignment: maAlignment, // Added maAlignment to metrics
+                    afterMarket: m.afterMarket
                 },
                 scores: {
                     strengthScore,
