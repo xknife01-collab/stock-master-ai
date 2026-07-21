@@ -259,10 +259,7 @@ const getAiCache = async (pulseKey = null) => {
         try {
             const localCache = JSON.parse(fs.readFileSync(aiCachePath, 'utf8'));
             if (localCache && localCache.pulse) {
-                // 키가 매치되거나, 키를 전달받지 않았거나, 장외 시간인 경우에는 Supabase를 생략하고 즉시 로컬 캐시 사용
-                if (!pulseKey || localCache.pulseKey === pulseKey || localCache.tenMinKey === pulseKey || !isMarketOpen()) {
-                    return localCache;
-                }
+                return localCache;
             }
         } catch (e) {
             console.error('Error reading local cache early check:', e.message);
@@ -1091,16 +1088,34 @@ export const executeHourlyPulse = async (force = false) => {
         }
     }
 
-    // 3. 캐시 확인 (스케줄 기반 pulseKey 검사!)
-    if (!force && cache && (cache.pulseKey === pulseKey || cache.tenMinKey === pulseKey) && cache.pulse) {
-        console.log(`✅ [Pulse] 이번 스케줄 주기(${pulseKey})의 분석 결과가 이미 존재하여 캐시를 사용합니다.`);
+    // 3. 캐시 확인 및 즉시 제공 (신규 펄스는 백그라운드에서 비동기 갱신)
+    if (!force && cache && cache.pulse) {
         let pulseData = cache.pulse.data || cache.pulse;
+
+        if (marketOpen && cache.pulseKey !== pulseKey && cache.tenMinKey !== pulseKey && !fetchingAiSignalPromise) {
+            console.log(`🔄 [Pulse] 신규 펄스 주기(${pulseKey}) 감지: 기존 캐시 즉시 제공 후 백그라운드 갱신 시작...`);
+            fetchingAiSignalPromise = (async () => {
+                try {
+                    setRealtimeTaskActive(true);
+                    const result = await _executeHourlyPulseInternal(pulseKey, pulseKey, timeStr, cache, force);
+                    return { ...result, marketOpen: true };
+                } catch (e) {
+                    console.error('Background pulse generation failed:', e.message);
+                } finally {
+                    setRealtimeTaskActive(false);
+                    fetchingAiSignalPromise = null;
+                }
+            })();
+        } else {
+            console.log(`✅ [Pulse] 기존 펄스 분석 캐시(${cache.pulseKey || '기존'})를 지연 없이 즉시 사용합니다.`);
+        }
+
         await refreshRecommendedPrices(pulseData);
         cleanSignal(pulseData);
         
         let savedTime = cache.savedTime;
         if (!savedTime) {
-            const parts = pulseKey.split('-');
+            const parts = (cache.pulseKey || pulseKey).split('-');
             if (parts.length >= 4) {
                 const mm = parts[1].padStart(2, '0');
                 const dd = parts[2].padStart(2, '0');
