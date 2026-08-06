@@ -31,16 +31,7 @@
         "c": "042700",
         "p": "209000"
       }
-    ],
-    "backtest": {
-      "day1Price": null,
-      "day1Yield": null,
-      "day3Price": null,
-      "day3Yield": null,
-      "day5Price": null,
-      "day5Yield": null,
-      "finalized": false
-    }
+    ]
   },
   {
     "time": "2026-08-04T06:31:57.469Z",
@@ -89,16 +80,7 @@
         "c": "207940",
         "p": "1468000"
       }
-    ],
-    "backtest": {
-      "day1Price": 229000,
-      "day1Yield": 1.55,
-      "day3Price": null,
-      "day3Yield": null,
-      "day5Price": null,
-      "day5Yield": null,
-      "finalized": false
-    }
+    ]
   },
   {
     "time": "2026-08-04T06:01:55.090Z",
@@ -142,16 +124,7 @@
         "c": "035420",
         "p": "226000"
       }
-    ],
-    "backtest": {
-      "day1Price": 229000,
-      "day1Yield": 1.33,
-      "day3Price": null,
-      "day3Yield": null,
-      "day5Price": null,
-      "day5Yield": null,
-      "finalized": false
-    }
+    ]
   },
   {
     "time": "2026-08-04T05:32:04.919Z",
@@ -185,16 +158,7 @@
         "c": "035420",
         "p": "226000"
       }
-    ],
-    "backtest": {
-      "day1Price": 229000,
-      "day1Yield": 1.33,
-      "day3Price": null,
-      "day3Yield": null,
-      "day5Price": null,
-      "day5Yield": null,
-      "finalized": false
-    }
+    ]
   },
   {
     "time": "2026-08-04T05:01:52.644Z",
@@ -227,16 +191,7 @@
         "p": "92200"
       }
     ],
-    "longTermPicks": [],
-    "backtest": {
-      "day1Price": 229000,
-      "day1Yield": 1.78,
-      "day3Price": null,
-      "day3Yield": null,
-      "day5Price": null,
-      "day5Yield": null,
-      "finalized": false
-    }
+    "longTermPicks": []
   },
   {
     "time": "2026-08-04T04:31:38.518Z",
@@ -275,16 +230,7 @@
         "c": "196170",
         "p": "349000"
       }
-    ],
-    "backtest": {
-      "day1Price": 229000,
-      "day1Yield": 2.69,
-      "day3Price": null,
-      "day3Yield": null,
-      "day5Price": null,
-      "day5Yield": null,
-      "finalized": false
-    }
+    ]
   },
   {
     "time": "2026-08-04T04:01:24.718Z",
@@ -318,16 +264,7 @@
         "c": "035420",
         "p": "224000"
       }
-    ],
-    "backtest": {
-      "day1Price": 229000,
-      "day1Yield": 2.23,
-      "day3Price": null,
-      "day3Yield": null,
-      "day5Price": null,
-      "day5Yield": null,
-      "finalized": false
-    }
+    ]
   },
   {
     "time": "2026-08-04T03:02:28.986Z",
@@ -366,16 +303,7 @@
         "c": "402340",
         "p": "1023000"
       }
-    ],
-    "backtest": {
-      "day1Price": 1119000,
-      "day1Yield": 9.38,
-      "day3Price": null,
-      "day3Yield": null,
-      "day5Price": null,
-      "day5Yield": null,
-      "finalized": false
-    }
+    ]
   },
   {
     "time": "2026-08-04T02:02:10.082Z",
@@ -429,16 +357,7 @@
         "c": "028050",
         "p": "46400"
       }
-    ],
-    "backtest": {
-      "day1Price": 1119000,
-      "day1Yield": 6.27,
-      "day3Price": null,
-      "day3Yield": null,
-      "day5Price": null,
-      "day5Yield": null,
-      "finalized": false
-    }
+    ]
   },
   {
     "time": "2026-08-04T01:31:52.416Z",
@@ -472,16 +391,7 @@
         "c": "402340",
         "p": "1030000"
       }
-    ],
-    "backtest": {
-      "day1Price": 1119000,
-      "day1Yield": 8.64,
-      "day3Price": null,
-      "day3Yield": null,
-      "day5Price": null,
-      "day5Yield": null,
-      "finalized": false
-    }
+    ]
   },
   {
     "time": "2026-08-04T01:01:38.512Z",
@@ -520,16 +430,7 @@
         "c": "402340",
         "p": "1023000"
       }
-    ],
-    "backtest": {
-      "day1Price": 1119000,
-      "day1Yield": 9.38,
-      "day3Price": null,
-      "day3Yield": null,
-      "day5Price": null,
-      "day5Yield": null,
-      "finalized": false
-    }
+    ]
   },
   {
     "time": "2026-08-04T00:46:15.495Z",
@@ -563,16 +464,7 @@
         "c": "402340",
         "p": "1025000"
       }
-    ],
-    "backtest": {
-      "day1Price": 1119000,
-      "day1Yield": 9.17,
-      "day3Price": null,
-      "day3Yield": null,
-      "day5Price": null,
-      "day5Yield": null,
-      "finalized": false
-    }
+    ]
   },
   {
     "time": "2026-08-04T00:16:07.209Z",
@@ -600,16 +492,7 @@
         "p": "377000"
       }
     ],
-    "longTermPicks": [],
-    "backtest": {
-      "day1Price": 378000,
-      "day1Yield": 0.27,
-      "day3Price": null,
-      "day3Yield": null,
-      "day5Price": null,
-      "day5Yield": null,
-      "finalized": false
-    }
+    "longTermPicks": []
   },
   {
     "time": "2026-07-28T00:50:53.783Z",
@@ -643,16 +526,7 @@
         "c": "214450",
         "p": "341500"
       }
-    ],
-    "backtest": {
-      "day1Price": 391000,
-      "day1Yield": 14.49,
-      "day3Price": 338500,
-      "day3Yield": -0.88,
-      "day5Price": 384500,
-      "day5Yield": 12.59,
-      "finalized": true
-    }
+    ]
   },
   {
     "time": "2026-07-21T06:02:36.020Z",
@@ -696,16 +570,7 @@
         "c": "000660",
         "p": "1844000"
       }
-    ],
-    "backtest": {
-      "day1Price": 260500,
-      "day1Yield": 0.58,
-      "day3Price": 249500,
-      "day3Yield": -3.67,
-      "day5Price": 220000,
-      "day5Yield": -15.06,
-      "finalized": true
-    }
+    ]
   },
   {
     "time": "2026-07-21T05:31:24.929Z",
@@ -749,16 +614,7 @@
         "c": "000660",
         "p": "1848000"
       }
-    ],
-    "backtest": {
-      "day1Price": 260500,
-      "day1Yield": 0.58,
-      "day3Price": 249500,
-      "day3Yield": -3.67,
-      "day5Price": 220000,
-      "day5Yield": -15.06,
-      "finalized": true
-    }
+    ]
   },
   {
     "time": "2026-07-21T05:01:18.877Z",
@@ -802,16 +658,7 @@
         "c": "000660",
         "p": "1852000"
       }
-    ],
-    "backtest": {
-      "day1Price": 260500,
-      "day1Yield": 0.29,
-      "day3Price": 249500,
-      "day3Yield": -3.95,
-      "day5Price": 220000,
-      "day5Yield": -15.3,
-      "finalized": true
-    }
+    ]
   },
   {
     "time": "2026-07-21T04:31:12.968Z",
@@ -855,16 +702,7 @@
         "c": "000660",
         "p": "1873000"
       }
-    ],
-    "backtest": {
-      "day1Price": 260500,
-      "day1Yield": -0.67,
-      "day3Price": 249500,
-      "day3Yield": -4.86,
-      "day5Price": 220000,
-      "day5Yield": -16.11,
-      "finalized": true
-    }
+    ]
   },
   {
     "time": "2026-07-21T00:16:23.895Z",
@@ -898,16 +736,7 @@
         "c": "005930",
         "p": "249000"
       }
-    ],
-    "backtest": {
-      "day1Price": 260500,
-      "day1Yield": 4.62,
-      "day3Price": 249500,
-      "day3Yield": 0.2,
-      "day5Price": 220000,
-      "day5Yield": -11.65,
-      "finalized": true
-    }
+    ]
   },
   {
     "time": "2026-07-08T04:01:56.006Z",
@@ -941,16 +770,7 @@
         "c": "000660",
         "p": "2241000"
       }
-    ],
-    "backtest": {
-      "day1Price": 2186000,
-      "day1Yield": -2.45,
-      "day3Price": 1845000,
-      "day3Yield": -17.67,
-      "day5Price": 2082000,
-      "day5Yield": -7.1,
-      "finalized": true
-    }
+    ]
   },
   {
     "time": "2026-07-08T03:03:08.728Z",

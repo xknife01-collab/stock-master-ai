@@ -2,7 +2,7 @@ import React from 'react';
 
 const FooterTicker = ({ stocks }) => {
   return (
-    <footer className="fixed bottom-0 left-0 w-full bg-black/80 backdrop-blur-2xl border-t border-white/10 py-3 overflow-hidden z-50">
+    <footer className="w-full bg-black/80 backdrop-blur-2xl border-t border-white/10 py-3 overflow-hidden mt-8">
       <div className="ticker-wrap w-full">
         <div className="ticker-content flex items-center gap-12 px-8">
           {[...stocks, ...stocks].map((stock, i) => (

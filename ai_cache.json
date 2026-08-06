@@ -5,21 +5,21 @@
     "stock": "한미반도체",
     "symbol": "042700",
     "price": "209000",
-    "tp": "295100",
+    "tp": "295000",
     "sl": "165900",
-    "fundamental": "낙폭 과대 (Undervalued) & 압도적인 미래 성장",
-    "macro": "현재 시장은 일반 모드이나, 미 국채 금리 및 원/달러 환율 상승은 글로벌 경제 둔화 우려를 증폭시키며 '전기·전자' 테마에 대한 해외 수요 감소 및 원자재/부품 수급 비용 증가의 아킬레스건으로 작용할 수 있습니다. KOSPI/KOSDAQ의 20일 이동평균선 하락 기울기는 단기 시장 상방 압력을 제한합니다.",
-    "bearCase": "한미반도체는 32.51%에 달하는 비정상적인 공매도 거래 비중으로 강한 하방 압력이 존재하며, 이동평균선 '역배열' 추세는 기술적 하락세를 의미합니다. 당일 외국인 순매도 또한 단기적인 수급 불안정을 야기할 수 있으며, 일부 '거래량 0주' 데이터 불완전성이 과거 주가 추이 분석에 한계를 웅장하게 부여합니다. 테슬라 관련 호재가 기대만큼 실현되지 않거나, HBM4 시장 경쟁 심화 시 성장 모멘텀이 둔화될 리스크도 존재합니다.",
-    "reason": "웅장한 '전기·전자' 테마에 완벽하게 부합하는 한미반도체는 HBM4 수주 및 AI·테슬라 관련 폭발적인 뉴스를 등에 업고 있습니다. 2025년 및 2026년 1분기 예상 영업이익이 압도적인 성장세를 보이며 견고한 미래 펀더멘털을 0.1초 만에 입증하고 있습니다. 비록 높은 공매도 비중(VETO 조건)과 이동평균선 '역배열'이라는 기술적 약점이 존재하나, 현재 RSI 19.6의 과매도 상태와 볼린저 밴드 하한선 근접은 강력한 낙폭 과대 반등 잠재력을 시사합니다. 특히, 당일 134.66%에 달하는 체결강도는 실시간 매수세가 강력함을 웅장하게 보여주며, 이는 단기적인 외국인 순매도를 압도하는 시장의 강력한 매수 의지를 반영합니다. 'forceRecommend: false' 모드에서 상위 후보 중 가장 모멘텀이 양호한 종목을 선정해야 하는 퀀트 트레이더의 책무에 따라, 압도적인 미래 성장성과 강한 매수 압력이 복합된 한미반도체를 TOP PICK으로 웅장하게 선정합니다. 경쟁 후보인 POSCO홀딩스는 테마 불일치 및 2025년 예상 실적 감소라는 치명적인 펀더멘털 하락 추세(강력 VETO)로 인해 추천에서 웅장하게 제외되었습니다.",
-    "feedback": "한미반도체는 현재 높은 변동성(ATR 13.74%)을 동반하고 있으므로, ATR 기반으로 산정된 목표가(TP 295,100원)와 손절가(SL 165,900원)를 엄격히 준수하여 웅장한 리스크 관리를 철저히 해야 합니다. 높은 공매도 비중은 꾸준한 모니터링이 필요하며, 분할 매수 전략을 통해 매수 단가를 낮추는 것이 바람직합니다. '거래량 0주'와 같은 데이터 불완전성에 유의하되, 핵심 미래 성장 모멘텀에 집중하여 접근하십시오. 단기 기술적 약점에도 불구하고 실시간 체결강도와 펀더멘털이 이를 상회하는 웅장한 돌파력을 보여줄 것으로 기대됩니다.",
+    "fundamental": "낙폭 과대 (Undervalued)",
+    "macro": "글로벌 경기 둔화 우려와 고환율 (원/달러 1424.8원) 지속 시 수입 원가 부담이 가중되어 수익성에 부정적 영향을 미칠 수 있으며, 미-중 기술 패권 경쟁 심화는 반도체 공급망 불확실성을 증대시키는 치명적인 리스크로 작용합니다.",
+    "bearCase": "치명적인 '거래량 0주' 데이터 불완전성이 여러 차례 발견되어 시장 신뢰도에 영향을 줄 수 있습니다. 공매도 거래 비중이 32.51%로 매우 높아 강한 하방 압력에 직면할 수 있으며, 이는 단기적인 주가 상승을 제한할 수 있습니다. 이동평균선이 '역배열' 추세에 있어 구조적인 하락 추세가 지속될 가능성을 배제할 수 없습니다. 외국인 당일 순매도가 발생했으며, 5일 누적 기관 순매도가 심각합니다. 대규모 기관 매도세는 단기적인 수급 불균형을 야기할 수 있습니다.",
+    "reason": "오늘날, 시장의 거대한 변동성 속에서 '전기·전자' 테마는 인공지능(AI)과 HBM(고대역폭 메모리) 산업의 폭발적인 성장 기대감으로 웅장한 주목을 받고 있습니다. 한미반도체는 비록 업종이 '기계·장비'로 분류되지만, HBM 제조 핵심 장비 공급사로서 '전기·전자' 테마에 완벽하게 부합합니다. 2025년과 2026년 1분기 예상 실적에서 압도적인 펀더멘털 성장 잠재력이 확인되며, 이는 현재 '역배열' 추세와 높은 공매도 비중에도 불구하고 중장기적인 반등 동력으로 작용할 것으로 분석됩니다. 특히, 0.1초 만에 포착된 당일 체결강도 134.66%는 강력한 매수 압력을 시사하며, RSI 19.6과 볼린저 밴드 하한선 근접은 낙폭 과대 구간에서의 웅장한 반등 가능성을 열어주고 있습니다. 'forceRecommend: false' 모드에서 가장 모멘텀이 양호한 종목을 선정해야 하는 시스템의 책무와 '펀더멘털 하락 추세' 종목(POSCO홀딩스)에 대한 과거 학습 기반 VETO 룰을 종합적으로 고려할 때, 한미반도체가 현재 시장 상황에서 가장 주목해야 할 '돌파형 주도주'임을 웅장하게 확인했습니다.",
+    "feedback": "한미반도체는 강력한 미래 성장 동력과 현재의 낙폭 과대 매력을 동시에 지니고 있으나, 치명적인 '거래량 0주' 데이터 불완전성, 32.51%에 달하는 높은 공매도 비중, 그리고 이동평균선 '역배열' 추세가 지속되고 있는 점은 단기적인 변동성을 증폭시키는 핵심 리스크 요인입니다. 또한, 당일 외국인 순매도와 5일 누적 기관 대규모 순매도는 수급 불균형에 대한 면밀한 주의를 요구합니다. 현재 RSI 19.6으로 과매도 구간에 진입하여 기술적 반등 가능성이 높지만, 추격 매수보다는 분할 매수 전략을 통해 매수 단가를 안정적으로 관리하는 것이 중요합니다. 목표가(TP)와 손절가(SL)는 ATR 기반으로 엄격하게 설정하여 고변동성 시장에 웅장하게 대응하십시오. 시장 전반의 호재성 뉴스가 강력하지만, '상투 잡기 방지' 원칙에 따라 뉴스 감성만을 맹신하기보다는 수급 및 기술적 지표를 복합적으로 활용한 정밀한 접근이 필수적입니다.",
     "shortTermPicks": [
       {
         "n": "한미반도체",
         "c": "042700",
         "p": "209000",
-        "tp": "295100",
+        "tp": "295000",
         "sl": "165900",
-        "t": "+41% 돌파 스윙",
+        "t": "+41.1% 스윙 (낙폭 과대 반등)",
         "sp": "외-10.6만/기0/개+10.6만"
       }
     ],
@@ -28,13 +28,13 @@
         "n": "한미반도체",
         "c": "042700",
         "p": "209000",
-        "tp": "323800",
-        "sl": "151600",
-        "r": "HBM4 및 AI 반도체 시장의 압도적인 성장 수혜가 기대되는 핵심 펀더멘털 주도주.",
+        "tp": "324000",
+        "sl": "151500",
+        "r": "HBM 및 AI 산업 성장에 대한 핵심 장비 공급사로서의 독보적 지위와 2025-2026년 폭발적인 펀더멘털 성장이 기대됩니다.",
         "sp": "외-10.6만/기0/개+10.6만"
       }
     ],
-    "newInsight": "이번 분석은 'forceRecommend: false' 모드에서 다수의 강력한 VETO 조건(높은 공매도 비중, 이동평균선 역배열)이 웅장하게 존재했음에도 불구하고, 압도적인 '전기·전자' 테마 부합성, 폭발적인 미래 펀더멘털 성장 잠재력, 그리고 당일 체결강도에 의해 입증된 실시간 강력한 매수 압력이 이 모든 단기적 리스크를 0.1초 만에 압도하며 '돌파형 주도주'를 식별할 수 있음을 재확인했습니다. 특히, 펀더멘털 하락 추세 종목(POSCO홀딩스)은 아무리 다른 지표가 좋아도 장기/단기 추천에서 강력한 VETO로 작용함을 다시 한번 웅장하게 학습했습니다. 데이터 불완전성('거래량 0주')에도 불구하고, 핵심 모멘텀 지표들의 신뢰도와 일관성이 투자 결정에 얼마나 웅장하게 작용하는지를 보여주는 중요한 교훈입니다. ATR 기반의 동적 목표가 및 손절가 설정이 고변동성 시장에서 웅장한 리스크 관리를 위한 필수 전략임을 재강화합니다.",
+    "newInsight": "이번 분석은 치명적인 '거래량 0주' 데이터 불완전성, 높은 공매도 비중, 그리고 이동평균선 '역배열'이라는 다수의 강력한 VETO 조건이 웅장하게 존재했음에도 불구하고, 'forceRecommend: false' 모드에서 가장 모멘텀이 양호한 1개 종목을 메인 TOP PICK에 선정해야 한다는 시스템의 엄숙한 명령을 0.1초 만에 이행했습니다. 특히, '펀더멘털 하락 추세' 종목에 대한 과거 학습 기반 VETO 룰이 강력히 적용되면서 한미반도체가 유일한 선택지로 부상했습니다. 한미반도체의 경우, '전기·전자' 테마에 대한 압도적인 뉴스 연관성, 2025-2026년 폭발적인 미래 펀더멘털 성장 잠재력, 그리고 당일 체결강도 134.66%에 달하는 실시간 매수 압력이 모든 단기적 리스크를 웅장하게 압도하며 '돌파형 주도주'로서의 가치를 입증했습니다. 이는 부분적인 데이터 결함이나 기술적 약점보다 핵심 모멘텀 지표들의 총체적 정합성이 투자 결정에 있어 얼마나 웅장하게 작용하는지를 보여주는 중요한 교훈이며, 극한 상황에서의 '데이터 기반의 정직성' 원칙과 ATR 기반의 엄격한 리스크 관리의 중요성을 다시 한번 웅장하게 재강화합니다.",
     "marketStress": {
       "score": 25,
       "safeMode": false,
@@ -55,8 +55,8 @@
         "changePercent": 0
       },
       "usd": {
-        "rate": 1424.3,
-        "changePercent": 0.473,
+        "rate": 1424.8,
+        "changePercent": 0.437,
         "score": 0
       },
       "us10y": {
@@ -160,7 +160,7 @@
           "disparity5": 94.16,
           "disparity20": 90.04,
           "strength": 98.26,
-          "strengthAcceleration": 0.04,
+          "strengthAcceleration": 0,
           "netForeignWindowBuyMoney": -36,
           "largeTradeRatio": 0.9895403184197042,
           "shortRatio": 13.04,
@@ -310,7 +310,7 @@
           "disparity5": 98.32,
           "disparity20": 89.87,
           "strength": 126.16,
-          "strengthAcceleration": -0.03,
+          "strengthAcceleration": -0.28,
           "netForeignWindowBuyMoney": 251,
           "largeTradeRatio": 0.9932128553069599,
           "shortRatio": 3.94,
@@ -459,7 +459,7 @@
           "disparity1": 100,
           "disparity5": 110.67,
           "disparity20": 109.18,
-          "strength": 124.64,
+          "strength": 124.65,
           "strengthAcceleration": 0,
           "netForeignWindowBuyMoney": -38,
           "largeTradeRatio": 0,
@@ -535,7 +535,7 @@
           "disparity5": 101.37,
           "disparity20": 112.95,
           "strength": 96.87,
-          "strengthAcceleration": 0.03,
+          "strengthAcceleration": 0,
           "netForeignWindowBuyMoney": -10,
           "largeTradeRatio": 0,
           "shortRatio": 0.47,
@@ -684,8 +684,8 @@
           "disparity1": 96.38,
           "disparity5": 93.98,
           "disparity20": 103.44,
-          "strength": 104.45,
-          "strengthAcceleration": -0.01,
+          "strength": 104.55,
+          "strengthAcceleration": 0.09,
           "netForeignWindowBuyMoney": 10,
           "largeTradeRatio": 0.9676690952007422,
           "shortRatio": 10.55,
@@ -835,7 +835,7 @@
           "disparity5": 111.39,
           "disparity20": 133.54,
           "strength": 108.48,
-          "strengthAcceleration": 0,
+          "strengthAcceleration": -0.04,
           "netForeignWindowBuyMoney": -168,
           "largeTradeRatio": 0.9978096796240065,
           "shortRatio": 2.49,
@@ -1210,7 +1210,7 @@
           "disparity5": 97.89,
           "disparity20": 115.68,
           "strength": 82.73,
-          "strengthAcceleration": 3.3,
+          "strengthAcceleration": 1.61,
           "netForeignWindowBuyMoney": -183,
           "largeTradeRatio": 0,
           "shortRatio": 0.98,
@@ -1360,7 +1360,7 @@
           "disparity5": 89.02,
           "disparity20": 88.48,
           "strength": 98.61,
-          "strengthAcceleration": 0,
+          "strengthAcceleration": -0.05,
           "netForeignWindowBuyMoney": -139,
           "largeTradeRatio": 0,
           "shortRatio": 3.2,
@@ -1434,8 +1434,8 @@
           "disparity1": 97.49,
           "disparity5": 96.75,
           "disparity20": 103.68,
-          "strength": 94.42,
-          "strengthAcceleration": 0.01,
+          "strength": 94.41,
+          "strengthAcceleration": 0,
           "netForeignWindowBuyMoney": -120,
           "largeTradeRatio": 0.9326166723092727,
           "shortRatio": 7.83,
@@ -1727,15 +1727,15 @@
         "selfHealedReasons": [],
         "isDefaultFallback": false,
         "isVetoed": true,
-        "vetoReason": "[단기 손절] 현재가(246,000원)가 장중 평균 거래 단가(VWAP 프록시: 248,103원)를 하회 | [기술적 분석] 단기 하락 및 체결강도 약세 (1일 이격도: 92.76%, 체결강도: 87.85%) | [기술적 분석] 단기 주가 계단식 하락 추세 감지 (장중 동적 관측: 248250원 -> 247500원 -> 246000원)",
+        "vetoReason": "[단기 손절] 현재가(246,000원)가 장중 평균 거래 단가(VWAP 프록시: 248,103원)를 하회 | [기술적 분석] 단기 하락 및 체결강도 약세 (1일 이격도: 92.76%, 체결강도: 87.8%) | [기술적 분석] 단기 주가 계단식 하락 추세 감지 (장중 동적 관측: 248250원 -> 247500원 -> 246000원)",
         "isSupplyGoldenCross": false,
         "isSupplyDeathCross": false,
         "metrics": {
           "disparity1": 92.76,
           "disparity5": 106.44,
           "disparity20": 93.73,
-          "strength": 87.85,
-          "strengthAcceleration": 0.05,
+          "strength": 87.8,
+          "strengthAcceleration": 0,
           "netForeignWindowBuyMoney": 7457,
           "largeTradeRatio": 0,
           "shortRatio": 2.91,
@@ -1789,6 +1789,81 @@
           ],
           "debtRatio": 30.15,
           "sector": "전기·전자"
+        }
+      },
+      {
+        "name": "솔트룩스",
+        "code": "304100",
+        "totalScore": -137.5,
+        "price": 18600,
+        "change": 29.97,
+        "isAntHell": false,
+        "isSelfHealed": false,
+        "selfHealedReasons": [],
+        "isDefaultFallback": false,
+        "isVetoed": true,
+        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 73.68% < 기준: 80%) | [기술적 분석] 5일 이격도 과열 (128.4%, 기준: 108% 초과) | [재무 분석] ROE 적자 | [재무 분석] 3분기 연속 영업손실",
+        "isSupplyGoldenCross": true,
+        "isSupplyDeathCross": false,
+        "metrics": {
+          "disparity1": 129.97,
+          "disparity5": 128.4,
+          "disparity20": 143.26,
+          "strength": 73.68,
+          "strengthAcceleration": -26.32,
+          "netForeignWindowBuyMoney": 2,
+          "largeTradeRatio": 0.9848020626185081,
+          "shortRatio": 4.38,
+          "investor1D": {
+            "foreign": 17047,
+            "organ": 1171,
+            "personal": -19336
+          },
+          "investor5D": {
+            "foreign": -219152,
+            "organ": -41902,
+            "personal": 255642
+          },
+          "investorMoney5D": {
+            "foreign": -41,
+            "organ": -8,
+            "personal": 48
+          },
+          "atr": 1360,
+          "atrPercent": 8,
+          "transactionValue": 23208028515,
+          "volumeRate": 4229.14,
+          "creditBalance": 3,
+          "sector": "IT 서비스",
+          "rsi": 73.9,
+          "maAlignment": "혼조세"
+        },
+        "scores": {
+          "strengthScore": -50,
+          "disparityScore": 15,
+          "shortScore": 5,
+          "supplyScore": 15,
+          "indexRelativeScore": 22.5,
+          "trendScore": 5,
+          "moneyInflowScore": 8,
+          "memberTrendScore": 4,
+          "largeTradeScore": 8,
+          "strengthAccScore": -20,
+          "themeScore": 0,
+          "backtestPenalty": 0,
+          "financialScore": 0
+        },
+        "financials": {
+          "roe": -15.14,
+          "per": -21.02,
+          "pbr": 3.32,
+          "opProfits": [
+            -61,
+            -103,
+            -51
+          ],
+          "debtRatio": 57.41,
+          "sector": "IT 서비스"
         }
       },
       {
@@ -1865,81 +1940,6 @@
           "debtRatio": 227.87,
           "sector": "운송장비·부품"
         }
-      },
-      {
-        "name": "삼성바이오로직스",
-        "code": "207940",
-        "totalScore": -141,
-        "price": 1491000,
-        "change": 0,
-        "isAntHell": false,
-        "isSelfHealed": false,
-        "selfHealedReasons": [],
-        "isDefaultFallback": false,
-        "isVetoed": true,
-        "vetoReason": "[수급 분석] 체결강도 약세 감지 (체결강도: 78.28% < 기준: 95%) | [기술적 분석] 단기 하락 및 체결강도 약세 (1일 이격도: 96.08%, 체결강도: 78.28%)",
-        "isSupplyGoldenCross": false,
-        "isSupplyDeathCross": false,
-        "metrics": {
-          "disparity1": 96.08,
-          "disparity5": 100.45,
-          "disparity20": 101.6,
-          "strength": 78.28,
-          "strengthAcceleration": 0,
-          "netForeignWindowBuyMoney": 353,
-          "largeTradeRatio": 0.9608937625699541,
-          "shortRatio": 9.58,
-          "investor1D": {
-            "foreign": 22626,
-            "organ": 0,
-            "personal": -22626
-          },
-          "investor5D": {
-            "foreign": -14004,
-            "organ": 0,
-            "personal": 14004
-          },
-          "investorMoney5D": {
-            "foreign": -209,
-            "organ": 0,
-            "personal": 209
-          },
-          "atr": 61925,
-          "atrPercent": 4.51,
-          "transactionValue": 77867523000,
-          "volumeRate": 100.91,
-          "creditBalance": 0.07,
-          "sector": "제약",
-          "rsi": 51.3,
-          "maAlignment": "혼조세"
-        },
-        "scores": {
-          "strengthScore": -50,
-          "disparityScore": 15,
-          "shortScore": 3,
-          "supplyScore": 20,
-          "indexRelativeScore": -9,
-          "trendScore": 5,
-          "moneyInflowScore": 7,
-          "memberTrendScore": 10,
-          "largeTradeScore": 8,
-          "strengthAccScore": 0,
-          "themeScore": 0,
-          "backtestPenalty": 0,
-          "financialScore": 0
-        },
-        "financials": {
-          "roe": 19.56,
-          "per": 56.11,
-          "pbr": 9.25,
-          "opProfits": [
-            13849,
-            21186,
-            6406
-          ],
-          "debtRatio": 51.4,
-          "sector": "제약"
-        }
       }
     ]
   },
@@ -1947,5 +1947,5 @@
   "halfHourKey": "2026-8-5-15:30",
   "tenMinKey": "2026-8-5-15:30",
   "hourKey": "2026-8-5-15:30",
-  "savedTime": "08.05 23:05"
+  "savedTime": "08.05 23:15"
 }

@@ -11,6 +11,7 @@ import macroApi from './routes/macroApi.js';
 import authApi from './routes/authApi.js';
 import portfolioApi from './routes/portfolioApi.js';
 import journalApi from './routes/journalApi.js';
+import adminApi from './routes/adminApi.js';
 import cron from 'node-cron';
 import { executeHourlyPulse } from './routes/aiApi.js';
 import { runStopLossMonitor } from './lib/marketMonitor.js';
@@ -89,6 +90,7 @@ app.use('/api', setupConditionApi(aiModel));
 app.use('/api/auth', authApi);
 app.use('/api/portfolio', portfolioApi);
 app.use('/api/journal', journalApi);
+app.use('/api/admin', adminApi);
 
 // 7. 실시간 손절 감시 타이머 시작 (30초 간격)
 setInterval(runStopLossMonitor, 30000);

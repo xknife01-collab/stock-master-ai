@@ -1,7 +1,7 @@
 import React from 'react';
 import { TrendingUp } from 'lucide-react';
 
-const Header = ({ user, onOpenLogin, onLogout, showInstallBtn, onInstallClick }) => {
+const Header = ({ user, onOpenLogin, onLogout, showInstallBtn, onInstallClick, onOpenAdmin }) => {
   return (
     <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
       <div className="flex items-center gap-4">
@@ -16,7 +16,7 @@ const Header = ({ user, onOpenLogin, onLogout, showInstallBtn, onInstallClick })
           </div>
         </div>
       </div>
-      <div className="flex gap-4 items-center">
+      <div className="flex gap-3 items-center">
         {showInstallBtn && (
           <button
             onClick={onInstallClick}

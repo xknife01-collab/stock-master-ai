@@ -18,6 +18,9 @@ import PortfolioSection from './components/Portfolio/PortfolioSection';
 import TradingJournal from './components/Portfolio/TradingJournal';
 import StockPopup from './components/StockPopup';
 import AuthModal from './components/Auth/AuthModal';
+import AdminModal from './components/Admin/AdminModal';
+import StickyStripBanner from './components/Ad/StickyStripBanner';
+import AdVideoModal from './components/Ad/AdVideoModal';
 
 const App = () => {
   // Authentication & Session
@@ -27,6 +30,7 @@ const App = () => {
     return email ? { email, phone } : null;
   });
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
 
   // Global States
   const [stocks, setStocks] = useState([]);
@@ -43,10 +47,83 @@ const App = () => {
   const [isIOSDevice, setIsIOSDevice] = useState(false);
   const [showIosGuide, setShowIosGuide] = useState(false);
 
+  // Global Session Video Ad Pop-up States
+  const [isAdModalOpen, setIsAdModalOpen] = useState(false);
+  const [adConfig, setAdConfig] = useState({ showAds: true, previewDurationMinutes: 10, resetIntervalMinutes: 30 });
+
+  // /admin URL 경로 감지 리스너
+  useEffect(() => {
+    const checkAdminRoute = () => {
+      const path = window.location.pathname.toLowerCase();
+      if (path === '/admin' || path === '/admin/' || window.location.hash === '#admin') {
+        setIsAdminOpen(true);
+      }
+    };
+    checkAdminRoute();
+    window.addEventListener('popstate', checkAdminRoute);
+    return () => window.removeEventListener('popstate', checkAdminRoute);
+  }, []);
+
+  // 글로벌 10분 사용 ➔ 15초 동영상 광고 팝업 ➔ 30분 해금 타이머
+  useEffect(() => {
+    let firstVisit = localStorage.getItem('stock_first_visit_time');
+    if (!firstVisit) {
+      firstVisit = String(Date.now());
+      localStorage.setItem('stock_first_visit_time', firstVisit);
+    }
+
+    const checkSessionAdTimer = () => {
+      fetch(`${API_URL}/api/admin/config`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.config) {
+            const cfg = data.config;
+            setAdConfig(cfg);
+
+            if (cfg.showAds !== false) {
+              const elapsedMins = (Date.now() - parseInt(firstVisit)) / (1000 * 60);
+              const previewLimit = parseInt(cfg.previewDurationMinutes) || 10;
+              const unlockedUntil = parseInt(localStorage.getItem('stock_ad_unlocked_until') || '0');
+
+              if (elapsedMins >= previewLimit && Date.now() > unlockedUntil) {
+                setIsAdModalOpen(true);
+              }
+            }
+          }
+        })
+        .catch(() => {});
+    };
+
+    checkSessionAdTimer();
+    const timer = setInterval(checkSessionAdTimer, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleUnlockSessionSuccess = () => {
+    const resetMins = parseInt(adConfig.resetIntervalMinutes) || 30;
+    const unlockUntil = Date.now() + resetMins * 60 * 1000;
+    localStorage.setItem('stock_ad_unlocked_until', String(unlockUntil));
+    setIsAdModalOpen(false);
+  };
+
   useEffect(() => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     setIsIOSDevice(ios);
+
+    // Track Page Visit & Referrer
+    try {
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      fetch(`${API_URL}/api/admin/track-visit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          referrer: document.referrer || 'direct',
+          isMobile,
+          isAdView: false
+        })
+      }).catch(e => console.warn('Traffic tracking skipped', e));
+    } catch (err) {}
 
     if (isStandalone) {
       setShowInstallBtn(false);
@@ -265,6 +342,7 @@ const App = () => {
           onLogout={handleLogout} 
           showInstallBtn={showInstallBtn}
           onInstallClick={handleInstallClick}
+          onOpenAdmin={() => setIsAdminOpen(true)}
         />
 
         {/* 2. Market Overview (Dashboard) */}
@@ -315,6 +393,7 @@ const App = () => {
         {/* 8. Floating UI */}
         <FloatingAlerts alerts={alerts} />
         <FooterTicker stocks={stocks} />
+        <StickyStripBanner />
 
         {/* 8. Modals */}
         <AnimatePresence>
@@ -329,6 +408,17 @@ const App = () => {
               isOpen={isAuthOpen} 
               onClose={() => setIsAuthOpen(false)} 
               onSuccess={(userData) => setUser(userData)} 
+            />
+          )}
+          {isAdminOpen && (
+            <AdminModal
+              isOpen={isAdminOpen}
+              onClose={() => {
+                setIsAdminOpen(false);
+                if (window.location.pathname.toLowerCase() === '/admin' || window.location.pathname.toLowerCase() === '/admin/') {
+                  window.history.pushState({}, '', '/');
+                }
+              }}
             />
           )}
           {showIosGuide && (
@@ -362,6 +452,13 @@ const App = () => {
             </div>
           )}
         </AnimatePresence>
+
+        {/* 글로벌 15초 동영상 광고 세션 해금 모달 */}
+        <AdVideoModal
+          isOpen={isAdModalOpen}
+          onClose={() => setIsAdModalOpen(false)}
+          onUnlockSuccess={handleUnlockSessionSuccess}
+        />
 
         <style dangerouslySetInnerHTML={{ __html: `
           .glass-card {
