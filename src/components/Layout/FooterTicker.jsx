@@ -1,8 +1,10 @@
 import React from 'react';
 
 const FooterTicker = ({ stocks }) => {
+  if (!stocks || stocks.length === 0) return null;
+
   return (
-    <footer className="w-full bg-black/80 backdrop-blur-2xl border-t border-white/10 py-3 overflow-hidden mt-8">
+    <footer className="w-full bg-transparent border-t border-white/10 py-3 overflow-hidden mt-8">
       <div className="ticker-wrap w-full">
         <div className="ticker-content flex items-center gap-12 px-8">
           {[...stocks, ...stocks].map((stock, i) => (

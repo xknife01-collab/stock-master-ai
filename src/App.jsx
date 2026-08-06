@@ -393,7 +393,7 @@ const App = () => {
         {/* 8. Floating UI */}
         <FloatingAlerts alerts={alerts} />
         <FooterTicker stocks={stocks} />
-        <StickyStripBanner />
+        <StickyStripBanner showAds={adConfig.showAds} />
 
         {/* 8. Modals */}
         <AnimatePresence>
