@@ -2,19 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { API_URL } from '../../config.js';
 
 const StickyStripBanner = ({ showAds: propShowAds }) => {
-  const [showAds, setShowAds] = useState(propShowAds ?? true);
+  const [showAds, setShowAds] = useState(propShowAds === true || propShowAds === 'true');
 
   useEffect(() => {
-    if (typeof propShowAds === 'boolean') {
-      setShowAds(propShowAds);
+    if (propShowAds !== undefined && propShowAds !== null) {
+      setShowAds(propShowAds === true || propShowAds === 'true');
       return;
     }
     const fetchConfig = () => {
       fetch(`${API_URL}/api/admin/config`)
         .then(res => res.json())
         .then(data => {
-          if (data.config && typeof data.config.showAds === 'boolean') {
-            setShowAds(data.config.showAds);
+          if (data.config && data.config.showAds !== undefined) {
+            setShowAds(data.config.showAds === true || data.config.showAds === 'true');
           }
         })
         .catch(() => {});

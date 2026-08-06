@@ -66,10 +66,10 @@ const App = () => {
 
   // 글로벌 10분 사용 ➔ 15초 동영상 광고 팝업 ➔ 30분 해금 타이머
   useEffect(() => {
-    let firstVisit = localStorage.getItem('stock_first_visit_time');
-    if (!firstVisit) {
-      firstVisit = String(Date.now());
-      localStorage.setItem('stock_first_visit_time', firstVisit);
+    let sessionStart = sessionStorage.getItem('stock_session_start_time');
+    if (!sessionStart) {
+      sessionStart = String(Date.now());
+      sessionStorage.setItem('stock_session_start_time', sessionStart);
     }
 
     const checkSessionAdTimer = () => {
@@ -80,14 +80,18 @@ const App = () => {
             const cfg = data.config;
             setAdConfig(cfg);
 
-            if (cfg.showAds !== false) {
-              const elapsedMins = (Date.now() - parseInt(firstVisit)) / (1000 * 60);
-              const previewLimit = parseInt(cfg.previewDurationMinutes) || 10;
-              const unlockedUntil = parseInt(localStorage.getItem('stock_ad_unlocked_until') || '0');
+            const isAdEnabled = cfg.showAds === true || cfg.showAds === 'true';
+            if (!isAdEnabled) {
+              setIsAdModalOpen(false);
+              return;
+            }
 
-              if (elapsedMins >= previewLimit && Date.now() > unlockedUntil) {
-                setIsAdModalOpen(true);
-              }
+            const elapsedMins = (Date.now() - parseInt(sessionStart)) / (1000 * 60);
+            const previewLimit = parseInt(cfg.previewDurationMinutes) || 10;
+            const unlockedUntil = parseInt(localStorage.getItem('stock_ad_unlocked_until') || '0');
+
+            if (elapsedMins >= previewLimit && Date.now() > unlockedUntil) {
+              setIsAdModalOpen(true);
             }
           }
         })

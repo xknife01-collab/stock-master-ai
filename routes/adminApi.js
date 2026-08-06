@@ -391,12 +391,27 @@ router.get('/stats', async (req, res) => {
     }
 });
 
+const AD_CONFIG_FILE = path.join(process.cwd(), 'ad_config.json');
+
 let inMemoryAdConfig = {
     showAds: true,
     previewDurationMinutes: 10,
     resetIntervalMinutes: 30,
     updatedAt: new Date().toISOString()
 };
+
+// Load initial config from local file if exists
+try {
+    if (fs.existsSync(AD_CONFIG_FILE)) {
+        const savedFile = fs.readFileSync(AD_CONFIG_FILE, 'utf8');
+        const parsed = JSON.parse(savedFile);
+        inMemoryAdConfig = {
+            ...inMemoryAdConfig,
+            ...parsed,
+            showAds: parsed.showAds === true || parsed.showAds === 'true'
+        };
+    }
+} catch (e) {}
 
 // 4. 광고 마스터 스위치 및 타이머 설정 조회/수정 API
 router.get('/config', async (req, res) => {
@@ -409,23 +424,37 @@ router.get('/config', async (req, res) => {
                 .maybeSingle();
 
             if (!error && data && data.value) {
-                inMemoryAdConfig = { ...inMemoryAdConfig, ...data.value };
+                inMemoryAdConfig = {
+                    ...inMemoryAdConfig,
+                    ...data.value,
+                    showAds: data.value.showAds === true || data.value.showAds === 'true'
+                };
             }
         }
     } catch (err) {}
 
+    // Ensure showAds is strictly a boolean
+    inMemoryAdConfig.showAds = inMemoryAdConfig.showAds === true || inMemoryAdConfig.showAds === 'true';
     res.json({ success: true, config: inMemoryAdConfig });
 });
 
 router.post('/config', async (req, res) => {
     try {
         const { showAds, previewDurationMinutes, resetIntervalMinutes } = req.body;
+        const isShowAds = showAds === true || showAds === 'true';
+        
         inMemoryAdConfig = {
-            showAds: showAds ?? true,
+            showAds: isShowAds,
             previewDurationMinutes: Number(previewDurationMinutes || 10),
             resetIntervalMinutes: Number(resetIntervalMinutes || 30),
             updatedAt: new Date().toISOString()
         };
+
+        try {
+            fs.writeFileSync(AD_CONFIG_FILE, JSON.stringify(inMemoryAdConfig, null, 2), 'utf8');
+        } catch (fileErr) {
+            console.warn('⚠️ [Admin API] Local ad_config.json save skipped:', fileErr.message);
+        }
 
         if (supabase) {
             try {
