@@ -304,7 +304,10 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                return <div className="py-12 text-center text-white/40 text-sm font-bold animate-pulse">데이터를 유효한 형식으로 조립 중입니다...</div>;
             }
             
-            const hasNoRecommendation = !sig.stock || sig.stock === 'null' || sig.stock === 'None';
+            const hasNoRecommendation = !sig.stock || sig.stock === 'null' || sig.stock === 'None' || sig.stock.includes('추천 없음') || sig.stock.includes('추천 보류');
+
+            const displayShortPicks = Array.isArray(sig.shortTermPicks) ? sig.shortTermPicks : [];
+            const displayLongPicks = Array.isArray(sig.longTermPicks) ? sig.longTermPicks : [];
 
             return (
               <>
@@ -349,7 +352,7 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                       onClick={() => !hasNoRecommendation && onOpenPopup(sig.stock, sig.price, sig.themeProb, sig.symbol)} 
                       className={`font-black text-lg ${hasNoRecommendation ? 'text-amber-400' : 'text-blue-300 underline underline-offset-4 decoration-blue-500/50 cursor-pointer'}`}
                     >
-                      {hasNoRecommendation ? '시장 리스크 관리로 인한 추천 보류' : sig.stock}
+                      {hasNoRecommendation ? (sig.stock || '시장 리스크 관리로 인한 추천 보류') : sig.stock}
                     </span>
                     {!hasNoRecommendation && (
                       <div className="flex gap-2">
@@ -430,7 +433,7 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.02]">
-                      {(sig.shortTermPicks || []).map((it, i) => (
+                      {displayShortPicks.map((it, i) => (
                         <tr key={i} className="hover:bg-white/[0.02] cursor-pointer group" onClick={() => onOpenPopup(it.n, it.p, (it.tp ? `TARGET ${it.tp}` : '15%'), it.c)}>
                           <td className="px-4 py-3">
                             <div className="flex flex-col">
@@ -476,7 +479,7 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.02]">
-                      {(sig.longTermPicks || []).map((it, i) => (
+                      {displayLongPicks.map((it, i) => (
                         <tr key={i} className="hover:bg-white/[0.02] cursor-pointer group" onClick={() => onOpenPopup(it.n, it.p, '실시간 분석', it.c)}>
                           <td className="px-4 py-3">
                             <div className="flex flex-col">
