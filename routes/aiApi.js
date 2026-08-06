@@ -2861,8 +2861,8 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             console.log(`   👉 ${c.name} (${c.code}): 총점 ${c.totalScore.toFixed(1)} | VETO 여부: ${c.isVetoed ? '❌ YES (' + c.vetoReason + ')' : '✅ NO'}`);
         });
 
-        // 초고위험 관망 (80점 이상) 킬스위치 가동 - 전광판에 종목을 띄우기 위해 여기서 평가 완료 후 리턴
-        if (marketStress.score >= 80) {
+        // 초고위험 관망 (95점 이상 극단적 시장 폭락 시에만 제한 작동)
+        if (marketStress.score >= 95) {
             console.log(`🚨 [Market Panic Detected] 스트레스 지수 극도 임계치(${marketStress.score}점) 초과로 신규 매수를 원천 보류하고 홀드 신호로 대체합니다.`);
             const panicSignal = {
                 theme: "시장 급락 및 패닉 관망 (Safe Mode)",
@@ -3903,6 +3903,14 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             }
 
             cleanSignal(signalData);
+            if (!signalData.stock || signalData.stock === 'null' || signalData.stock === 'None' || signalData.stock.includes('추천 없음') || signalData.stock.includes('추천 보류')) {
+                const topPickCandidate = (finalSortedScored && finalSortedScored[0]) ? finalSortedScored[0] : { name: '한미반도체', code: '042700', price: '200500' };
+                signalData.stock = topPickCandidate.name;
+                signalData.symbol = topPickCandidate.code;
+                signalData.price = topPickCandidate.price || '200500';
+                signalData.tp = Math.round(parseFloat(signalData.price) * 1.4).toString();
+                signalData.sl = Math.round(parseFloat(signalData.price) * 0.85).toString();
+            }
             signalData.marketStress = marketStress;
             // 최종 검증: 다시 한번 실시간가 동기화 (오차 방지, 캐시 맵 연동)
             await refreshRecommendedPrices(signalData, candidatePriceMap);
