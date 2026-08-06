@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "backend": "node server.js",
+    "start": "node --expose-gc server.js",
+    "backend": "node --expose-gc server.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",

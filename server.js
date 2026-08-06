@@ -37,12 +37,34 @@ const runCronPulse = async () => {
     }
 };
 
+import { globalStockCache, globalChartCache, globalDetailCache } from './lib/boundedCache.js';
+
 // 골든아워 (오전 09:15 ~ 10:30 KST) 매 15분 실행
 cron.schedule('15,30,45 9 * * 1-5', runCronPulse, { scheduled: true, timezone: "Asia/Seoul" });
 cron.schedule('0,15,30 10 * * 1-5', runCronPulse, { scheduled: true, timezone: "Asia/Seoul" });
 
 // 일반 시간 (오전 11:00 ~ 오후 15:30 KST) 매 30분 실행
 cron.schedule('0,30 11-15 * * 1-5', runCronPulse, { scheduled: true, timezone: "Asia/Seoul" });
+
+// 🧹 매일 자정 00:00 (KST) 메모리 대청소 크론 (Garbage Collection & Bounded Cache Purge)
+cron.schedule('0 0 * * *', () => {
+    console.log('🧹 [Midnight GC] 자정 백그라운드 메모리 대청소 시작...');
+    const stockCleaned = globalStockCache.clear();
+    const chartCleaned = globalChartCache.clear();
+    const detailCleaned = globalDetailCache.clear();
+
+    if (global.gc) {
+        try {
+            global.gc();
+            console.log('✅ [GC] V8 가비지 컬렉션(GC) 강제 실행으로 임시 찌꺼기 메모리 회수 완료.');
+        } catch (gcErr) {
+            console.error('⚠️ [GC] 가비지 컬렉션 실행 중 경고:', gcErr.message);
+        }
+    }
+
+    const heapMB = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
+    console.log(`📊 [Memory Status] 자정 대청소 완료 (캐시 ${stockCleaned + chartCleaned + detailCleaned}개 정리). 현재 힙 사용량: ${heapMB} MB`);
+}, { scheduled: true, timezone: "Asia/Seoul" });
 
 // Middleware
 app.use(cors({
