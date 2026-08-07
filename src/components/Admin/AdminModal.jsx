@@ -538,19 +538,23 @@ const AdminModal = ({ isOpen, onClose }) => {
                       const yearlyList = trafficHistory?.yearlyData || [];
                       const maxMAU = Math.max(1, ...yearlyList.map(d => d.mau || 0));
                       return (
-                        <div className="h-56 flex items-end justify-between gap-3 pt-8 px-2 border-b border-white/10">
+                        <div className="h-56 flex items-end justify-between gap-2 pt-8 px-1 border-b border-white/10 overflow-x-auto">
                           {yearlyList.map((item, idx) => {
-                            const heightPct = Math.round(((item.mau || 0) / maxMAU) * 100);
+                            const heightPct = item.mau > 0 ? Math.max(15, Math.round(((item.mau || 0) / maxMAU) * 100)) : 4;
                             return (
-                              <div key={idx} className="flex-1 flex flex-col items-center gap-1 group relative">
-                                <div className="opacity-0 group-hover:opacity-100 absolute -top-9 px-2 py-0.5 bg-purple-600 text-[10px] font-bold rounded text-white font-mono whitespace-nowrap transition-opacity shadow-lg">
-                                  {item.month}: MAU {item.mau?.toLocaleString()}명 (수익: {item.revenue})
+                              <div key={idx} className="flex-1 min-w-[28px] flex flex-col items-center gap-1 group relative">
+                                <div className="opacity-0 group-hover:opacity-100 absolute -top-9 px-2 py-0.5 bg-purple-600 text-[10px] font-bold rounded text-white font-mono whitespace-nowrap transition-opacity shadow-lg z-20 pointer-events-none">
+                                  {item.month}: MAU {item.mau?.toLocaleString()}명 (PV: {item.pv?.toLocaleString()}, 수익: {item.revenue})
                                 </div>
                                 <div
-                                  className="w-full bg-gradient-to-t from-purple-600 via-indigo-500 to-green-400 rounded-t transition-all"
-                                  style={{ height: `${Math.max(15, heightPct)}%` }}
+                                  className={`w-full rounded-t transition-all ${
+                                    item.mau > 0
+                                      ? 'bg-gradient-to-t from-purple-600 via-indigo-500 to-green-400'
+                                      : 'bg-white/10'
+                                  }`}
+                                  style={{ height: `${heightPct}%` }}
                                 />
-                                <span className="text-[10px] font-bold text-white/60">{item.month}</span>
+                                <span className="text-[9px] font-bold text-white/60 whitespace-nowrap">{item.month.split(' ')[0]}</span>
                               </div>
                             );
                           })}
@@ -566,7 +570,7 @@ const AdminModal = ({ isOpen, onClose }) => {
                           const pct = Math.round((hits / maxHits) * 100);
                           return (
                             <div key={hour} className="flex-1 flex flex-col items-center gap-1 group relative">
-                              <div className="opacity-0 group-hover:opacity-100 absolute -top-8 px-2 py-0.5 bg-blue-600 text-[10px] font-bold rounded text-white font-mono whitespace-nowrap transition-opacity">
+                              <div className="opacity-0 group-hover:opacity-100 absolute -top-8 px-2 py-0.5 bg-blue-600 text-[10px] font-bold rounded text-white font-mono whitespace-nowrap transition-opacity pointer-events-none z-20">
                                 {hour}시: {hits}회
                               </div>
                               <div
@@ -585,10 +589,13 @@ const AdminModal = ({ isOpen, onClose }) => {
                   <div className="p-6 bg-[#121722] border border-white/10 rounded-2xl shadow-2xl space-y-4">
                     <h3 className="text-base font-black text-white flex items-center gap-2">
                       <PieChart className="text-blue-400" size={18} />
-                      채널별 유입 순위 (SNS 포함)
+                      {trafficPeriod === 'today' && '오늘 채널별 유입 순위 (SNS 포함)'}
+                      {trafficPeriod === 'weekly' && '주간(7일) 채널별 유입 순위 (SNS 포함)'}
+                      {trafficPeriod === 'monthly' && '월간(30일) 채널별 유입 순위 (SNS 포함)'}
+                      {trafficPeriod === 'yearly' && '연도별/월별 채널 유입 순위 (SNS 포함)'}
                     </h3>
                     <div className="space-y-3">
-                      {(traffic?.referrerBreakdown || []).map((ref, idx) => (
+                      {((trafficHistory?.referrerBreakdown || traffic?.referrerBreakdown) || []).map((ref, idx) => (
                         <div key={ref.source} className="space-y-1">
                           <div className="flex justify-between items-center text-xs">
                             <span className="font-bold text-white flex items-center gap-2">

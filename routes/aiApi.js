@@ -166,7 +166,19 @@ const savePatternInsights = (newInsight) => {
 };
 
 const getRagDiary = async () => {
-    // 1. Supabase 클라우드 조회 우선 (서버리스 환경에서 로컬 파일 유실/초기화 방지)
+    // 1. 로컬 파일이 존재하고 유효하면 우선 읽기 (Supabase 구버전 캐시로 인한 덮어쓰기 방지)
+    if (fs.existsSync(ragDiaryPath)) {
+        try {
+            const localData = JSON.parse(fs.readFileSync(ragDiaryPath, 'utf8'));
+            if (Array.isArray(localData) && localData.length > 0) {
+                return localData;
+            }
+        } catch (e) {
+            console.error('Error reading local rag diary:', e.message);
+        }
+    }
+
+    // 2. 로컬 유실 시 Supabase 클라우드 DB 백업 복원
     if (supabase) {
         try {
             const { data, error } = await supabase
@@ -187,14 +199,6 @@ const getRagDiary = async () => {
         }
     }
 
-    // 2. 클라우드 조회 실패 시 로컬 파일 폴백
-    if (fs.existsSync(ragDiaryPath)) {
-        try {
-            return JSON.parse(fs.readFileSync(ragDiaryPath, 'utf8'));
-        } catch (e) {
-            console.error('Error reading local rag diary:', e.message);
-        }
-    }
     return [];
 };
 

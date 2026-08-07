@@ -127,18 +127,23 @@ const App = () => {
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     setIsIOSDevice(ios);
 
-    // Track Page Visit & Referrer
+    // Track Page Visit & Referrer (Deduplicate React StrictMode & rapid refreshes)
     try {
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      fetch(`${API_URL}/api/admin/track-visit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          referrer: document.referrer || 'direct',
-          isMobile,
-          isAdView: false
-        })
-      }).catch(e => console.warn('Traffic tracking skipped', e));
+      const lastTrackTime = parseInt(sessionStorage.getItem('stock_last_visit_track_time') || '0');
+      const now = Date.now();
+      if (now - lastTrackTime > 3000) {
+        sessionStorage.setItem('stock_last_visit_track_time', String(now));
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        fetch(`${API_URL}/api/admin/track-visit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            referrer: document.referrer || 'direct',
+            isMobile,
+            isAdView: false
+          })
+        }).catch(e => console.warn('Traffic tracking skipped', e));
+      }
     } catch (err) {}
 
     if (isStandalone) {

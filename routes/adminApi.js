@@ -32,28 +32,48 @@ const saveTrafficHistoryStore = (data) => {
 
 const trafficHistoryStore = loadTrafficHistoryStore();
 
-const todayKey = new Date().toISOString().split('T')[0];
+// --- KST (UTC+9) Helper Functions ---
+const getKSTDateString = (dateObj = new Date()) => {
+    const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
+    const kstDate = new Date(utc + (9 * 60 * 60 * 1000));
+    const yyyy = kstDate.getFullYear();
+    const mm = String(kstDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(kstDate.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+};
+
+const getKSTHour = (dateObj = new Date()) => {
+    const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
+    const kstDate = new Date(utc + (9 * 60 * 60 * 1000));
+    return kstDate.getHours();
+};
+
+const todayKey = getKSTDateString();
 const todayHist = trafficHistoryStore[todayKey] || {};
+
+const defaultReferrers = () => ({
+    '유튜브 (Shorts/채널)': 0,
+    '인스타그램 (Instagram)': 0,
+    '페이스북 (Facebook)': 0,
+    '틱톡 (TikTok)': 0,
+    '네이버 (검색/블로그)': 0,
+    '구글 (Google Search)': 0,
+    '카카오톡 / 오픈채팅': 0,
+    '직접 방문 (Direct / 북마크)': 0,
+    '기타 타사이트': 0
+});
+
+const defaultDevices = () => ({
+    '모바일 PWA (Mobile)': 0,
+    '데스크톱 PC (Desktop)': 0
+});
 
 const trafficStore = {
     date: todayKey,
     todayPV: todayHist.pv || 0,
     todayAdViews: todayHist.adViews || 0,
-    referrers: todayHist.referrers || {
-        '유튜브 (Shorts/채널)': 0,
-        '인스타그램 (Instagram)': 0,
-        '페이스북 (Facebook)': 0,
-        '틱톡 (TikTok)': 0,
-        '네이버 (검색/블로그)': 0,
-        '구글 (Google Search)': 0,
-        '카카오톡 / 오픈채팅': 0,
-        '직접 방문 (Direct / 북마크)': 0,
-        '기타 타사이트': 0
-    },
-    devices: todayHist.devices || {
-        '모바일 PWA (Mobile)': 0,
-        '데스크톱 PC (Desktop)': 0
-    },
+    referrers: todayHist.referrers || defaultReferrers(),
+    devices: todayHist.devices || defaultDevices(),
     hourly: todayHist.hourly || Array(24).fill(0)
 };
 
@@ -61,7 +81,7 @@ const trafficStore = {
 const adViewLogs = [];
 
 const syncTodayHistory = () => {
-    const today = trafficStore.date || new Date().toISOString().split('T')[0];
+    const today = trafficStore.date || getKSTDateString();
     trafficHistoryStore[today] = {
         date: today,
         pv: trafficStore.todayPV,
@@ -74,44 +94,41 @@ const syncTodayHistory = () => {
     saveTrafficHistoryStore(trafficHistoryStore);
 };
 
-// 날짜 변경 시 트래픽 카운터 초기화 리셋
+// 날짜 변경 시 트래픽 카운터 초기화 리셋 (KST 기준 자정 리셋)
 const resetTrafficIfNeeded = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getKSTDateString();
     if (trafficStore.date !== today) {
         syncTodayHistory();
         trafficStore.date = today;
-        trafficStore.todayPV = 0;
-        trafficStore.todayAdViews = 0;
-        trafficStore.referrers = {
-            '유튜브 (Shorts/채널)': 0,
-            '인스타그램 (Instagram)': 0,
-            '페이스북 (Facebook)': 0,
-            '틱톡 (TikTok)': 0,
-            '네이버 (검색/블로그)': 0,
-            '구글 (Google Search)': 0,
-            '카카오톡 / 오픈채팅': 0,
-            '직접 방문 (Direct / 북마크)': 0,
-            '기타 타사이트': 0
-        };
-        trafficStore.devices = {
-            '모바일 PWA (Mobile)': 0,
-            '데스크톱 PC (Desktop)': 0
-        };
-        trafficStore.hourly = Array(24).fill(0);
+        const existing = trafficHistoryStore[today] || {};
+        trafficStore.todayPV = existing.pv || 0;
+        trafficStore.todayAdViews = existing.adViews || 0;
+        trafficStore.referrers = existing.referrers ? { ...existing.referrers } : defaultReferrers();
+        trafficStore.devices = existing.devices ? { ...existing.devices } : defaultDevices();
+        trafficStore.hourly = existing.hourly ? [...existing.hourly] : Array(24).fill(0);
     }
     syncTodayHistory();
 };
 
-// 0. 방문 / 광고 시청 트래킹 API
+// 0. 방문 / 광고 시청 트래킹 API (중복 트래킹 디바운스 Guard)
+let lastVisitTimestamp = 0;
+
 router.post('/track-visit', (req, res) => {
     resetTrafficIfNeeded();
 
     const { referrer, isMobile, isAdView } = req.body;
-    const currentHour = new Date().getHours();
+    const currentHour = getKSTHour();
+    const now = Date.now();
 
     if (isAdView) {
         trafficStore.todayAdViews++;
     } else {
+        // React StrictMode 및 연달아 2초 이내 중복 새로고침 카운트 방지
+        if (now - lastVisitTimestamp < 2000) {
+            return res.json({ success: true, skipped: 'deduplicated' });
+        }
+        lastVisitTimestamp = now;
+
         trafficStore.todayPV++;
         trafficStore.hourly[currentHour]++;
 
@@ -221,10 +238,14 @@ router.get('/traffic-history', (req, res) => {
     const period = req.query.period || 'weekly'; // today, weekly, monthly, yearly
     resetTrafficIfNeeded();
 
-    const now = new Date();
+    // current KST date
+    const kstNowString = getKSTDateString();
+    const [currY, currM, currD] = kstNowString.split('-').map(Number);
+    const now = new Date(currY, currM - 1, currD);
     
-    // 지난 7일 (Weekly) - 100% 실제 추적 데이터
+    // 지난 7일 (Weekly)
     const weeklyData = [];
+    const weeklyReferrers = defaultReferrers();
     for (let i = 6; i >= 0; i--) {
         const d = new Date(now);
         d.setDate(now.getDate() - i);
@@ -235,8 +256,14 @@ router.get('/traffic-history', (req, res) => {
         const dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
 
         const rec = (dateKey === trafficStore.date)
-            ? { pv: trafficStore.todayPV, adViews: trafficStore.todayAdViews }
-            : (trafficHistoryStore[dateKey] || { pv: 0, adViews: 0 });
+            ? { pv: trafficStore.todayPV, adViews: trafficStore.todayAdViews, referrers: trafficStore.referrers }
+            : (trafficHistoryStore[dateKey] || { pv: 0, adViews: 0, referrers: {} });
+
+        if (rec.referrers) {
+            Object.entries(rec.referrers).forEach(([k, v]) => {
+                if (weeklyReferrers[k] !== undefined) weeklyReferrers[k] += (v || 0);
+            });
+        }
 
         weeklyData.push({
             date: dateStr,
@@ -246,8 +273,9 @@ router.get('/traffic-history', (req, res) => {
         });
     }
 
-    // 지난 30일 (Monthly) - 100% 실제 추적 데이터
+    // 지난 30일 (Monthly)
     const monthlyData = [];
+    const monthlyReferrers = defaultReferrers();
     for (let i = 29; i >= 0; i--) {
         const d = new Date(now);
         d.setDate(now.getDate() - i);
@@ -258,8 +286,14 @@ router.get('/traffic-history', (req, res) => {
         const dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
 
         const rec = (dateKey === trafficStore.date)
-            ? { pv: trafficStore.todayPV, adViews: trafficStore.todayAdViews }
-            : (trafficHistoryStore[dateKey] || { pv: 0, adViews: 0 });
+            ? { pv: trafficStore.todayPV, adViews: trafficStore.todayAdViews, referrers: trafficStore.referrers }
+            : (trafficHistoryStore[dateKey] || { pv: 0, adViews: 0, referrers: {} });
+
+        if (rec.referrers) {
+            Object.entries(rec.referrers).forEach(([k, v]) => {
+                if (monthlyReferrers[k] !== undefined) monthlyReferrers[k] += (v || 0);
+            });
+        }
 
         monthlyData.push({
             date: dateStr,
@@ -269,13 +303,63 @@ router.get('/traffic-history', (req, res) => {
         });
     }
 
-    // 연도별/월별 (Yearly) - 실제 집계 월별 데이터
-    const monthlySumPV = monthlyData.reduce((sum, item) => sum + item.pv, 0);
-    const monthlySumAd = monthlyData.reduce((sum, item) => sum + item.adViews, 0);
+    // 연도별/월별 (1월~12월 전체 12개 월별 데이터)
+    const yearlyData = [];
+    const yearlyReferrers = defaultReferrers();
+    const currentYear = currY;
 
-    const yearlyData = [
-        { month: '8월 (현재)', mau: Math.max(1, Math.floor(monthlySumPV * 0.7)), pv: monthlySumPV, adViews: monthlySumAd, revenue: `$${(monthlySumAd * 0.045).toFixed(2)}` }
-    ];
+    for (let m = 1; m <= 12; m++) {
+        const monthPrefix = `${currentYear}-${String(m).padStart(2, '0')}`;
+        let monthPV = 0;
+        let monthAdViews = 0;
+
+        // Sum across trafficHistoryStore
+        Object.entries(trafficHistoryStore).forEach(([dKey, item]) => {
+            if (dKey.startsWith(monthPrefix)) {
+                monthPV += (item.pv || 0);
+                monthAdViews += (item.adViews || 0);
+                if (item.referrers) {
+                    Object.entries(item.referrers).forEach(([rk, rv]) => {
+                        if (yearlyReferrers[rk] !== undefined) yearlyReferrers[rk] += (rv || 0);
+                    });
+                }
+            }
+        });
+
+        // Add today if in this month
+        if (trafficStore.date.startsWith(monthPrefix) && !trafficHistoryStore[trafficStore.date]) {
+            monthPV += trafficStore.todayPV;
+            monthAdViews += trafficStore.todayAdViews;
+            Object.entries(trafficStore.referrers).forEach(([rk, rv]) => {
+                if (yearlyReferrers[rk] !== undefined) yearlyReferrers[rk] += (rv || 0);
+            });
+        }
+
+        const isCurrentMonth = m === currM;
+        yearlyData.push({
+            month: `${m}월${isCurrentMonth ? ' (현재)' : ''}`,
+            mau: monthPV > 0 ? Math.max(1, Math.floor(monthPV * 0.7)) : 0,
+            pv: monthPV,
+            adViews: monthAdViews,
+            revenue: `$${(monthAdViews * 0.045).toFixed(2)}`
+        });
+    }
+
+    const monthlySumPV = monthlyData.reduce((sum, item) => sum + item.pv, 0);
+    const weeklySumPV = weeklyData.reduce((sum, item) => sum + item.pv, 0);
+
+    // Period specific Referrer breakdown selection
+    let activeReferrers = trafficStore.referrers;
+    if (period === 'weekly') activeReferrers = weeklyReferrers;
+    else if (period === 'monthly') activeReferrers = monthlyReferrers;
+    else if (period === 'yearly') activeReferrers = yearlyReferrers;
+
+    const totalPeriodPV = Math.max(1, Object.values(activeReferrers).reduce((a, b) => a + b, 0));
+    const referrerBreakdown = Object.entries(activeReferrers).map(([source, count]) => ({
+        source,
+        count,
+        percent: Math.round((count / totalPeriodPV) * 100)
+    })).sort((a, b) => b.count - a.count);
 
     res.json({
         success: true,
@@ -283,14 +367,15 @@ router.get('/traffic-history', (req, res) => {
         summary: {
             todayPV: trafficStore.todayPV,
             todayAdViews: trafficStore.todayAdViews,
-            weeklyTotalPV: weeklyData.reduce((sum, item) => sum + item.pv, 0),
+            weeklyTotalPV: weeklySumPV,
             monthlyTotalPV: monthlySumPV,
             yearlyMAU: Math.max(1, Math.floor(monthlySumPV * 0.7)),
             retentionRate: '100%'
         },
         weeklyData,
         monthlyData,
-        yearlyData
+        yearlyData,
+        referrerBreakdown
     });
 });
 
