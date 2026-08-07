@@ -73,14 +73,24 @@ const App = () => {
     }
 
     const checkSessionAdTimer = () => {
+      // 1. Client-side localStorage override check
+      const localShowAds = localStorage.getItem('stock_show_ads');
+      if (localShowAds === 'false') {
+        setIsAdModalOpen(false);
+        setAdConfig(prev => ({ ...prev, showAds: false }));
+        return;
+      }
+
       fetch(`${API_URL}/api/admin/config`)
         .then(res => res.json())
         .then(data => {
-          if (data.config) {
+          if (data && data.config) {
             const cfg = data.config;
-            setAdConfig(cfg);
-
             const isAdEnabled = cfg.showAds === true || cfg.showAds === 'true';
+            
+            localStorage.setItem('stock_show_ads', String(isAdEnabled));
+            setAdConfig({ ...cfg, showAds: isAdEnabled });
+
             if (!isAdEnabled) {
               setIsAdModalOpen(false);
               return;
@@ -92,6 +102,8 @@ const App = () => {
 
             if (elapsedMins >= previewLimit && Date.now() > unlockedUntil) {
               setIsAdModalOpen(true);
+            } else {
+              setIsAdModalOpen(false);
             }
           }
         })
@@ -99,7 +111,7 @@ const App = () => {
     };
 
     checkSessionAdTimer();
-    const timer = setInterval(checkSessionAdTimer, 10000);
+    const timer = setInterval(checkSessionAdTimer, 5000);
     return () => clearInterval(timer);
   }, []);
 

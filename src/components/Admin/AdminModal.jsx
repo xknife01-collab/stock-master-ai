@@ -187,10 +187,13 @@ const AdminModal = ({ isOpen, onClose }) => {
   const handleSaveConfig = async () => {
     try {
       setSaveStatus('저장 중...');
+      const isShow = config.showAds === true || config.showAds === 'true';
+      localStorage.setItem('stock_show_ads', String(isShow));
+
       const res = await fetch(`${API_URL}/api/admin/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
+        body: JSON.stringify({ ...config, showAds: isShow })
       });
       const data = await res.json();
       if (data.success) {
@@ -721,7 +724,11 @@ const AdminModal = ({ isOpen, onClose }) => {
                       </div>
                     </div>
                     <button
-                      onClick={() => setConfig(prev => ({ ...prev, showAds: !prev.showAds }))}
+                      onClick={() => {
+                        const newShow = !config.showAds;
+                        setConfig(prev => ({ ...prev, showAds: newShow }));
+                        localStorage.setItem('stock_show_ads', String(newShow));
+                      }}
                       className="text-blue-400 hover:scale-105 transition-transform"
                     >
                       {config.showAds ? (
