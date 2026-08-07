@@ -926,7 +926,7 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                 ) : (
                   <div className="flex flex-col gap-2">
                     {sortedCandidates.map((c, idx) => {
-                      const isExpanded = expandedCand === c.code;
+                      const isExpanded = expandedCand === c.code || (expandedCand === null && idx === 0);
                       const disparity1 = parseFloat(c.metrics?.disparity1) || 100;
                       const strengthAcc = parseFloat(c.metrics?.strengthAcceleration) || 0;
                       const strength = parseFloat(c.metrics?.strength) || 100;
@@ -963,8 +963,8 @@ const AISignalSection = ({ aiSignal, aiHistory, onOpenPopup }) => {
                         >
                           {/* Collapsed Header Bar */}
                           <div 
-                            onClick={() => setExpandedCand(isExpanded ? null : c.code)}
-                            className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 cursor-pointer select-none"
+                            onClick={() => setExpandedCand(isExpanded ? 'CLOSED' : c.code)}
+                            className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 cursor-pointer select-none font-bold"
                           >
                             <div className="flex items-center gap-3 w-full sm:w-auto">
                               <span className="w-5 text-center font-mono font-black text-white/30 text-xs">
