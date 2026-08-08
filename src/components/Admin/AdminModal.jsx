@@ -485,10 +485,10 @@ const AdminModal = ({ isOpen, onClose }) => {
                       <DollarSign className="text-amber-400" size={20} />
                     </div>
                     <div className="text-3xl font-black text-white font-mono">
-                      {trafficHistory?.summary?.yearlyMAU?.toLocaleString() || 24500} 명
+                      {(trafficHistory?.summary?.yearlyMAU || 0).toLocaleString()} 명
                     </div>
                     <p className="text-[11px] text-amber-400 font-bold mt-2">
-                      재방문율: {trafficHistory?.summary?.retentionRate || '68.4%'}
+                      재방문율: {trafficHistory?.summary?.retentionRate || '0%'}
                     </p>
                   </div>
                 </div>
