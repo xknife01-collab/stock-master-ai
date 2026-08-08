@@ -115,24 +115,34 @@ if (supabase) {
 const adViewLogs = [];
 
 const syncTodayHistory = () => {
-    const today = trafficStore.date || getKSTDateString();
-    trafficHistoryStore[today] = {
-        date: today,
-        pv: trafficStore.todayPV,
-        adViews: trafficStore.todayAdViews,
-        dau: Math.min(trafficStore.todayPV, Object.keys(trafficStore.devices).length || 1),
-        referrers: { ...trafficStore.referrers },
-        devices: { ...trafficStore.devices },
-        hourly: [...trafficStore.hourly]
-    };
-    saveTrafficHistoryStore(trafficHistoryStore);
-    if (supabase) {
-        supabase.from('stock_master_map')
-            .upsert({ name: '__traffic_history__', code: JSON.stringify(trafficHistoryStore) }, { onConflict: 'name' })
-            .then(({ error }) => {
-                if (error) console.error('❌ Supabase traffic sync error:', error.message);
-            })
-            .catch(err => console.error('❌ Supabase traffic sync catch:', err.message));
+    try {
+        const today = trafficStore.date || getKSTDateString();
+        const devices = trafficStore.devices || defaultDevices();
+        const referrers = trafficStore.referrers || defaultReferrers();
+        const hourly = Array.isArray(trafficStore.hourly) ? trafficStore.hourly : Array(24).fill(0);
+        const todayPV = trafficStore.todayPV || 0;
+        const todayAdViews = trafficStore.todayAdViews || 0;
+
+        trafficHistoryStore[today] = {
+            date: today,
+            pv: todayPV,
+            adViews: todayAdViews,
+            dau: Math.min(todayPV, Object.keys(devices).length || 1),
+            referrers: { ...referrers },
+            devices: { ...devices },
+            hourly: [...hourly]
+        };
+        saveTrafficHistoryStore(trafficHistoryStore);
+        if (supabase) {
+            supabase.from('stock_master_map')
+                .upsert({ name: '__traffic_history__', code: JSON.stringify(trafficHistoryStore) }, { onConflict: 'name' })
+                .then(({ error }) => {
+                    if (error) console.error('❌ Supabase traffic sync error:', error.message);
+                })
+                .catch(err => console.error('❌ Supabase traffic sync catch:', err.message));
+        }
+    } catch (err) {
+        console.error('❌ Error in syncTodayHistory:', err.message);
     }
 };
 
