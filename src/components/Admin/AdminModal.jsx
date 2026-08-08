@@ -556,19 +556,33 @@ const AdminModal = ({ isOpen, onClose }) => {
 
                       const maxPV = Math.max(1, ...chartList.map(d => d.pv || 0));
                       return (
-                        <div className="h-56 flex items-end justify-between gap-2 pt-8 px-2 border-b border-white/10">
+                        <div className="h-56 flex items-end justify-between gap-2 pt-10 pb-2 px-2 border-b border-white/10">
                           {chartList.map((item, idx) => {
-                            const heightPct = Math.round(((item.pv || 0) / maxPV) * 100);
+                            const pvVal = item.pv || 0;
+                            const heightPct = pvVal > 0 ? Math.max(18, Math.round((pvVal / maxPV) * 100)) : 2;
+                            const isToday = item.date === `${new Date().getMonth() + 1}/${new Date().getDate()}`;
+
                             return (
-                              <div key={idx} className="flex-1 flex flex-col items-center gap-1 group relative">
-                                <div className="opacity-0 group-hover:opacity-100 absolute -top-9 px-2 py-0.5 bg-blue-600 text-[10px] font-bold rounded text-white font-mono whitespace-nowrap transition-opacity shadow-lg z-20 pointer-events-none">
-                                  {item.date}: {item.pv} PV (방문자)
+                              <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 group relative">
+                                {pvVal > 0 && (
+                                  <div className="absolute -top-7 px-1.5 py-0.5 bg-blue-500 text-white font-mono text-[10px] font-black rounded shadow-md z-10 whitespace-nowrap">
+                                    {pvVal}회
+                                  </div>
+                                )}
+                                <div className="opacity-0 group-hover:opacity-100 absolute -top-10 px-2 py-1 bg-slate-900 border border-blue-500/50 text-[10px] font-bold rounded text-white font-mono whitespace-nowrap transition-opacity shadow-xl z-20 pointer-events-none">
+                                  {item.date}: {pvVal} PV (방문자)
                                 </div>
                                 <div
-                                  className="w-full bg-gradient-to-t from-blue-600 via-indigo-500 to-purple-500 rounded-t transition-all"
-                                  style={{ height: `${Math.max(8, heightPct)}%` }}
+                                  className={`w-full rounded-t transition-all duration-300 ${
+                                    pvVal > 0
+                                      ? 'bg-gradient-to-t from-blue-600 via-indigo-500 to-cyan-400 shadow-[0_0_12px_rgba(59,130,246,0.5)]'
+                                      : 'bg-white/10'
+                                  }`}
+                                  style={{ height: `${heightPct}%` }}
                                 />
-                                <span className="text-[9px] font-mono text-white/40">{item.date}</span>
+                                <span className={`text-[10px] font-mono font-bold whitespace-nowrap ${isToday ? 'text-cyan-400 font-black' : 'text-white/60'}`}>
+                                  {item.date}
+                                </span>
                               </div>
                             );
                           })}
