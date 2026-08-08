@@ -556,31 +556,32 @@ const AdminModal = ({ isOpen, onClose }) => {
 
                       const maxPV = Math.max(1, ...chartList.map(d => d.pv || 0));
                       return (
-                        <div className="h-56 flex items-end justify-between gap-2 pt-10 pb-2 px-2 border-b border-white/10">
+                        <div className="h-64 flex items-end justify-between gap-3 pt-12 pb-3 px-3 border-b border-white/10">
                           {chartList.map((item, idx) => {
                             const pvVal = item.pv || 0;
-                            const heightPct = pvVal > 0 ? Math.max(18, Math.round((pvVal / maxPV) * 100)) : 2;
+                            // Square-root visual curve scaling so bars stand tall and clear
+                            const heightPct = pvVal > 0 ? Math.max(28, Math.round(Math.pow(pvVal / maxPV, 0.5) * 95)) : 3;
                             const isToday = item.date === `${new Date().getMonth() + 1}/${new Date().getDate()}`;
 
                             return (
-                              <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 group relative">
+                              <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative h-full justify-end">
                                 {pvVal > 0 && (
-                                  <div className="absolute -top-7 px-1.5 py-0.5 bg-blue-500 text-white font-mono text-[10px] font-black rounded shadow-md z-10 whitespace-nowrap">
+                                  <div className="absolute -top-7 px-2 py-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-mono text-[11px] font-black rounded-md shadow-lg z-10 whitespace-nowrap border border-blue-400/40">
                                     {pvVal}회
                                   </div>
                                 )}
-                                <div className="opacity-0 group-hover:opacity-100 absolute -top-10 px-2 py-1 bg-slate-900 border border-blue-500/50 text-[10px] font-bold rounded text-white font-mono whitespace-nowrap transition-opacity shadow-xl z-20 pointer-events-none">
+                                <div className="opacity-0 group-hover:opacity-100 absolute -top-11 px-2.5 py-1 bg-slate-900 border border-blue-400 text-[11px] font-bold rounded-lg text-white font-mono whitespace-nowrap transition-opacity shadow-2xl z-20 pointer-events-none">
                                   {item.date}: {pvVal} PV (방문자)
                                 </div>
                                 <div
-                                  className={`w-full rounded-t transition-all duration-300 ${
+                                  className={`w-full rounded-t-md transition-all duration-500 ${
                                     pvVal > 0
-                                      ? 'bg-gradient-to-t from-blue-600 via-indigo-500 to-cyan-400 shadow-[0_0_12px_rgba(59,130,246,0.5)]'
+                                      ? 'bg-gradient-to-t from-blue-600 via-indigo-500 to-cyan-400 shadow-[0_0_15px_rgba(59,130,246,0.6)] border-t border-cyan-300'
                                       : 'bg-white/10'
                                   }`}
                                   style={{ height: `${heightPct}%` }}
                                 />
-                                <span className={`text-[10px] font-mono font-bold whitespace-nowrap ${isToday ? 'text-cyan-400 font-black' : 'text-white/60'}`}>
+                                <span className={`text-[11px] font-mono font-bold whitespace-nowrap ${isToday ? 'text-cyan-400 font-black scale-105' : 'text-white/60'}`}>
                                   {item.date}
                                 </span>
                               </div>
@@ -595,23 +596,24 @@ const AdminModal = ({ isOpen, onClose }) => {
                       const yearlyList = trafficHistory?.yearlyData || [];
                       const maxMAU = Math.max(1, ...yearlyList.map(d => d.mau || 0));
                       return (
-                        <div className="h-56 flex items-end justify-between gap-2 pt-8 px-1 border-b border-white/10 overflow-x-auto">
+                        <div className="h-64 flex items-end justify-between gap-2 pt-12 pb-3 px-2 border-b border-white/10 overflow-x-auto">
                           {yearlyList.map((item, idx) => {
-                            const heightPct = item.mau > 0 ? Math.max(15, Math.round(((item.mau || 0) / maxMAU) * 100)) : 4;
+                            const mauVal = item.mau || 0;
+                            const heightPct = mauVal > 0 ? Math.max(25, Math.round(Math.pow(mauVal / maxMAU, 0.5) * 95)) : 4;
                             return (
-                              <div key={idx} className="flex-1 min-w-[28px] flex flex-col items-center gap-1 group relative">
-                                <div className="opacity-0 group-hover:opacity-100 absolute -top-9 px-2 py-0.5 bg-purple-600 text-[10px] font-bold rounded text-white font-mono whitespace-nowrap transition-opacity shadow-lg z-20 pointer-events-none">
+                              <div key={idx} className="flex-1 min-w-[28px] flex flex-col items-center gap-1.5 group relative h-full justify-end">
+                                <div className="opacity-0 group-hover:opacity-100 absolute -top-10 px-2 py-0.5 bg-purple-600 text-[10px] font-bold rounded text-white font-mono whitespace-nowrap transition-opacity shadow-lg z-20 pointer-events-none">
                                   {item.month}: MAU {item.mau?.toLocaleString()}명 (PV: {item.pv?.toLocaleString()}, 수익: {item.revenue})
                                 </div>
                                 <div
                                   className={`w-full rounded-t transition-all ${
-                                    item.mau > 0
-                                      ? 'bg-gradient-to-t from-purple-600 via-indigo-500 to-green-400'
+                                    mauVal > 0
+                                      ? 'bg-gradient-to-t from-purple-600 via-indigo-500 to-green-400 shadow-[0_0_12px_rgba(168,85,247,0.5)]'
                                       : 'bg-white/10'
                                   }`}
                                   style={{ height: `${heightPct}%` }}
                                 />
-                                <span className="text-[9px] font-bold text-white/60 whitespace-nowrap">{item.month.split(' ')[0]}</span>
+                                <span className="text-[10px] font-bold text-white/60 whitespace-nowrap">{item.month.split(' ')[0]}</span>
                               </div>
                             );
                           })}
@@ -620,26 +622,45 @@ const AdminModal = ({ isOpen, onClose }) => {
                     })()}
 
                     {/* Today Hourly Chart */}
-                    {trafficPeriod === 'today' && (
-                      <div className="h-56 flex items-end justify-between gap-1 pt-8 px-2 border-b border-white/10">
-                        {(traffic?.hourlyHits || Array(24).fill(0)).map((hits, hour) => {
-                          const maxHits = Math.max(1, Math.max(...(traffic?.hourlyHits || [1])));
-                          const pct = Math.round((hits / maxHits) * 100);
-                          return (
-                            <div key={hour} className="flex-1 flex flex-col items-center gap-1 group relative">
-                              <div className="opacity-0 group-hover:opacity-100 absolute -top-8 px-2 py-0.5 bg-blue-600 text-[10px] font-bold rounded text-white font-mono whitespace-nowrap transition-opacity pointer-events-none z-20">
-                                {hour}시: {hits}회
+                    {trafficPeriod === 'today' && (() => {
+                      const hourlyHits = traffic?.hourlyHits || Array(24).fill(0);
+                      const maxHits = Math.max(1, ...hourlyHits);
+                      const currentKSTHour = new Date(Date.now() + 9 * 3600 * 1000).getUTCHours();
+
+                      return (
+                        <div className="h-64 flex items-end justify-between gap-1 pt-12 pb-3 px-2 border-b border-white/10 overflow-x-auto">
+                          {hourlyHits.map((hits, hour) => {
+                            const hitVal = hits || 0;
+                            const pct = hitVal > 0 ? Math.max(28, Math.round(Math.pow(hitVal / maxHits, 0.5) * 95)) : 3;
+                            const isCurrentHour = hour === currentKSTHour;
+
+                            return (
+                              <div key={hour} className="flex-1 min-w-[14px] flex flex-col items-center gap-1.5 group relative h-full justify-end">
+                                {hitVal > 0 && (
+                                  <div className="absolute -top-7 px-1.5 py-0.5 bg-cyan-400 text-slate-950 font-mono text-[10px] font-black rounded-md shadow-md z-10 whitespace-nowrap">
+                                    {hitVal}
+                                  </div>
+                                )}
+                                <div className="opacity-0 group-hover:opacity-100 absolute -top-11 px-2.5 py-1 bg-slate-900 border border-cyan-500/50 text-[11px] font-bold rounded text-white font-mono whitespace-nowrap transition-opacity shadow-xl z-20 pointer-events-none">
+                                  {hour}시: {hitVal}회 방문
+                                </div>
+                                <div
+                                  className={`w-full rounded-t-md transition-all duration-300 ${
+                                    hitVal > 0
+                                      ? 'bg-gradient-to-t from-blue-600 via-indigo-500 to-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.6)] border-t border-cyan-300'
+                                      : 'bg-white/10'
+                                  }`}
+                                  style={{ height: `${pct}%` }}
+                                />
+                                <span className={`text-[10px] font-mono font-bold ${isCurrentHour ? 'text-cyan-400 font-black scale-110' : hitVal > 0 ? 'text-white/80' : 'text-white/30'}`}>
+                                  {hour}
+                                </span>
                               </div>
-                              <div
-                                className="w-full bg-gradient-to-t from-blue-600 to-purple-500 rounded-t transition-all"
-                                style={{ height: `${Math.max(8, pct)}%` }}
-                              />
-                              <span className="text-[9px] font-mono text-white/30">{hour}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* SNS Referrer Breakdown Panel */}
