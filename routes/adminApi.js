@@ -149,25 +149,16 @@ const resetTrafficIfNeeded = () => {
     syncTodayHistory();
 };
 
-// 0. 방문 / 광고 시청 트래킹 API (중복 트래킹 디바운스 Guard)
-let lastVisitTimestamp = 0;
-
+// 0. 방문 / 광고 시청 트래킹 API
 router.post('/track-visit', (req, res) => {
     resetTrafficIfNeeded();
 
     const { referrer, utmSource, userAgent, isMobile, isAdView } = req.body;
     const currentHour = getKSTHour();
-    const now = Date.now();
 
     if (isAdView) {
         trafficStore.todayAdViews++;
     } else {
-        // React StrictMode 및 연달아 2초 이내 중복 새로고침 카운트 방지
-        if (now - lastVisitTimestamp < 2000) {
-            return res.json({ success: true, skipped: 'deduplicated' });
-        }
-        lastVisitTimestamp = now;
-
         trafficStore.todayPV++;
         trafficStore.hourly[currentHour]++;
 

@@ -131,10 +131,6 @@ const App = () => {
     try {
       const lastTrackTime = parseInt(sessionStorage.getItem('stock_last_visit_track_time') || '0');
       const now = Date.now();
-      if (now - lastTrackTime > 3000) {
-        sessionStorage.setItem('stock_last_visit_track_time', String(now));
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
         let utmSource = '';
         try {
           const searchParams = new URLSearchParams(window.location.search);
@@ -146,6 +142,12 @@ const App = () => {
           }
         } catch (e) {}
 
+        const lastUtm = sessionStorage.getItem('stock_last_utm_source') || '';
+        if (now - lastTrackTime > 3000 || (utmSource && utmSource !== lastUtm)) {
+          sessionStorage.setItem('stock_last_visit_track_time', String(now));
+          if (utmSource) sessionStorage.setItem('stock_last_utm_source', utmSource);
+
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         fetch(`${API_URL}/api/admin/track-visit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
