@@ -54,6 +54,7 @@ const todayHist = trafficHistoryStore[todayKey] || {};
 const defaultReferrers = () => ({
     '유튜브 (Shorts/채널)': 0,
     '인스타그램 (Instagram)': 0,
+    '티스토리 (Tstory)': 0,
     '페이스북 (Facebook)': 0,
     '틱톡 (TikTok)': 0,
     '네이버 (검색/블로그)': 0,
@@ -72,10 +73,43 @@ const trafficStore = {
     date: todayKey,
     todayPV: todayHist.pv || 0,
     todayAdViews: todayHist.adViews || 0,
-    referrers: todayHist.referrers || defaultReferrers(),
-    devices: todayHist.devices || defaultDevices(),
+    referrers: todayHist.referrers ? { ...defaultReferrers(), ...todayHist.referrers } : defaultReferrers(),
+    devices: todayHist.devices ? { ...defaultDevices(), ...todayHist.devices } : defaultDevices(),
     hourly: todayHist.hourly || Array(24).fill(0)
 };
+
+// Supabase 클라우드 DB에서 누적 트래픽 데이터 복원 (Vercel 재배포 시 데이터 리셋 방지)
+if (supabase) {
+    supabase.from('stock_master_map')
+        .select('code')
+        .eq('name', '__traffic_history__')
+        .maybeSingle()
+        .then(({ data }) => {
+            if (data && data.code) {
+                try {
+                    const cloudStore = JSON.parse(data.code);
+                    Object.assign(trafficHistoryStore, cloudStore);
+                    const currentToday = trafficHistoryStore[todayKey];
+                    if (currentToday) {
+                        trafficStore.todayPV = currentToday.pv || trafficStore.todayPV;
+                        trafficStore.todayAdViews = currentToday.adViews || trafficStore.todayAdViews;
+                        if (currentToday.referrers) {
+                            trafficStore.referrers = { ...defaultReferrers(), ...currentToday.referrers };
+                        }
+                        if (currentToday.devices) {
+                            trafficStore.devices = { ...defaultDevices(), ...currentToday.devices };
+                        }
+                        if (currentToday.hourly) {
+                            trafficStore.hourly = [...currentToday.hourly];
+                        }
+                    }
+                    console.log('⚡ [Supabase] traffic_history 클라우드 DB 복원 완료');
+                } catch (e) {
+                    console.error('❌ Failed parsing Supabase traffic history:', e.message);
+                }
+            }
+        }).catch(err => console.error('❌ Error fetching Supabase traffic history:', err.message));
+}
 
 // 📺 실시간 15초 광고 시청자 로그 저장소
 const adViewLogs = [];
@@ -92,6 +126,11 @@ const syncTodayHistory = () => {
         hourly: [...trafficStore.hourly]
     };
     saveTrafficHistoryStore(trafficHistoryStore);
+    if (supabase) {
+        supabase.from('stock_master_map')
+            .upsert({ name: '__traffic_history__', code: JSON.stringify(trafficHistoryStore) }, { onConflict: 'name' })
+            .catch(err => console.error('❌ Supabase traffic sync error:', err.message));
+    }
 };
 
 // 날짜 변경 시 트래픽 카운터 초기화 리셋 (KST 기준 자정 리셋)
@@ -168,8 +207,12 @@ router.post('/track-visit', (req, res) => {
         ) {
             trafficStore.referrers['틱톡 (TikTok)']++;
         } else if (
-            utm.includes('naver') || utm.includes('tstory') || utm.includes('blog') ||
-            ref.includes('naver.com') || ref.includes('tstory.com') ||
+            utm.includes('tstory') || ref.includes('tstory.com')
+        ) {
+            trafficStore.referrers['티스토리 (Tstory)']++;
+        } else if (
+            utm.includes('naver') || utm.includes('blog.naver') ||
+            ref.includes('naver.com') ||
             ua.includes('naver')
         ) {
             trafficStore.referrers['네이버 (검색/블로그)']++;
