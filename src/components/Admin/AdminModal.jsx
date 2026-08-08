@@ -595,27 +595,42 @@ const AdminModal = ({ isOpen, onClose }) => {
                       {trafficPeriod === 'yearly' && '연도별/월별 채널 유입 순위 (SNS 포함)'}
                     </h3>
                     <div className="space-y-3">
-                      {((trafficHistory?.referrerBreakdown || traffic?.referrerBreakdown) || []).map((ref, idx) => (
-                        <div key={ref.source} className="space-y-1">
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="font-bold text-white flex items-center gap-2">
-                              <span className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-400 flex items-center justify-center text-[10px]">
-                                {idx + 1}
+                      {(() => {
+                        const rawList = trafficHistory?.referrerBreakdown || traffic?.referrerBreakdown || [];
+                        const displayList = rawList.length > 0 ? rawList : [
+                          { source: '유튜브 (Shorts/채널)', count: 0, percent: 0 },
+                          { source: '인스타그램 (Instagram)', count: 0, percent: 0 },
+                          { source: '티스토리 (Tstory)', count: 0, percent: 0 },
+                          { source: '페이스북 (Facebook)', count: 0, percent: 0 },
+                          { source: '틱톡 (TikTok)', count: 0, percent: 0 },
+                          { source: '네이버 (검색/블로그)', count: 0, percent: 0 },
+                          { source: '구글 (Google Search)', count: 0, percent: 0 },
+                          { source: '카카오톡 / 오픈채팅', count: 0, percent: 0 },
+                          { source: '직접 방문 (Direct / 북마크)', count: 0, percent: 0 },
+                          { source: '기타 타사이트', count: 0, percent: 0 }
+                        ];
+                        return displayList.map((ref, idx) => (
+                          <div key={ref.source} className="space-y-1">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-bold text-white flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-400 flex items-center justify-center text-[10px]">
+                                  {idx + 1}
+                                </span>
+                                {ref.source}
                               </span>
-                              {ref.source}
-                            </span>
-                            <span className="font-mono text-white/70">
-                              {ref.count}회 ({ref.percent}%)
-                            </span>
+                              <span className="font-mono text-white/70">
+                                {ref.count}회 ({ref.percent}%)
+                              </span>
+                            </div>
+                            <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500"
+                                style={{ width: `${ref.percent}%` }}
+                              />
+                            </div>
                           </div>
-                          <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500"
-                              style={{ width: `${ref.percent}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
+                        ));
+                      })()}
                     </div>
                   </div>
                 </div>
