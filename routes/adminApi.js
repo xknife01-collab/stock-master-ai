@@ -266,40 +266,49 @@ router.get('/ad-view-logs', (req, res) => {
 
 // 1. 유입 분석 데이터 조회 API (오늘 기준)
 router.get('/traffic', (req, res) => {
-    resetTrafficIfNeeded();
+    try {
+        resetTrafficIfNeeded();
 
-    const totalPV = Math.max(1, trafficStore.todayPV);
-    const totalDev = Math.max(1, Object.values(trafficStore.devices).reduce((a, b) => a + b, 0));
+        const todayPV = trafficStore.todayPV || 0;
+        const totalPV = Math.max(1, todayPV);
+        const devices = trafficStore.devices || defaultDevices();
+        const referrers = trafficStore.referrers || defaultReferrers();
+        const totalDev = Math.max(1, Object.values(devices).reduce((a, b) => a + b, 0));
 
-    const referrerBreakdown = Object.entries(trafficStore.referrers).map(([source, count]) => ({
-        source,
-        count,
-        percent: Math.round((count / totalPV) * 100)
-    })).sort((a, b) => b.count - a.count);
+        const referrerBreakdown = Object.entries(referrers).map(([source, count]) => ({
+            source,
+            count: count || 0,
+            percent: Math.round(((count || 0) / totalPV) * 100)
+        })).sort((a, b) => b.count - a.count);
 
-    const deviceBreakdown = Object.entries(trafficStore.devices).map(([device, count]) => ({
-        device,
-        count,
-        percent: Math.round((count / totalDev) * 100)
-    }));
+        const deviceBreakdown = Object.entries(devices).map(([device, count]) => ({
+            device,
+            count: count || 0,
+            percent: Math.round(((count || 0) / totalDev) * 100)
+        }));
 
-    res.json({
-        success: true,
-        traffic: {
-            date: trafficStore.date,
-            todayPV: trafficStore.todayPV,
-            todayAdViews: trafficStore.todayAdViews,
-            referrerBreakdown,
-            deviceBreakdown,
-            hourlyHits: trafficStore.hourly
-        }
-    });
+        res.json({
+            success: true,
+            traffic: {
+                date: trafficStore.date || getKSTDateString(),
+                todayPV: todayPV,
+                todayAdViews: trafficStore.todayAdViews || 0,
+                referrerBreakdown,
+                deviceBreakdown,
+                hourlyHits: trafficStore.hourly || Array(24).fill(0)
+            }
+        });
+    } catch (err) {
+        console.error('❌ Error in /traffic endpoint:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 // 📊 IR 피칭용 기간별 정밀 분석 API (실제 트래킹 데이터 연동)
 router.get('/traffic-history', (req, res) => {
-    const period = req.query.period || 'weekly'; // today, weekly, monthly, yearly
-    resetTrafficIfNeeded();
+    try {
+        const period = req.query.period || 'weekly'; // today, weekly, monthly, yearly
+        resetTrafficIfNeeded();
 
     // current KST date
     const kstNowString = getKSTDateString();
@@ -440,6 +449,10 @@ router.get('/traffic-history', (req, res) => {
         yearlyData,
         referrerBreakdown
     });
+    } catch (err) {
+        console.error('❌ Error in /traffic-history endpoint:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 // 2. 전체 회원 및 알림 대상 목록 조회 API
