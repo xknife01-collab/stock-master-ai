@@ -64,40 +64,68 @@ const AdminModal = ({ isOpen, onClose }) => {
     setLoading(true);
     try {
       // 1. 오늘 실시간 유입 분석 데이터
-      const trafficRes = await fetch(`${API_URL}/api/admin/traffic`);
-      const trafficData = await trafficRes.json();
-      if (trafficData.traffic) setTraffic(trafficData.traffic);
+      try {
+        const trafficRes = await fetch(`${API_URL}/api/admin/traffic`);
+        if (trafficRes.ok) {
+          const trafficData = await trafficRes.json();
+          if (trafficData.traffic) setTraffic(trafficData.traffic);
+        }
+      } catch (e) { console.warn('Fetch traffic failed', e); }
 
       // 2. IR 피칭용 기간별(오늘/일주일/한달/연도별) 분석 데이터
-      const historyRes = await fetch(`${API_URL}/api/admin/traffic-history?period=${trafficPeriod}`);
-      const historyData = await historyRes.json();
-      if (historyData) setTrafficHistory(historyData);
+      try {
+        const historyRes = await fetch(`${API_URL}/api/admin/traffic-history?period=${trafficPeriod}`);
+        if (historyRes.ok) {
+          const historyData = await historyRes.json();
+          if (historyData) setTrafficHistory(historyData);
+        }
+      } catch (e) { console.warn('Fetch traffic-history failed', e); }
 
       // 3. 15초 보상형 동영상 광고 시청자 로그 목록
-      const adLogsRes = await fetch(`${API_URL}/api/admin/ad-view-logs`);
-      const adLogsData = await adLogsRes.json();
-      if (adLogsData.logs) setAdViewLogs(adLogsData.logs);
+      try {
+        const adLogsRes = await fetch(`${API_URL}/api/admin/ad-view-logs`);
+        if (adLogsRes.ok) {
+          const adLogsData = await adLogsRes.json();
+          if (adLogsData.logs) setAdViewLogs(adLogsData.logs);
+        }
+      } catch (e) { console.warn('Fetch ad-logs failed', e); }
 
       // 4. 회원 목록
-      const usersRes = await fetch(`${API_URL}/api/admin/users`);
-      const usersData = await usersRes.json();
-      if (usersData.users) setUsers(usersData.users);
+      try {
+        const usersRes = await fetch(`${API_URL}/api/admin/users`);
+        if (usersRes.ok) {
+          const usersData = await usersRes.json();
+          if (usersData.users) setUsers(usersData.users);
+        }
+      } catch (e) { console.warn('Fetch users failed', e); }
 
       // 5. 관리자 통계
-      const statsRes = await fetch(`${API_URL}/api/admin/stats`);
-      const statsData = await statsRes.json();
-      if (statsData.stats) setStats(statsData.stats);
+      try {
+        const statsRes = await fetch(`${API_URL}/api/admin/stats`);
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          if (statsData.stats) setStats(statsData.stats);
+        }
+      } catch (e) { console.warn('Fetch stats failed', e); }
 
       // 6. 광고 설정
-      const configRes = await fetch(`${API_URL}/api/admin/config`);
-      const configData = await configRes.json();
-      if (configData.config) setConfig(configData.config);
+      try {
+        const configRes = await fetch(`${API_URL}/api/admin/config`);
+        if (configRes.ok) {
+          const configData = await configRes.json();
+          if (configData.config) setConfig(configData.config);
+        }
+      } catch (e) { console.warn('Fetch config failed', e); }
 
       // 7. SMS 내역
-      const smsRes = await fetch(`${API_URL}/api/admin/sms-logs`);
-      const smsData = await smsRes.json();
-      if (smsData.logs) setSmsLogs(smsData.logs);
-      // 6. 실전 AI 트레이딩 일지 성과 데이터 조회
+      try {
+        const smsRes = await fetch(`${API_URL}/api/admin/sms-logs`);
+        if (smsRes.ok) {
+          const smsData = await smsRes.json();
+          if (smsData.logs) setSmsLogs(smsData.logs);
+        }
+      } catch (e) { console.warn('Fetch sms-logs failed', e); }
+
       fetchJournalData();
     } catch (err) {
       console.error('Fetch admin data failed', err);
