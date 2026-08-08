@@ -168,8 +168,8 @@ router.post('/track-visit', (req, res) => {
         ) {
             trafficStore.referrers['틱톡 (TikTok)']++;
         } else if (
-            utm.includes('naver') || utm.includes('blog.naver') ||
-            ref.includes('naver.com') ||
+            utm.includes('naver') || utm.includes('tstory') || utm.includes('blog') ||
+            ref.includes('naver.com') || ref.includes('tstory.com') ||
             ua.includes('naver')
         ) {
             trafficStore.referrers['네이버 (검색/블로그)']++;
