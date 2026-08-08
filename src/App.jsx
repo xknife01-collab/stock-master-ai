@@ -134,11 +134,25 @@ const App = () => {
       if (now - lastTrackTime > 3000) {
         sessionStorage.setItem('stock_last_visit_track_time', String(now));
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        let utmSource = '';
+        try {
+          const searchParams = new URLSearchParams(window.location.search);
+          utmSource = searchParams.get('utm_source') || searchParams.get('ref') || searchParams.get('source') || '';
+          if (!utmSource && window.location.hash.includes('?')) {
+            const hashQuery = window.location.hash.split('?')[1];
+            const hashParams = new URLSearchParams(hashQuery);
+            utmSource = hashParams.get('utm_source') || hashParams.get('ref') || hashParams.get('source') || '';
+          }
+        } catch (e) {}
+
         fetch(`${API_URL}/api/admin/track-visit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             referrer: document.referrer || 'direct',
+            utmSource,
+            userAgent: navigator.userAgent,
             isMobile,
             isAdView: false
           })

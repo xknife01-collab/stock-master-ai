@@ -116,7 +116,7 @@ let lastVisitTimestamp = 0;
 router.post('/track-visit', (req, res) => {
     resetTrafficIfNeeded();
 
-    const { referrer, isMobile, isAdView } = req.body;
+    const { referrer, utmSource, userAgent, isMobile, isAdView } = req.body;
     const currentHour = getKSTHour();
     const now = Date.now();
 
@@ -141,21 +141,50 @@ router.post('/track-visit', (req, res) => {
 
         // 유입 경로 판별 (Referrer Parsing for SNS & Search Engines)
         const ref = (referrer || '').toLowerCase();
-        if (ref.includes('youtube.com') || ref.includes('youtu.be')) {
+        const utm = (utmSource || '').toLowerCase();
+        const ua = (userAgent || '').toLowerCase();
+
+        if (
+            utm.includes('youtube') || utm.includes('shorts') ||
+            ref.includes('youtube.com') || ref.includes('youtu.be')
+        ) {
             trafficStore.referrers['유튜브 (Shorts/채널)']++;
-        } else if (ref.includes('instagram.com') || ref.includes('ig.me')) {
+        } else if (
+            utm.includes('instagram') || utm.includes('insta') || utm.includes('ig') ||
+            ref.includes('instagram.com') || ref.includes('ig.me') ||
+            ua.includes('instagram')
+        ) {
             trafficStore.referrers['인스타그램 (Instagram)']++;
-        } else if (ref.includes('facebook.com') || ref.includes('fb.com') || ref.includes('m.facebook.com')) {
+        } else if (
+            utm.includes('facebook') || utm.includes('fb') ||
+            ref.includes('facebook.com') || ref.includes('fb.com') || ref.includes('m.facebook.com') ||
+            ua.includes('fb_iab') || ua.includes('fban') || ua.includes('fbav')
+        ) {
             trafficStore.referrers['페이스북 (Facebook)']++;
-        } else if (ref.includes('tiktok.com')) {
+        } else if (
+            utm.includes('tiktok') ||
+            ref.includes('tiktok.com') ||
+            ua.includes('tiktok')
+        ) {
             trafficStore.referrers['틱톡 (TikTok)']++;
-        } else if (ref.includes('naver.com')) {
+        } else if (
+            utm.includes('naver') || utm.includes('blog.naver') ||
+            ref.includes('naver.com') ||
+            ua.includes('naver')
+        ) {
             trafficStore.referrers['네이버 (검색/블로그)']++;
-        } else if (ref.includes('google.com') || ref.includes('google.co.kr')) {
+        } else if (
+            utm.includes('google') ||
+            ref.includes('google.com') || ref.includes('google.co.kr')
+        ) {
             trafficStore.referrers['구글 (Google Search)']++;
-        } else if (ref.includes('kakao.com') || ref.includes('kakaotalk')) {
+        } else if (
+            utm.includes('kakao') || utm.includes('kakaotalk') ||
+            ref.includes('kakao.com') || ref.includes('kakaotalk') ||
+            ua.includes('kakaotalk')
+        ) {
             trafficStore.referrers['카카오톡 / 오픈채팅']++;
-        } else if (!ref || ref === 'direct') {
+        } else if (!ref || ref === 'direct' || ref.includes('stockmaster-ai.vercel.app') || ref.includes('localhost')) {
             trafficStore.referrers['직접 방문 (Direct / 북마크)']++;
         } else {
             trafficStore.referrers['기타 타사이트']++;
