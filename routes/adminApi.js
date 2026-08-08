@@ -129,7 +129,10 @@ const syncTodayHistory = () => {
     if (supabase) {
         supabase.from('stock_master_map')
             .upsert({ name: '__traffic_history__', code: JSON.stringify(trafficHistoryStore) }, { onConflict: 'name' })
-            .catch(err => console.error('❌ Supabase traffic sync error:', err.message));
+            .then(({ error }) => {
+                if (error) console.error('❌ Supabase traffic sync error:', error.message);
+            })
+            .catch(err => console.error('❌ Supabase traffic sync catch:', err.message));
     }
 };
 
