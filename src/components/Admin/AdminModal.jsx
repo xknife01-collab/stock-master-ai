@@ -510,7 +510,22 @@ const AdminModal = ({ isOpen, onClose }) => {
 
                     {/* Weekly / Monthly Chart */}
                     {(trafficPeriod === 'weekly' || trafficPeriod === 'monthly') && (() => {
-                      const chartList = (trafficPeriod === 'weekly' ? trafficHistory?.weeklyData : trafficHistory?.monthlyData) || [];
+                      const fallbackWeekly = Array.from({ length: 7 }, (_, i) => {
+                        const d = new Date();
+                        d.setDate(d.getDate() - (6 - i));
+                        return { date: `${d.getMonth() + 1}/${d.getDate()}`, pv: 0, adViews: 0 };
+                      });
+                      const fallbackMonthly = Array.from({ length: 30 }, (_, i) => {
+                        const d = new Date();
+                        d.setDate(d.getDate() - (29 - i));
+                        return { date: `${d.getMonth() + 1}/${d.getDate()}`, pv: 0, adViews: 0 };
+                      });
+
+                      const rawChartList = trafficPeriod === 'weekly' ? trafficHistory?.weeklyData : trafficHistory?.monthlyData;
+                      const chartList = (rawChartList && rawChartList.length > 0)
+                        ? rawChartList
+                        : (trafficPeriod === 'weekly' ? fallbackWeekly : fallbackMonthly);
+
                       const maxPV = Math.max(1, ...chartList.map(d => d.pv || 0));
                       return (
                         <div className="h-56 flex items-end justify-between gap-2 pt-8 px-2 border-b border-white/10">
@@ -518,12 +533,12 @@ const AdminModal = ({ isOpen, onClose }) => {
                             const heightPct = Math.round(((item.pv || 0) / maxPV) * 100);
                             return (
                               <div key={idx} className="flex-1 flex flex-col items-center gap-1 group relative">
-                                <div className="opacity-0 group-hover:opacity-100 absolute -top-9 px-2 py-0.5 bg-blue-600 text-[10px] font-bold rounded text-white font-mono whitespace-nowrap transition-opacity shadow-lg">
+                                <div className="opacity-0 group-hover:opacity-100 absolute -top-9 px-2 py-0.5 bg-blue-600 text-[10px] font-bold rounded text-white font-mono whitespace-nowrap transition-opacity shadow-lg z-20 pointer-events-none">
                                   {item.date}: {item.pv} PV (방문자)
                                 </div>
                                 <div
                                   className="w-full bg-gradient-to-t from-blue-600 via-indigo-500 to-purple-500 rounded-t transition-all"
-                                  style={{ height: `${Math.max(10, heightPct)}%` }}
+                                  style={{ height: `${Math.max(8, heightPct)}%` }}
                                 />
                                 <span className="text-[9px] font-mono text-white/40">{item.date}</span>
                               </div>
