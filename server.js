@@ -26,7 +26,9 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // --- Cron Jobs ---
-// 1. 장중 시간(KST 09:15 - 15:30) 월~금요일 매 15분/30분마다 Pulse 실행 (AI 시장 분석)
+// ⚠️ [Render 주의] Render 무료/기본 플랜은 요청 없을 시 Sleep 전환 → node-cron 정지됨
+// 반드시 Render 대시보드 > Cron Jobs 에서 별도 /api/ai/pulse?force=true 호출을 설정할 것
+// 1. 장중 시간(KST 09:10 - 15:30) 월~금요일 매 10분마다 Pulse 실행 (AI 시장 분석)
 const runCronPulse = async () => {
     console.log('⏰ [Cron] 장중 시간(KST) - Pulse 자동 실행 시작...');
     try {
@@ -39,12 +41,13 @@ const runCronPulse = async () => {
 
 import { globalStockCache, globalChartCache, globalDetailCache } from './lib/boundedCache.js';
 
-// 골든아워 (오전 09:15 ~ 10:30 KST) 매 15분 실행
-cron.schedule('15,30,45 9 * * 1-5', runCronPulse, { scheduled: true, timezone: "Asia/Seoul" });
-cron.schedule('0,15,30 10 * * 1-5', runCronPulse, { scheduled: true, timezone: "Asia/Seoul" });
-
-// 일반 시간 (오전 11:00 ~ 오후 15:30 KST) 매 30분 실행
-cron.schedule('0,30 11-15 * * 1-5', runCronPulse, { scheduled: true, timezone: "Asia/Seoul" });
+// 장중 전 시간대 (09:10 ~ 15:30 KST) 매 10분 실행
+// 09시: 10,20,30,40,50분
+cron.schedule('10,20,30,40,50 9 * * 1-5', runCronPulse, { scheduled: true, timezone: "Asia/Seoul" });
+// 10시~14시: 0,10,20,30,40,50분
+cron.schedule('0,10,20,30,40,50 10-14 * * 1-5', runCronPulse, { scheduled: true, timezone: "Asia/Seoul" });
+// 15시: 0,10,20,30분 (15:30 장마감)
+cron.schedule('0,10,20,30 15 * * 1-5', runCronPulse, { scheduled: true, timezone: "Asia/Seoul" });
 
 // 🧹 매일 자정 00:00 (KST) 메모리 대청소 크론 (Garbage Collection & Bounded Cache Purge)
 cron.schedule('0 0 * * *', () => {
@@ -148,5 +151,6 @@ app.listen(PORT, async () => {
         });
 }).on('error', (err) => {
     console.error('❌ Server failed to start:', err.message);
+    process.exit(1);
 });
 

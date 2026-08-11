@@ -258,19 +258,23 @@ const saveRagDiary = async (news, signal) => {
 
 
 const getAiCache = async (pulseKey = null) => {
-    // 1. 로컬 캐시 파일이 존재하면 우선적으로 확인 (속도 극대화 & 네트워크 병목 제거)
+    // 1. 로컬 캐시 파일 확인 및 pulseKey 일치 여부 검증
+    let localCache = null;
     if (fs.existsSync(aiCachePath)) {
         try {
-            const localCache = JSON.parse(fs.readFileSync(aiCachePath, 'utf8'));
+            localCache = JSON.parse(fs.readFileSync(aiCachePath, 'utf8'));
+            // pulseKey가 지정되었고 로컬 캐시가 해당 pulseKey를 가지고 있으면 즉시 반환
             if (localCache && localCache.pulse) {
-                return localCache;
+                if (!pulseKey || localCache.pulseKey === pulseKey || localCache.tenMinKey === pulseKey) {
+                    return localCache;
+                }
             }
         } catch (e) {
             console.error('Error reading local cache early check:', e.message);
         }
     }
 
-    // 2. Supabase 클라우드 캐시 조회 (서버리스 첫 기동 혹은 신규 펄스 캐시 동기화용)
+    // 2. Supabase 클라우드 캐시 조회 (로컬 누락 혹은 로컬 키가 이전 시점일 때)
     if (supabase) {
         try {
             const { data, error } = await supabase
@@ -291,14 +295,8 @@ const getAiCache = async (pulseKey = null) => {
         }
     }
 
-    // 3. 클라우드 조회 실패 시 로컬 파일 최종 폴백
-    if (fs.existsSync(aiCachePath)) {
-        try {
-            return JSON.parse(fs.readFileSync(aiCachePath, 'utf8'));
-        } catch (e) {
-            console.error('Error reading local ai cache:', e.message);
-        }
-    }
+    // 3. 클라우드 조회 실패 시 기존 로컬 캐시 최종 폴백
+    if (localCache) return localCache;
     
     return { signal: null, hourKey: null };
 };
@@ -596,6 +594,7 @@ const refreshRecommendedPrices = async (signal, candidatePriceMap = {}) => {
         if (!candidates || !Array.isArray(candidates)) return;
         await Promise.all(candidates.map(async (item) => {
             let realPrice = candidatePriceMap[item.code];
+            let fundamentalData = null;
             if (!realPrice) {
                 try {
                     if (supabase) {
@@ -604,8 +603,9 @@ const refreshRecommendedPrices = async (signal, candidatePriceMap = {}) => {
                             .select('fundamental')
                             .eq('symbol', item.code)
                             .single();
-                        if (!error && data?.fundamental?.price) {
-                            realPrice = data.fundamental.price;
+                        if (!error && data?.fundamental) {
+                            fundamentalData = data.fundamental;
+                            if (fundamentalData.price) realPrice = fundamentalData.price;
                         }
                     }
                 } catch (cacheErr) {
@@ -617,6 +617,12 @@ const refreshRecommendedPrices = async (signal, candidatePriceMap = {}) => {
                 if (oldPrice !== realPrice) {
                     console.log(`🔧 [Fix-Candidate-Price] ${item.name} (${item.code}) 가격 동기화: ${oldPrice} -> ${realPrice}`);
                     item.price = realPrice.toString();
+                }
+            }
+            if (fundamentalData && item.metrics) {
+                const freshStrength = fundamentalData.advanced?.strength || fundamentalData.strength;
+                if (freshStrength) {
+                    item.metrics.strength = parseFloat(freshStrength);
                 }
             }
         }));
@@ -964,25 +970,13 @@ export const getScheduledPulseInfo = (nowKst) => {
     
     const timeVal = hour * 60 + minutes;
     
-    // KST 기준 거래 일정 스케줄 목록 (분 단위)
-    const schedules = [
-        555, // 09:15
-        570, // 09:30
-        585, // 09:45
-        600, // 10:00
-        615, // 10:15
-        630, // 10:30
-        660, // 11:00
-        690, // 11:30
-        720, // 12:00
-        750, // 12:30
-        780, // 13:00
-        810, // 13:30
-        840, // 14:00
-        870, // 14:30
-        900, // 15:00
-        930  // 15:30
-    ];
+    // KST 기준 거래 일정 스케줄 목록 (분 단위) — 매 10분 간격 (09:10 ~ 15:30)
+    const schedules = [];
+    // 09:10 ~ 09:50 (10분 간격)
+    for (let m = 550; m <= 590; m += 10) schedules.push(m);
+    // 10:00 ~ 15:30 (10분 간격)
+    for (let m = 600; m <= 930; m += 10) schedules.push(m);
+
     
     // 현재 시각보다 작거나 같은 가장 최근 스케줄 조회
     let lastSchedule = null;
