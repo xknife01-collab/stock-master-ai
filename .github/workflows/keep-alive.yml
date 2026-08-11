@@ -46,8 +46,8 @@ jobs:
 
       - name: "[3단계] 백그라운드 계산 완료 대기 후 최종 유지 핑"
         run: |
-          echo "Gemini AI 계산 완료 대기 중 (2분)..."
-          sleep 120
+          echo "Gemini AI 계산 완료 대기 중 (4분)..."
+          sleep 240
           echo "=== 계산 완료 확인 최종 핑 ==="
           HTTP=$(curl -s -o /dev/null \
             --connect-timeout 30 \
@@ -56,3 +56,4 @@ jobs:
             https://stock-master-ai.onrender.com/health)
           echo "최종 Health 확인: $HTTP"
           echo "✅ 이번 Pulse 사이클 완료."
+
