@@ -960,67 +960,18 @@ export const isMarketOpen = () => {
     return timeVal >= 900 && timeVal <= 1535;
 };
 
+import { getScheduledPulseInfoHelper } from '../lib/pulseScheduleHelper.js';
+
 // --- Pulse Logic (Extracted for Cron) ---
 export const getScheduledPulseInfo = (nowKst) => {
-    const year = nowKst.getUTCFullYear();
-    const month = nowKst.getUTCMonth() + 1;
-    const date = nowKst.getUTCDate();
-    const hour = nowKst.getUTCHours();
-    const minutes = nowKst.getUTCMinutes();
-    
-    const timeVal = hour * 60 + minutes;
-    
-    // KST 기준 거래 일정 스케줄 목록 (분 단위) — 매 10분 간격 (09:10 ~ 15:30)
-    const schedules = [];
-    // 09:10 ~ 09:50 (10분 간격)
-    for (let m = 550; m <= 590; m += 10) schedules.push(m);
-    // 10:00 ~ 15:30 (10분 간격)
-    for (let m = 600; m <= 930; m += 10) schedules.push(m);
-
-    
-    // 현재 시각보다 작거나 같은 가장 최근 스케줄 조회
-    let lastSchedule = null;
-    for (let i = schedules.length - 1; i >= 0; i--) {
-        if (schedules[i] <= timeVal) {
-            lastSchedule = schedules[i];
-            break;
-        }
-    }
-    
-    let pulseKeyTime = "";
-    let isBeforeFirstPulse = false;
-    let targetDateStr = `${year}-${month}-${date}`;
-    
-    if (lastSchedule === null) {
-        // 첫 펄스 시각인 09:15 이전에는 전일의 마지막 펄스(15:30) 키로 매핑
-        isBeforeFirstPulse = true;
-        const prevDay = new Date(nowKst.getTime() - 24 * 60 * 60 * 1000);
-        targetDateStr = `${prevDay.getUTCFullYear()}-${prevDay.getUTCMonth() + 1}-${prevDay.getUTCDate()}`;
-        pulseKeyTime = "15:30";
-    } else {
-        const h = Math.floor(lastSchedule / 60);
-        const m = lastSchedule % 60;
-        pulseKeyTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-    }
-    
-    const pulseKey = `${targetDateStr}-${pulseKeyTime}`;
-    const mmStr = String(month).padStart(2, '0');
-    const ddStr = String(date).padStart(2, '0');
-    const displayTime = isBeforeFirstPulse ? "" : `${mmStr}.${ddStr} ${pulseKeyTime}`;
-    
-    return {
-        pulseKey,
-        displayTime,
-        isBeforeFirstPulse,
-        pulseKeyTime
-    };
+    return getScheduledPulseInfoHelper(nowKst);
 };
 
 // --- Pulse Logic (Extracted for Cron) ---
 export const executeHourlyPulse = async (force = false) => {
     // 한국 시간(KST) 강제 보정
     const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
-    const { pulseKey, displayTime, isBeforeFirstPulse } = getScheduledPulseInfo(now);
+    const { pulseKey, halfHourKey, displayTime, isBeforeFirstPulse } = getScheduledPulseInfo(now);
     
     const timeStr = displayTime || (now.getUTCHours().toString().padStart(2, '0') + ':' + now.getUTCMinutes().toString().padStart(2, '0'));
 
@@ -1057,7 +1008,7 @@ export const executeHourlyPulse = async (force = false) => {
                     const min = String(kst.getUTCMinutes()).padStart(2, '0');
                     savedTime = `${mm}.${dd} ${hh}:${min}`;
                 }
-                saveAiCache({ pulse: { data: pulseData } }, pulseKey, savedTime);
+                saveAiCache({ pulse: { data: pulseData } }, halfHourKey, pulseKey, savedTime);
             }
         }
 
@@ -1091,11 +1042,11 @@ export const executeHourlyPulse = async (force = false) => {
         let pulseData = cache.pulse.data || cache.pulse;
 
         if (marketOpen && cache.pulseKey !== pulseKey && cache.tenMinKey !== pulseKey && !fetchingAiSignalPromise) {
-            console.log(`🔄 [Pulse] 신규 펄스 주기(${pulseKey}) 감지: 기존 캐시 즉시 제공 후 백그라운드 갱신 시작...`);
+            console.log(`🔄 [Pulse] 신규 10분 펄스 주기(${pulseKey}) 감지: 전광판 10분 갱신 및 AI 30분 키(${halfHourKey}) 점검 중...`);
             fetchingAiSignalPromise = (async () => {
                 try {
                     setRealtimeTaskActive(true);
-                    const result = await _executeHourlyPulseInternal(pulseKey, pulseKey, timeStr, cache, force);
+                    const result = await _executeHourlyPulseInternal(halfHourKey, pulseKey, timeStr, cache, force);
                     return { ...result, marketOpen: true };
                 } catch (e) {
                     console.error('Background pulse generation failed:', e.message);
@@ -1133,7 +1084,7 @@ export const executeHourlyPulse = async (force = false) => {
     fetchingAiSignalPromise = (async () => {
         try {
             setRealtimeTaskActive(true);
-            const result = await _executeHourlyPulseInternal(pulseKey, pulseKey, timeStr, cache, force);
+            const result = await _executeHourlyPulseInternal(halfHourKey, pulseKey, timeStr, cache, force);
             return {
                 ...result,
                 marketOpen: true
