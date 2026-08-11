@@ -2,23 +2,57 @@ name: Keep-Alive & Auto-Pulse
 
 on:
   schedule:
-    # 골든아워: KST 09:15 ~ 10:30 (UTC 00:15 ~ 01:30) 매 15분마다 실행
-    - cron: '15,30,45 0 * * 1-5'
-    - cron: '0,15,30 1 * * 1-5'
-    # 일반시간: KST 11:00 ~ 15:30 (UTC 02:00 ~ 06:30) 매 30분마다 실행
-    - cron: '0,30 2-6 * * 1-5'
+    # ── KST 09:10 ~ 15:30 (UTC 00:10 ~ 06:30) 매 10분마다 실행 ──
+    # 이유: GitHub Actions 스케줄은 30분 단위로 건너뛰는 버그가 있음
+    # → 10분 간격으로 실행하면 빈틈 없이 커버 가능
+    - cron: '10,20,30,40,50 0 * * 1-5'  # KST 09:10 ~ 09:50
+    - cron: '*/10 1-5 * * 1-5'           # KST 10:00 ~ 14:50
+    - cron: '0,10,20,30 6 * * 1-5'       # KST 15:00 ~ 15:30
   workflow_dispatch: # 수동 실행 버튼 활성화
 
 jobs:
   ping:
     runs-on: ubuntu-latest
-    steps:
-      - name: Send Keep-Alive Ping to Health
-        run: |
-          curl -s -o /dev/null -w "%{http_code}" https://stock-master-ai.onrender.com/health
-          echo "Health check ping complete."
+    timeout-minutes: 8
 
-      - name: Trigger AI Pulse
+    steps:
+      - name: "[1단계] Render 서버 콜드스타트 깨우기 (Health Ping)"
         run: |
-          curl -s -o /dev/null -w "%{http_code}" https://stock-master-ai.onrender.com/api/ai/pulse
-          echo "AI Pulse trigger complete."
+          echo "=== Render 서버 깨우기 시작 ==="
+          HTTP=$(curl -s -o /dev/null \
+            --connect-timeout 60 \
+            --max-time 90 \
+            -w "%{http_code}" \
+            https://stock-master-ai.onrender.com/health)
+          echo "Health Check HTTP Status: $HTTP"
+          if [ "$HTTP" != "200" ]; then
+            echo "⚠️ 서버 응답 이상 (${HTTP}). 30초 후 재시도..."
+            sleep 30
+            curl -s -o /dev/null --connect-timeout 60 --max-time 90 \
+              -w "재시도 Health: %{http_code}\n" \
+              https://stock-master-ai.onrender.com/health
+          fi
+
+      - name: "[2단계] AI Pulse 트리거 (계량 전광판 + AI 추천 갱신)"
+        run: |
+          echo "=== AI Pulse 트리거 ==="
+          HTTP=$(curl -s -o /dev/null \
+            --connect-timeout 60 \
+            --max-time 90 \
+            -w "%{http_code}" \
+            https://stock-master-ai.onrender.com/api/ai/pulse)
+          echo "AI Pulse HTTP Status: $HTTP"
+          echo "✅ 백그라운드 Gemini AI 분석 및 퀀트 계산 실행 중..."
+
+      - name: "[3단계] 백그라운드 계산 완료 대기 후 최종 유지 핑"
+        run: |
+          echo "Gemini AI 계산 완료 대기 중 (2분)..."
+          sleep 120
+          echo "=== 계산 완료 확인 최종 핑 ==="
+          HTTP=$(curl -s -o /dev/null \
+            --connect-timeout 30 \
+            --max-time 30 \
+            -w "%{http_code}" \
+            https://stock-master-ai.onrender.com/health)
+          echo "최종 Health 확인: $HTTP"
+          echo "✅ 이번 Pulse 사이클 완료."
