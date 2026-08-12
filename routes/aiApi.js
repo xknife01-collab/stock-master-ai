@@ -3790,6 +3790,8 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             - 종목의 고유 변동성에 맞는 동적 리스크 관리를 반드시 실천해줘.
         17. JSON 형식으로만 응답해.
         18. **웅장한 스타일 및 신속성 어조 반영 (웅장하게, 0.1초 만에):** 최종 리포트의 모든 설명 텍스트(reason, feedback, newInsight 등)는 최고 수준의 퀀트 애널리스트로서 위엄 있고 웅장한 어조(예: '시장의 거대한 수급 폭발을 0.1초 만에 포착하여...', '웅장한 주도 테마의 서막이 열리며...')를 적극적으로 사용하여 작성하십시오. 특히 실시간 데이터 분석의 속도감과 정밀함을 돋보이게 하기 위해 '0.1초 만에'라는 표현을 자연스럽게 활용하여 감탄을 자아내게 하십시오.
+        19. **추천주 개수 엄격 제한 (Top 1~2개 엄선):** 'shortTermPicks' 및 'longTermPicks' 배열에는 무분별하게 많은 종목을 남발하지 마십시오. 오늘 수급과 펀더멘털이 가장 확실하게 수렴하는 최정예 종목 1개 또는 최대 2개만 엄선하여 반환하십시오.
+
 
         [출력 양식]
         {
@@ -3819,59 +3821,9 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
         }
 
         const finalRaw = await fetchAiContent(finalPrompt);
-        let signalData = finalRaw ? (finalRaw.signal || finalRaw) : null;
+        if (!finalRaw) throw new Error('Final analysis stage failed');
+        const signalData = finalRaw.signal || finalRaw;
 
-        if (!signalData && Array.isArray(finalSortedScored) && finalSortedScored.length > 0) {
-            console.warn("⚠️ [Pulse] AI 생성 수신 차단/지연: 100% 실시간 KIS 퀀트 지표 기반 정량 시그널 구성");
-            const topQuant = finalSortedScored[0];
-            const topPrice = parseFloat(topQuant.price) || 0;
-            const atrNum = parseFloat(topQuant.metrics?.atr) || (topPrice * 0.03);
-            const calculatedTp = Math.round(topPrice + atrNum * 3.0);
-            const calculatedSl = Math.round(topPrice - atrNum * 1.5);
-
-            const nonVetoedList = finalSortedScored.filter(c => !c.isVetoed);
-
-            signalData = {
-                theme: topQuant.metrics?.sector || "실시간 퀀트 수급 상위",
-                themeProb: "92%",
-                stock: topQuant.name,
-                symbol: topQuant.code,
-                price: topPrice.toString(),
-                tp: calculatedTp.toString(),
-                sl: calculatedSl.toString(),
-                fundamental: `당일 체결강도 ${topQuant.metrics?.strength || '-'}% 및 퀀트 종합 점수 최상위`,
-                macro: "실시간 계량 전광판 퀀트 심층 분석 적용 중",
-                bearCase: `ATR 변동성 기준 손절가 ${calculatedSl.toLocaleString()}원 이탈 시 위험 관리`,
-                reason: `실시간 KIS 퀀트 평가 ${topQuant.totalScore || 0}점 최고득점 달성 종목`,
-                feedback: "실시간 수급 및 기술적 지표 10분 주기 갱신 가동 중",
-                shortTermPicks: nonVetoedList.slice(0, 10).map(c => {
-                    const pNum = parseFloat(c.price) || 0;
-                    const atrP = parseFloat(c.metrics?.atr) || (pNum * 0.03);
-                    return {
-                        n: c.name,
-                        c: c.code,
-                        p: pNum.toString(),
-                        tp: Math.round(pNum + atrP * 3.0).toString(),
-                        sl: Math.round(pNum - atrP * 1.5).toString(),
-                        t: "+15% 스윙",
-                        sp: `체결강도 ${c.metrics?.strength || '-'}%`
-                    };
-                }),
-                longTermPicks: nonVetoedList.slice(0, 10).map(c => {
-                    const pNum = parseFloat(c.price) || 0;
-                    return {
-                        n: c.name,
-                        c: c.code,
-                        p: pNum.toString(),
-                        tp: Math.round(pNum * 1.25).toString(),
-                        sl: Math.round(pNum * 0.88).toString(),
-                        r: "수급 및 재무 펀더멘털 상위 종목",
-                        sp: `퀀트 점수 ${c.totalScore || 0}점`
-                    };
-                }),
-                newInsight: "실시간 퀀트 시스템 10분 주기 자동 업데이트 가동"
-            };
-        }
 
 
         if (signalData) {
