@@ -17,6 +17,8 @@ import { executeHourlyPulse } from './routes/aiApi.js';
 import { runStopLossMonitor } from './lib/marketMonitor.js';
 import { startStockSync } from './lib/stockSync.js';
 import { runStartupGuard, startStartupGuardDaemon } from './lib/startupGuard.js';
+import { getSystemStatus } from './lib/healthCheck.js';
+
 
 
 dotenv.config();
@@ -87,8 +89,10 @@ app.use((req, res, next) => {
     next();
 });
 
-// Health check (Vital for Cloud Run availability)
+// Root & Health check (Vital for Render / Cloud Run availability & health ping)
+app.get('/', (req, res) => res.status(200).json(getSystemStatus()));
 app.get('/health', (req, res) => res.status(200).send('OK'));
+
 
 // Routes
 // 1. Stock / Detail
