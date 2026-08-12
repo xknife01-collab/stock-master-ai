@@ -3943,18 +3943,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
 };
 
 const fetchAiContentWithRetry = async (prompt, retries = 3, delay = 1500) => {
-    // 1차: 구글 클라우드 Vertex AI REST Engine (Gemini 2.0 Flash - 고속 엔터프라이즈 REST)
-    try {
-        const vRestRes = await callVertexAiRest(prompt, 'gemini-flash-latest');
-        if (vRestRes) {
-            console.log("✅ [AI Engine] Vertex AI REST (gemini-flash-latest) 분석 성공.");
-            return vRestRes;
-        }
-    } catch (vErr) {
-        console.warn("⚠️ [AI Engine] Vertex REST (gemini-flash-latest) 호출 실패:", vErr.message);
-    }
-
-    // 2차: 구글 AI 스튜디오 SDK (GEMINI_API_KEY 사용)
+    // 1차/2차/3차: 구글 AI 스튜디오 SDK (GEMINI_API_KEY 사용 - 100% 제미나이 3차까지 연속 재시도)
     const runCall = async (model) => {
         const result = await model.generateContent({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -3968,19 +3957,16 @@ const fetchAiContentWithRetry = async (prompt, retries = 3, delay = 1500) => {
     while (attempt < retries) {
         try {
             const studioRes = await runCall(aiModel);
-            console.log("✅ [AI Engine] Gemini API Studio 분석 성공.");
+            console.log(`✅ [AI Engine] Gemini API Studio 분석 성공. (시도 ${attempt + 1}/${retries})`);
             return studioRes;
         } catch (e) {
             attempt++;
-            const isRateLimit = e.status === 429 || e.message.includes('429') || e.message.includes('Quota') || e.message.includes('ResourceExhausted');
-            if (isRateLimit && attempt < retries) {
-                const waitTime = delay * Math.pow(2, attempt) + Math.random() * 1000;
-                console.warn(`⚠️ [Gemini Rate Limit] 429 에러 감지. ${Math.round(waitTime)}ms 후 재시도합니다... (시도 ${attempt}/${retries})`);
+            console.warn(`⚠️ [Gemini AI Engine] 호출 오류 (시도 ${attempt}/${retries}): ${e.message}`);
+            if (attempt < retries) {
+                const waitTime = delay * Math.pow(1.5, attempt) + Math.random() * 500;
+                console.log(`🔄 [Gemini AI Retry] ${Math.round(waitTime)}ms 후 ${attempt + 1}차 연속 재시도를 집행합니다...`);
                 await new Promise(resolve => setTimeout(resolve, waitTime));
-                continue;
             }
-            console.warn(`⚠️ Gemini Studio 호출 실패 (시도 ${attempt}/${retries}):`, e.message);
-            if (attempt >= retries) break;
         }
     }
 
