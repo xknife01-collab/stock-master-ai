@@ -3202,8 +3202,30 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
 
         finalSortedScored.sort((a, b) => b.totalScore - a.totalScore);
 
-        // 30분 단위 AI 리포트 캐시가 유효한지 검사 (테스트/강제 모드이고 force가 아닐 때)
-        const isReportCacheValid = !force && cache && cache.halfHourKey === currentHalfHourKey && cache.pulse && cache.pulse.theme && cache.pulse.theme !== "시장 급락 및 패닉 관망 (Safe Mode)";
+        // 30분 단위 AI 리포트 캐시가 유효한지 검사 (force가 아닐 때)
+        // [버그 수정] halfHourKey 일치만으로 판단하면 Render 재시작 후 Supabase 낡은 캐시를
+        // 계속 재사용하는 문제 발생 → savedTime 기준 30분 만료 여부를 이중으로 검사
+        const isCacheKeyMatch = !force && cache && cache.halfHourKey === currentHalfHourKey && cache.pulse && cache.pulse.theme && cache.pulse.theme !== "시장 급락 및 패닉 관망 (Safe Mode)";
+        let isCacheExpiredBySavedTime = false;
+        if (isCacheKeyMatch && cache.savedTime) {
+            // savedTime 형식: "08.12 11:10" → KST 기준 파싱
+            try {
+                const [datePart, timePart] = cache.savedTime.split(' ');
+                const [mm, dd] = datePart.split('.').map(Number);
+                const [hh, min] = timePart.split(':').map(Number);
+                const nowKstForCheck = new Date(Date.now() + 9 * 60 * 60 * 1000);
+                const savedKst = new Date(Date.UTC(nowKstForCheck.getUTCFullYear(), mm - 1, dd, hh, min, 0));
+                const diffMs = (Date.now() + 9 * 60 * 60 * 1000) - savedKst.getTime();
+                if (diffMs > 35 * 60 * 1000) { // 35분 이상 경과 시 만료로 판단 (30분 + 여유 5분)
+                    isCacheExpiredBySavedTime = true;
+                    console.log(`⏰ [Pulse] 캐시 savedTime(${cache.savedTime}) 기준 ${(diffMs/60000).toFixed(0)}분 경과 → 30분 유효기간 초과, Gemini 재호출 강제 실행`);
+                }
+            } catch (parseErr) {
+                console.warn('[Pulse] savedTime 파싱 실패, 안전하게 Gemini 재호출:', parseErr.message);
+                isCacheExpiredBySavedTime = true;
+            }
+        }
+        const isReportCacheValid = isCacheKeyMatch && !isCacheExpiredBySavedTime;
         
         if (isReportCacheValid) {
             console.log(`♻️ [Pulse] 이번 30분 주기 리포트가 유효하여 Gemini API 호출을 생략하고 캐시된 보고서를 재사용합니다. (키: ${currentHalfHourKey})`);
