@@ -3923,23 +3923,13 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
 const fetchAiContentWithRetry = async (prompt, retries = 3, delay = 1500) => {
     // 1차: 구글 클라우드 Vertex AI REST Engine (Gemini 2.0 Flash - 고속 엔터프라이즈 REST)
     try {
-        const vRestRes = await callVertexAiRest(prompt, 'gemini-2.0-flash');
+        const vRestRes = await callVertexAiRest(prompt, 'gemini-flash-latest');
         if (vRestRes) {
-            console.log("✅ [AI Engine] Vertex AI REST (gemini-2.0-flash) 분석 성공.");
+            console.log("✅ [AI Engine] Vertex AI REST (gemini-flash-latest) 분석 성공.");
             return vRestRes;
         }
     } catch (vErr) {
-        console.warn("⚠️ [AI Engine] Vertex REST (2.0-flash) 호출 실패:", vErr.message);
-    }
-
-    try {
-        const vRestRes2 = await callVertexAiRest(prompt, 'gemini-1.5-flash');
-        if (vRestRes2) {
-            console.log("✅ [AI Engine] Vertex AI REST (gemini-1.5-flash) 분석 성공.");
-            return vRestRes2;
-        }
-    } catch (vErr) {
-        console.warn("⚠️ [AI Engine] Vertex REST (1.5-flash) 호출 실패:", vErr.message);
+        console.warn("⚠️ [AI Engine] Vertex REST (gemini-flash-latest) 호출 실패:", vErr.message);
     }
 
     // 2차: 구글 AI 스튜디오 SDK (GEMINI_API_KEY 사용)
