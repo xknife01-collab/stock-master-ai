@@ -34,6 +34,8 @@ dist-ssr
 !ai_cache.json
 !pattern_insights.json
 !public/manifest.json
+
+
 *.txt
 "한국투자증권api키.txt"
 

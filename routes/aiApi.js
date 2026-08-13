@@ -208,10 +208,12 @@ const saveRagDiary = async (news, signal) => {
     
     // Deduplication check: 30 min cooldown OR same hour
     const now = new Date();
+    const nowKst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
     if (diary.length > 0) {
         const lastTime = new Date(diary[0].time).getTime();
-        const lastHour = new Date(diary[0].time).getHours();
-        const currentHour = now.getHours();
+        const lastKst = new Date(new Date(diary[0].time).getTime() + 9 * 60 * 60 * 1000);
+        const lastHour = lastKst.getUTCHours();
+        const currentHour = nowKst.getUTCHours();
         const timeDiff = now.getTime() - lastTime;
         
         if (currentHour === lastHour && timeDiff < 30 * 60 * 1000) {
@@ -275,7 +277,7 @@ const getAiCache = async (pulseKey = null) => {
         }
     }
 
-    // 2. Supabase 클라우드 캐시 조회 (로컬 누락 혹은 로컬 키가 이전 시점일 때)
+    // 2. Supabase 클라우드 캐시 조회 (로컬 누락 시에만 복원, 낡은 캐시로 로컬 덮어쓰기 방지)
     if (supabase) {
         try {
             const { data, error } = await supabase
@@ -287,8 +289,17 @@ const getAiCache = async (pulseKey = null) => {
             if (!error && data && data.code) {
                 const dbCache = JSON.parse(data.code);
                 if (dbCache && dbCache.pulse) {
-                    try { fs.writeFileSync(aiCachePath, JSON.stringify(dbCache, null, 2), 'utf8'); } catch (fsErr) {}
-                    return dbCache;
+                    // pulseKey 일치 시에만 로컬 파일에 기록 (낡은 Supabase 캐시로 로컬 덮어쓰기 방지)
+                    const isKeyMatch = !pulseKey || dbCache.pulseKey === pulseKey || dbCache.tenMinKey === pulseKey;
+                    if (isKeyMatch) {
+                        try { fs.writeFileSync(aiCachePath, JSON.stringify(dbCache, null, 2), 'utf8'); } catch (fsErr) {}
+                    } else {
+                        console.log(`⏭️ [Cache] Supabase 캐시(${dbCache.pulseKey})가 현재 키(${pulseKey})와 불일치. 로컬 파일 덮어쓰기 생략.`);
+                    }
+                    // 로컬 캐시가 없거나 키가 일치하면 Supabase 데이터 반환
+                    if (!localCache || isKeyMatch) {
+                        return dbCache;
+                    }
                 }
             }
         } catch (e) {
@@ -324,7 +335,7 @@ const saveAiCache = (pulseData, halfHourKey, tenMinKey = null, savedTime = null)
         pulse: dataToSave, 
         pulseKey: halfHourKey,
         halfHourKey, 
-        tenMinKey: halfHourKey, 
+        tenMinKey: tenMinKey || halfHourKey, 
         hourKey: halfHourKey, // 하위 호환성 유지
         savedTime: finalSavedTime 
     };
@@ -2763,10 +2774,8 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                         const isDualBuy = c.metrics.investor1D && c.metrics.investor1D.foreign > 0 && c.metrics.investor1D.organ > 0;
                         const hasStrongStrength = c.metrics.strength >= 115;
                         const isStrongBreakout = isDualBuy && hasStrongStrength;
-                        const isSamsung = c.code === '005930';
-
-                        if ((isStrongBreakout || isSamsung) && fin.roe !== null && fin.roe >= 0) {
-                            // 돌파형 주도주 및 삼성전자는 수급 전환의 특수성을 감안해 ROE 5% 미만 배제 룰 예외 적용
+                        if (isStrongBreakout && fin.roe !== null && fin.roe >= 0) {
+                            // 돌파형 주도주(외인/기관 동반매수 + 체결강도 115% 이상)는 ROE 5% 미만 배제 룰 예외 적용
                         } else if (fin.roe !== null && fin.roe < 5) {
                             isLongTermExcluded = true;
                             reason.push(`ROE 5% 미만 (${fin.roe}%)`);
@@ -3394,7 +3403,7 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
         2. **TOP PICK 선정 규칙**: 최종 추천 종목의 첫 번째 종목(TOP PICK, candidates[0])은 반드시 아래 [실시간 시장 포착 후보 종목 및 퀀트 점수표]에서 **퀀트 스코어가 높은 상위권(1위~5위 이내) 종목** 중에서만 골라야 해.
         3. **절대 진입 금지 필터**: 퀀트 스코어가 **40점 이하**이거나, 20일 이격도 점수에서 **음수 감점(-10점 이하)**을 받아 가격 부담이 극도로 심한 종목은 **절대 TOP PICK으로 선정할 수 없어**. (단, 정배열 상승세가 강력하고 외인/기관이 동시에 매수 우위인 종목은 20일 이격도가 최대 120%까지 완화되어 정상 통과 및 추천 가능하며, 만약 고이격 구간에서 외인/기관이 순매도(물량 덤핑)를 기록한 종목은 퀀트 시스템에서 자동으로 VETO 처리되므로 추천에서 원천 차단됩니다). 뉴스 호재가 아무리 강력하고 거래량이 많아도 이 룰은 예외 없이 적용해.
         4. **재무 건전성 필터 (VETO)**: ROE 적자 기업, 최근 3분기 연속 영업이익 적자 기업, 부채비율 200% 이상인 한계 기업, 또는 PBR 10배 이상의 고평가 버블 종목은 계량 시스템에 의해 원천 제외되거나 AI 추천에서 배제되어야 해.
-        5. **장중 수급 필터 (VETO)**: 당일 실시간 장중 가집계 투자자별 매매동향에서 외인/기관 쌍끌이 순매도 및 개인 순매수의 '장중 개미지옥 패턴'이 감지된 종목은 계량 시스템에 의해 VETO 처리(후보 제외)되거나 AI 추천에서 완벽히 배제해야 해. (단, 삼성전자처럼 당일 기관/외인의 순매수 전환 또는 대량 거래 대금을 동반하며 강력한 돌파 흐름이 감지되는 대형 주도주이거나 체결강도가 115% 이상인 강력한 당일 돌파 종목은 개미지옥 패턴 예외로 분류되어 TOP PICK으로 추천될 수 있어.)
+        5. **장중 수급 필터 (VETO)**: 당일 실시간 장중 가집계 투자자별 매매동향에서 외인/기관 쌍끌이 순매도 및 개인 순매수의 '장중 개미지옥 패턴'이 감지된 종목은 계량 시스템에 의해 VETO 처리(후보 제외)되거나 AI 추천에서 완벽히 배제해야 해. (단, 당일 기관/외인의 순매수 전환 또는 대량 거래 대금을 동반하며 강력한 돌파 흐름이 감지되는 대형 주도주이거나 체결강도가 115% 이상인 강력한 당일 돌파 종목은 개미지옥 패턴 예외로 분류되어 TOP PICK으로 추천될 수 있어.)
         6. **데이터 보정 경고 인지 (⚠️ [데이터 보정됨])**: 일부 종목에 \`⚠️ [데이터 보정됨]\` 배지가 붙어 있는 경우, 이는 실시간 KIS API 호출 제한(Rate Limit) 또는 일시적인 수급 집계 지연으로 인해 직전 캐시 데이터나 보정된 지표를 사용하여 종합점수가 산출된 상태를 뜻합니다. AI는 이 배지가 있는 종목을 추천할 때 데이터가 다소 지연되었을 리스크(예: 당일 장중 최신 흐름 미반영)가 있음을 인지하고, 최종 추천 후보 선정 시 이를 리스크 요인으로 신중히 검토하십시오.
         7. **정렬 순서**: 추천 종목 'candidates' 배열의 정렬 순서는 퀀트 종합 점수(totalScore)가 높은 종목이 맨 앞으로 오도록 내림차순 정렬해야 해.
         8. [최신 뉴스]를 분석할 때, 발행 시각이 분석일(${krNow.getUTCFullYear()}-${krNow.getUTCMonth()+1}-${krNow.getUTCDate()})로부터 '24시간 이내'인 뉴스를 최우선 가중치(20%)로 반영해.
@@ -3853,23 +3862,27 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
         }
 
         if (!signalData) {
-            const cachedPulse = cache?.pulse?.data || cache?.pulse;
+            // 🛡️ [Gemini 실패 폴백] 낡은 캐시에서 추천 종목을 복사하지 않음 (Rule 1: 가짜 데이터 주입 금지)
+            // 실시간 KIS 퀀트 데이터 기반으로 최소 정보만 구성
+            const topFallback = (filteredCandidates[0] || finalSortedScored.find(c => !c.isVetoed) || finalSortedScored[0]);
+            const fallbackSector = topFallback?.metrics?.sector || topSector || '분석중';
+            console.warn(`⚠️ [Pulse Fallback] Gemini 실패 → 실시간 퀀트 데이터 기반 최소 신호 생성 (TOP: ${topFallback?.name || 'N/A'})`);
             signalData = {
-                theme: cachedPulse?.theme || (finalSortedScored[0]?.metrics?.sector || "전기·전자"),
-                themeProb: cachedPulse?.themeProb || "90%",
-                stock: cachedPulse?.stock || finalSortedScored[0]?.name,
-                symbol: cachedPulse?.symbol || finalSortedScored[0]?.code,
-                price: (cachedPulse?.price || finalSortedScored[0]?.price || 0).toString(),
-                tp: cachedPulse?.tp || "0",
-                sl: cachedPulse?.sl || "0",
-                fundamental: cachedPulse?.fundamental || "실시간 KIS 퀀트 평가 지표 상위",
-                macro: cachedPulse?.macro || "실시간 계량 전광판 지표 반영 중",
-                bearCase: cachedPulse?.bearCase || "당일 변동성 및 수급 이탈 유의",
-                reason: cachedPulse?.reason || "실시간 KIS 퀀트 평가 지표 최상위 종목",
-                feedback: cachedPulse?.feedback || "10분 주기 실시간 계량 지표 갱신 가동 중",
-                shortTermPicks: cachedPulse?.shortTermPicks || [],
-                longTermPicks: cachedPulse?.longTermPicks || [],
-                newInsight: cachedPulse?.newInsight || ""
+                theme: fallbackSector,
+                themeProb: "N/A (AI 엔진 일시 지연)",
+                stock: topFallback?.name || "분석 지연",
+                symbol: topFallback?.code || "000000",
+                price: (topFallback?.price || 0).toString(),
+                tp: "0",
+                sl: "0",
+                fundamental: "Gemini AI 엔진 응답 지연. 실시간 KIS 퀀트 전광판은 정상 갱신 중.",
+                macro: `코스피 Z-Score ${marketStress.kospi.zScore}, 코스닥 Z-Score ${marketStress.kosdaq.zScore}, 스트레스 ${marketStress.score}점`,
+                bearCase: "AI 상세 분석 지연. 다음 30분 주기에 자동 재시도됩니다.",
+                reason: "Gemini AI 엔진 호출 실패로 상세 리포트 보류. 퀀트 전광판은 100% 실시간 갱신.",
+                feedback: "AI 리포트는 다음 30분 주기에 자동 갱신됩니다. 퀀트 전광판의 종합점수와 수급을 참고하세요.",
+                shortTermPicks: [],
+                longTermPicks: [],
+                newInsight: ""
             };
         }
 
