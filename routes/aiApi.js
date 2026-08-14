@@ -4044,6 +4044,53 @@ router.get('/history', async (req, res) => {
     try { res.json(await getRagDiary()); } catch (e) { res.status(500).json({ error: 'Failed' }); }
 });
 
+// --- 🔧 Gemini AI 진단 엔드포인트 (임시) ---
+router.get('/test-gemini', async (req, res) => {
+    const diagnostics = {
+        timestamp: new Date().toISOString(),
+        geminiApiKeySet: !!process.env.GEMINI_API_KEY,
+        geminiApiKeyPrefix: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.slice(0, 10) + '...' : 'NOT SET',
+        googleCloudProject: process.env.GOOGLE_CLOUD_PROJECT || 'NOT SET',
+        mockGemini: process.env.MOCK_GEMINI,
+        tests: {}
+    };
+
+    // Test 1: Simple text generation
+    try {
+        const result = await aiModel.generateContent({
+            contents: [{ role: 'user', parts: [{ text: 'Say hello in Korean. One sentence only.' }] }]
+        });
+        const text = result.response.text ? result.response.text() : result.response.candidates[0].content.parts[0].text;
+        diagnostics.tests.simpleText = { status: 'SUCCESS', response: text.trim() };
+    } catch (e) {
+        diagnostics.tests.simpleText = { 
+            status: 'FAILED', 
+            error: e.message, 
+            errorCode: e.status || e.code || 'unknown',
+            errorDetails: JSON.stringify(e.errorDetails || e.cause || {}).slice(0, 500)
+        };
+    }
+
+    // Test 2: JSON mode generation (same as pulse uses)
+    try {
+        const result = await aiModel.generateContent({
+            contents: [{ role: 'user', parts: [{ text: 'Return JSON: {"test": "ok", "model": "gemini-2.5-flash"}' }] }],
+            generationConfig: { responseMimeType: "application/json" }
+        });
+        const text = result.response.text ? result.response.text() : result.response.candidates[0].content.parts[0].text;
+        diagnostics.tests.jsonMode = { status: 'SUCCESS', response: JSON.parse(text.trim()) };
+    } catch (e) {
+        diagnostics.tests.jsonMode = { 
+            status: 'FAILED', 
+            error: e.message, 
+            errorCode: e.status || e.code || 'unknown',
+            errorDetails: JSON.stringify(e.errorDetails || e.cause || {}).slice(0, 500)
+        };
+    }
+
+    res.json(diagnostics);
+});
+
 // --- Test SMS Endpoint ---
 router.get('/test-sms', async (req, res) => {
     const phone = req.query.phone || '010-4885-8575';
