@@ -997,35 +997,25 @@ export const executeHourlyPulse = async (force = false) => {
     // 09:15 이전 시간대인 경우에는 장 운영 시간 외로 간주하여 캐시 제공만 활성화
     const marketOpen = !isBeforeFirstPulse && isMarketOpen();
 
-    // 2. 장외 시간 및 캐시 확인 (장외 시간이고 캐시가 없으면 diary에서 복구하여 즉각 제공)
-    if (!force && !marketOpen) {
+    // 2. 장외 시간 및 캐시 확인
+    const todayDatePrefix = `${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-${now.getUTCDate()}`;
+    const isCacheDateToday = cache && (
+        (cache.pulseKey && cache.pulseKey.startsWith(todayDatePrefix)) ||
+        (cache.tenMinKey && cache.tenMinKey.startsWith(todayDatePrefix)) ||
+        (cache.halfHourKey && cache.halfHourKey.startsWith(todayDatePrefix))
+    );
+
+    // 오늘자 캐시가 이미 존재하고 장외 시간인 경우에만 이전 분석 결과를 고정 제공
+    if (!force && !marketOpen && isCacheDateToday) {
         let pulseData = null;
         let savedTime = null;
         if (cache && cache.pulse) {
             pulseData = cache.pulse.data || cache.pulse;
             savedTime = cache.savedTime;
-        } else {
-            // 캐시가 날아갔다면 최신 다이어리 기록을 읽어 캐시를 동적 복구합니다.
-            const diary = await getRagDiary();
-            if (diary && diary.length > 0) {
-                console.log(`💤 [Pulse] 장 마감 상태 및 캐시 누락: 다이어리 최신 레코드로 복구 시도`);
-                pulseData = diary[0].prediction || diary[0];
-                
-                if (diary[0].time) {
-                    const d = new Date(diary[0].time);
-                    const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
-                    const mm = String(kst.getUTCMonth() + 1).padStart(2, '0');
-                    const dd = String(kst.getUTCDate()).padStart(2, '0');
-                    const hh = String(kst.getUTCHours()).padStart(2, '0');
-                    const min = String(kst.getUTCMinutes()).padStart(2, '0');
-                    savedTime = `${mm}.${dd} ${hh}:${min}`;
-                }
-                saveAiCache({ pulse: { data: pulseData } }, halfHourKey, pulseKey, savedTime);
-            }
         }
 
         if (pulseData) {
-            console.log(`💤 [Pulse] 장 마감 상태 (이전 분석 결과 캐시 고정 제공)`);
+            console.log(`💤 [Pulse] 장 마감 상태 (오늘자 이전 분석 결과 캐시 고정 제공: ${savedTime || timeStr})`);
             await refreshRecommendedPrices(pulseData);
             cleanSignal(pulseData);
             
@@ -1050,7 +1040,7 @@ export const executeHourlyPulse = async (force = false) => {
     }
 
     // 3. 캐시 확인 및 즉시 제공 (신규 펄스는 백그라운드에서 비동기 갱신)
-    if (!force && cache && cache.pulse) {
+    if (!force && cache && cache.pulse && isCacheDateToday) {
         let pulseData = cache.pulse.data || cache.pulse;
 
         if (marketOpen && cache.pulseKey !== pulseKey && cache.tenMinKey !== pulseKey && !fetchingAiSignalPromise) {

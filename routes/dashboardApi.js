@@ -312,6 +312,11 @@ export const startDashboardSync = async () => {
 export const setupDashboardApi = () => {
     // 0.1초 반응 속도를 위한 캐시 즉시 반환 라우트
     router.get('/', async (req, res) => {
+        if (req.query.force === 'true') {
+            await syncDashboardData();
+            if (cachedDashboard) return res.json(cachedDashboard);
+        }
+
         if (cachedDashboard) {
             return res.json(cachedDashboard);
         }

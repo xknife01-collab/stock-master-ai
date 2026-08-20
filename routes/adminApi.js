@@ -211,12 +211,15 @@ router.post('/track-visit', (req, res) => {
         ) {
             trafficStore.referrers['틱톡 (TikTok)']++;
         } else if (
-            utm.includes('tstory') || ref.includes('tstory.com')
+            utm.includes('tstory') || utm.includes('tistory') ||
+            ref.includes('tistory.com') || ref.includes('tstory.com') ||
+            ref.includes('daum.net') || utm.includes('daum')
         ) {
             trafficStore.referrers['티스토리 (Tstory)']++;
         } else if (
             utm.includes('naver') || utm.includes('blog.naver') ||
-            ref.includes('naver.com') ||
+            ref.includes('naver.com') || ref.includes('blog.naver.com') ||
+            ref.includes('m.blog.naver.com') ||
             ua.includes('naver')
         ) {
             trafficStore.referrers['네이버 (검색/블로그)']++;

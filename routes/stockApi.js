@@ -299,7 +299,7 @@ router.get('/history/:symbol', async (req, res) => {
         try {
             const { data, error } = await supabase
                 .from('stock_detail_cache')
-                .select('advanced, updated_at')
+                .select('fundamental, advanced, updated_at')
                 .eq('symbol', targetSymbol)
                 .single();
 
@@ -307,40 +307,37 @@ router.get('/history/:symbol', async (req, res) => {
                 cachedData = data;
                 let cachedChart = data.advanced.chartHistory[range];
 
-                // 캐시 유효성 판단
-                const now = new Date();
-                const updatedAt = new Date(data.updated_at);
+                // KST 기준 날짜 및 유효성 판단
+                const krNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+                const krTodayStr = krNow.toISOString().slice(0, 10);
+                const updatedAtDate = data.updated_at ? new Date(new Date(data.updated_at).getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10) : '';
+                const isUpdatedToday = krTodayStr === updatedAtDate;
+                const ageMs = Date.now() - new Date(data.updated_at).getTime();
                 const force = req.query.force === 'true';
+
                 let isStale = force;
 
                 if (!isStale) {
                     if (range === '1D') {
-                        const isSameDay = now.getFullYear() === updatedAt.getFullYear() &&
-                                          now.getMonth() === updatedAt.getMonth() &&
-                                          now.getDate() === updatedAt.getDate();
-                        const ageMs = now.getTime() - updatedAt.getTime();
-                        // 1D 분봉이 오늘 날짜가 아니거나 60초 이상 경과한 경우 만료
-                        if (!isSameDay || ageMs > 60000) isStale = true;
+                        if (isMarketOpen()) {
+                            // 장중: 오늘 업데이트되지 않았거나 60초 이상 지난 경우 갱신
+                            if (!isUpdatedToday || ageMs > 60000) isStale = true;
+                        } else {
+                            // 장외: 오늘자 업데이트 기록이 없으면 최신 정산 분봉 확보를 위해 1회 갱신
+                            if (!isUpdatedToday) isStale = true;
+                        }
                     } else {
-                        const isSameDay = now.getFullYear() === updatedAt.getFullYear() &&
-                                          now.getMonth() === updatedAt.getMonth() &&
-                                          now.getDate() === updatedAt.getDate();
-                        // 일봉 데이터가 당일 업데이트되지 않은 경우 만료
-                        if (!isSameDay) isStale = true;
+                        // 일봉(1W, 1M, 1Y): 오늘 업데이트되지 않은 경우 갱신
+                        if (!isUpdatedToday) isStale = true;
                     }
                 }
 
-                // 시장이 닫혀있으면 캐시를 무조건 최신으로 인정 (불필요한 KIS 호출 원천 차단)
-                if (!isMarketOpen()) {
-                    isStale = false;
-                }
-
                 if (isStale) {
-                    console.log(`🔄 [History API] ${range} chart is stale (or forced) for ${targetSymbol}.`);
+                    console.log(`🔄 [History API] ${range} chart is stale (or forced) for ${targetSymbol}. (isUpdatedToday: ${isUpdatedToday}, force: ${force})`);
                     if (range === '1D') {
                         try {
                             console.log(`📡 [History 1D Sync] Fetching fresh 1D chart synchronously for ${targetSymbol}`);
-                            const freshDetail = await syncSingleStock(targetSymbol);
+                            const freshDetail = await syncSingleStock(targetSymbol, false, force);
                             if (freshDetail && freshDetail.advanced?.chartHistory?.['1D']) {
                                 let chart1D = freshDetail.advanced.chartHistory['1D'];
                                 chart1D = filter1DChartIfNeeded(chart1D);
@@ -350,17 +347,12 @@ router.get('/history/:symbol', async (req, res) => {
                             console.error(`⚠️ [History 1D Synchronous Sync Failed] ${targetSymbol}:`, err.message);
                         }
                     } else {
-                        // 일봉 차트 백그라운드 갱신 수행 (사용자 지연 방지)
-                        (async () => {
-                            try {
-                                const chartData = await fetchStockChartFromKIS(targetSymbol, range);
-                                const { data: ext } = await supabase
-                                    .from('stock_detail_cache')
-                                    .select('fundamental, advanced')
-                                    .eq('symbol', targetSymbol)
-                                    .maybeSingle();
-                                const advanced = ext?.advanced || {};
-                                const fundamental = ext?.fundamental || {};
+                        // 일봉 차트 최신 동기화 수행 및 즉시 반환
+                        try {
+                            const chartData = await fetchStockChartFromKIS(targetSymbol, range);
+                            if (chartData && chartData.length > 0) {
+                                const advanced = data.advanced || {};
+                                const fundamental = data.fundamental || {};
                                 advanced.chartHistory = {
                                     ...(advanced.chartHistory || {}),
                                     [range]: chartData
@@ -373,11 +365,12 @@ router.get('/history/:symbol', async (req, res) => {
                                         advanced,
                                         updated_at: new Date().toISOString()
                                     }, { onConflict: 'symbol' });
-                                console.log(`💾 [History Cache Write] Saved ${range} chart for ${targetSymbol} to Supabase.`);
-                            } catch (err) {
-                                console.error(`⚠️ [History Background Sync Failed] ${targetSymbol} for ${range}:`, err.message);
+                                console.log(`💾 [History Cache Write] Saved fresh ${range} chart for ${targetSymbol} to Supabase.`);
+                                return res.json(chartData);
                             }
-                        })();
+                        } catch (err) {
+                            console.error(`⚠️ [History Sync Failed] ${targetSymbol} for ${range}:`, err.message);
+                        }
                     }
                 }
 
@@ -400,7 +393,7 @@ router.get('/history/:symbol', async (req, res) => {
     try {
         console.log(`📡 [On-Demand History] No cache found. Fetching fresh ${range} chart for: ${targetSymbol}`);
         if (range === '1D') {
-            const freshDetail = await syncSingleStock(targetSymbol);
+            const freshDetail = await syncSingleStock(targetSymbol, false, true);
             if (freshDetail && freshDetail.advanced?.chartHistory?.['1D']) {
                 let chart1D = freshDetail.advanced.chartHistory['1D'];
                 chart1D = filter1DChartIfNeeded(chart1D);

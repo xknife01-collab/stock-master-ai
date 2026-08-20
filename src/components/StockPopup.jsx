@@ -233,7 +233,17 @@ const StockPopup = ({ item, onClose }) => {
       <motion.div initial={{scale:0.95, y:20}} animate={{scale:1, y:0}} exit={{scale:0.95, y:20}} onClick={e => e.stopPropagation()} className="bg-white rounded-xl shadow-2xl w-full max-w-2xl font-sans border border-gray-200 my-4 flex flex-col">
         <div className="sticky top-0 z-10 flex justify-between items-center p-5 border-b border-gray-100 bg-gray-50 rounded-t-xl">
           <div className="flex flex-col">
-            <h2 className="text-xl font-bold text-gray-900">{item.name}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold text-gray-900">{item.name}</h2>
+              <button 
+                onClick={handleForceRefresh} 
+                disabled={isRefreshing}
+                title="실시간 데이터 및 차트 강제 동기화"
+                className={`p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-100 text-gray-600 transition-all ${isRefreshing ? 'animate-spin opacity-50 text-blue-600' : ''}`}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+              </button>
+            </div>
             <div className="flex items-end gap-2 mt-1">
               <span className="text-2xl font-black text-[#ed3738]">
                 {loadingRealTime ? <span className="animate-pulse opacity-50">...</span> : realTimeData.price} 
