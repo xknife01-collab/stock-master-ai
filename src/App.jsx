@@ -21,6 +21,7 @@ import AuthModal from './components/Auth/AuthModal';
 import AdminModal from './components/Admin/AdminModal';
 import StickyStripBanner from './components/Ad/StickyStripBanner';
 import AdVideoModal from './components/Ad/AdVideoModal';
+import QuantResearchModal from './components/Research/QuantResearchModal';
 
 const App = () => {
   // Authentication & Session
@@ -31,6 +32,7 @@ const App = () => {
   });
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isResearchOpen, setIsResearchOpen] = useState(false);
 
   // Global States
   const [stocks, setStocks] = useState([]);
@@ -62,6 +64,20 @@ const App = () => {
     checkAdminRoute();
     window.addEventListener('popstate', checkAdminRoute);
     return () => window.removeEventListener('popstate', checkAdminRoute);
+  }, []);
+
+  // /research 또는 #research URL 경로 감지 리스너
+  useEffect(() => {
+    const checkResearchRoute = () => {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      if (path === '/research' || path === '/research/' || hash === '#research') {
+        setIsResearchOpen(true);
+      }
+    };
+    checkResearchRoute();
+    window.addEventListener('popstate', checkResearchRoute);
+    return () => window.removeEventListener('popstate', checkResearchRoute);
   }, []);
 
   // 글로벌 10분 사용 ➔ 15초 동영상 광고 팝업 ➔ 30분 해금 타이머
@@ -380,6 +396,7 @@ const App = () => {
           showInstallBtn={showInstallBtn}
           onInstallClick={handleInstallClick}
           onOpenAdmin={() => setIsAdminOpen(true)}
+          onOpenResearch={() => setIsResearchOpen(true)}
         />
 
         {/* 2. Market Overview (Dashboard) */}
@@ -433,6 +450,15 @@ const App = () => {
         <StickyStripBanner showAds={adConfig.showAds} />
 
         {/* 8. Modals */}
+        <QuantResearchModal 
+          isOpen={isResearchOpen} 
+          onClose={() => {
+            setIsResearchOpen(false);
+            if (window.location.hash === '#research') {
+              window.history.pushState({}, '', window.location.pathname);
+            }
+          }} 
+        />
         <AnimatePresence>
           {popupItem && (
             <StockPopup 

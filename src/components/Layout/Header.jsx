@@ -1,7 +1,7 @@
 import React from 'react';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, BarChart2 } from 'lucide-react';
 
-const Header = ({ user, onOpenLogin, onLogout, showInstallBtn, onInstallClick, onOpenAdmin }) => {
+const Header = ({ user, onOpenLogin, onLogout, showInstallBtn, onInstallClick, onOpenAdmin, onOpenResearch }) => {
   return (
     <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
       <div className="flex items-center gap-4">
@@ -17,6 +17,17 @@ const Header = ({ user, onOpenLogin, onLogout, showInstallBtn, onInstallClick, o
         </div>
       </div>
       <div className="flex gap-3 items-center">
+        {/* 📊 퀀트 리서치 센터 버튼 (대표님 지정 위치) */}
+        <button
+          onClick={onOpenResearch}
+          className="text-[10px] font-black text-[#00ffab] hover:text-[#00ffab]/80 hover:bg-[#00ffab]/10 uppercase tracking-widest border border-[#00ffab]/30 bg-[#00ffab]/5 px-4 py-2.5 rounded-xl transition-all shadow-[0_0_15px_rgba(0,255,171,0.15)] flex items-center gap-2 group cursor-pointer"
+        >
+          <span className="w-2 h-2 rounded-full bg-[#00ffab] animate-pulse" />
+          <span className="group-hover:scale-105 transition-transform flex items-center gap-1.5">
+            <BarChart2 size={13} /> 퀀트 리서치
+          </span>
+        </button>
+
         {showInstallBtn && (
           <button
             onClick={onInstallClick}
