@@ -21,7 +21,7 @@ import AuthModal from './components/Auth/AuthModal';
 import AdminModal from './components/Admin/AdminModal';
 import StickyStripBanner from './components/Ad/StickyStripBanner';
 import AdVideoModal from './components/Ad/AdVideoModal';
-import QuantResearchModal from './components/Research/QuantResearchModal';
+import QuantResearchPage from './components/Research/QuantResearchPage';
 
 const App = () => {
   // Authentication & Session
@@ -450,7 +450,7 @@ const App = () => {
         <StickyStripBanner showAds={adConfig.showAds} />
 
         {/* 8. Modals */}
-        <QuantResearchModal 
+        <QuantResearchPage 
           isOpen={isResearchOpen} 
           onClose={() => {
             setIsResearchOpen(false);
