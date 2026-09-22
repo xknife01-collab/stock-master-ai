@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Sitemap: https://stockmaster-ai.vercel.app/sitemap_stock.xml
+Sitemap: https://stockmaster-ai.vercel.app/sitemap.xml

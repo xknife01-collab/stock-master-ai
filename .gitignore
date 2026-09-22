@@ -37,6 +37,7 @@ dist-ssr
 
 
 *.txt
+!public/robots.txt
 "한국투자증권api키.txt"
 
 
