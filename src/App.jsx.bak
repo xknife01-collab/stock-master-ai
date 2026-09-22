@@ -22,7 +22,6 @@ import AdminModal from './components/Admin/AdminModal';
 import StickyStripBanner from './components/Ad/StickyStripBanner';
 import AdVideoModal from './components/Ad/AdVideoModal';
 import QuantResearchPage from './components/Research/QuantResearchPage';
-import TelegramLeadBanner from './components/Dashboard/TelegramLeadBanner';
 
 const App = () => {
   // Authentication & Session
@@ -439,8 +438,6 @@ const App = () => {
               onDeleteStock={handleDeleteStock}
               onUpdateStopLoss={handleUpdateStopLoss}
             />
-            {/* VIP 텔레그램 실시간 수급 알림 및 장전 브리핑 배너 */}
-            <TelegramLeadBanner />
           </div>
         </div>
 
