@@ -1158,17 +1158,22 @@ const calculateExchangeStress = (macro) => {
     }
 
     const rate = parseFloat(usdIndicator.value?.toString().replace(/,/g, '') || '0');
-    const changeVal = parseFloat(usdIndicator.change?.toString().replace(/,/g, '') || '0');
-    
-    const prevRate = rate - changeVal;
-    const changePercent = prevRate > 0 ? (changeVal / prevRate) * 100 : 0;
+    let changePercent = 0;
+    const changeStr = usdIndicator.change?.toString() || '';
+    if (changeStr.includes('%')) {
+        changePercent = parseFloat(changeStr.replace(/,/g, '').replace('%', '') || '0');
+    } else {
+        const changeVal = parseFloat(changeStr.replace(/,/g, '') || '0');
+        const prevRate = rate - changeVal;
+        changePercent = prevRate > 0 ? (changeVal / prevRate) * 100 : 0;
+    }
 
     let score = 0;
     
     // 1. 변동성 점수 (최대 15점)
-    if (changePercent > 1.0) {
+    if (Math.abs(changePercent) > 1.0) {
         score += 15;
-    } else if (changePercent > 0.5) {
+    } else if (Math.abs(changePercent) > 0.5) {
         score += 7;
     }
 
@@ -1439,15 +1444,26 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
         
         // 매크로 지표에 대한 시장 주류 해석(Sentiment) 힌트 추가
         const interpretMacro = (m) => {
-            const val = parseFloat(m.value?.toString().replace(/,/g, '') || '0');
-            const chg = parseFloat(m.change?.toString().replace(/,/g, '') || '0');
-            if (m.label.includes('환율')) {
-                if (chg > 0) return "수출주 채산성 개선 기대 및 외인 수급 하방 압력";
-                return "원화 강세, 내수주 및 외인 유동성 공급에 긍정적";
+            const chg = parseFloat(m.change?.toString().replace(/,/g, '').replace('%', '') || '0');
+            if (m.label.includes('USD') || m.label.includes('KRW') || m.label.includes('JPY') || m.label.includes('EUR') || m.label.includes('CNY') || m.label.includes('환율')) {
+                if (chg > 0) return "원화 약세/환율 상승에 따른 외인 수급 하방 압력 및 수출주 채산성 영향";
+                return "원화 강세/안정세, 내수주 및 외인 유동성 공급에 긍정적";
             }
             if (m.label.includes('코스피') || m.label.includes('코스닥')) {
                 if (chg > 0) return "시장 심리 회복 및 매수세 강화";
                 return "과매도 구간 진입 여부 및 기술적 반등 확인 필요";
+            }
+            if (m.label.includes('Oil') || m.label.includes('WTI')) {
+                if (chg > 0) return "유가 상승에 따른 에너지/제조 원가 부담 및 인플레이션 압력 모니터링";
+                return "유가 안정으로 기업 원가 부담 완화";
+            }
+            if (m.label.includes('Gold')) {
+                if (chg > 0) return "안전자산 선호 심리 강화 (시장 불확실성 리스크 반영)";
+                return "위험자산 선호 회복";
+            }
+            if (m.label.includes('DXY')) {
+                if (chg > 0) return "달러 강세로 신흥국 증시 자금 유출 경계";
+                return "달러 약세로 글로벌 위험자산 투자 심리 개선";
             }
             return "추세 확인 중";
         };

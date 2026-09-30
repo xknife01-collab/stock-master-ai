@@ -476,40 +476,40 @@ const AdminModal = ({ isOpen, onClose }) => {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div className="p-6 bg-gradient-to-br from-blue-900/30 to-[#121722] border border-blue-500/20 rounded-2xl shadow-xl">
                     <div className="flex justify-between items-start mb-2">
-                      <span className="text-xs font-bold text-blue-300">오늘 페이지뷰 (PV)</span>
+                      <span className="text-xs font-bold text-blue-300">오늘 순 방문자 (DAU / UV)</span>
                       <Eye className="text-blue-400" size={20} />
                     </div>
                     <div className="text-3xl font-black text-white font-mono">
-                      {trafficHistory?.summary?.todayPV?.toLocaleString() || 0} <span className="text-base text-blue-400 font-bold">PV</span>
+                      {trafficHistory?.summary?.todayUV?.toLocaleString() || 0} <span className="text-base text-blue-400 font-bold">명 (UV)</span>
                     </div>
                     <p className="text-[11px] text-blue-300 font-bold mt-2">
-                      오늘 순 방문자(UV): <span className="text-white font-mono">{trafficHistory?.summary?.todayUV?.toLocaleString() || 0}명</span>
+                      오늘 누적 페이지뷰(PV): <span className="text-white font-mono">{trafficHistory?.summary?.todayPV?.toLocaleString() || 0}회</span>
                     </p>
                   </div>
 
                   <div className="p-6 bg-gradient-to-br from-purple-900/30 to-[#121722] border border-purple-500/20 rounded-2xl shadow-xl">
                     <div className="flex justify-between items-start mb-2">
-                      <span className="text-xs font-bold text-purple-300">일주일간 누적 트래픽</span>
+                      <span className="text-xs font-bold text-purple-300">일주일간 순 방문자 (WAU / UV)</span>
                       <Calendar className="text-purple-400" size={20} />
                     </div>
                     <div className="text-3xl font-black text-white font-mono">
-                      {trafficHistory?.summary?.weeklyTotalPV?.toLocaleString() || 0} <span className="text-base text-purple-400 font-bold">PV</span>
+                      {trafficHistory?.summary?.weeklyTotalUV?.toLocaleString() || 0} <span className="text-base text-purple-400 font-bold">명 (UV)</span>
                     </div>
                     <p className="text-[11px] text-purple-300 font-bold mt-2">
-                      주간 순 방문(UV): <span className="text-white font-mono">{trafficHistory?.summary?.weeklyTotalUV?.toLocaleString() || 0}명</span>
+                      주간 누적 페이지뷰(PV): <span className="text-white font-mono">{trafficHistory?.summary?.weeklyTotalPV?.toLocaleString() || 0}회</span>
                     </p>
                   </div>
 
                   <div className="p-6 bg-gradient-to-br from-green-900/30 to-[#121722] border border-green-500/20 rounded-2xl shadow-xl">
                     <div className="flex justify-between items-start mb-2">
-                      <span className="text-xs font-bold text-green-300">한 달간 누적 트래픽</span>
+                      <span className="text-xs font-bold text-green-300">한 달간 순 방문자 (MAU / UV)</span>
                       <TrendingUp className="text-green-400" size={20} />
                     </div>
                     <div className="text-3xl font-black text-white font-mono">
-                      {trafficHistory?.summary?.monthlyTotalPV?.toLocaleString() || 0} <span className="text-base text-green-400 font-bold">PV</span>
+                      {trafficHistory?.summary?.monthlyTotalUV?.toLocaleString() || 0} <span className="text-base text-green-400 font-bold">명 (UV)</span>
                     </div>
                     <p className="text-[11px] text-green-400 font-bold mt-2">
-                      월간 순 방문(UV): <span className="text-white font-mono">{trafficHistory?.summary?.monthlyTotalUV?.toLocaleString() || 0}명</span>
+                      월간 누적 페이지뷰(PV): <span className="text-white font-mono">{trafficHistory?.summary?.monthlyTotalPV?.toLocaleString() || 0}회</span>
                     </p>
                   </div>
 
@@ -519,7 +519,7 @@ const AdminModal = ({ isOpen, onClose }) => {
                       <DollarSign className="text-amber-400" size={20} />
                     </div>
                     <div className="text-3xl font-black text-white font-mono">
-                      {(trafficHistory?.summary?.yearlyMAU || 0).toLocaleString()} 명
+                      {(trafficHistory?.summary?.yearlyMAU || 0).toLocaleString()} <span className="text-base text-amber-400 font-bold">명 (UV)</span>
                     </div>
                     <p className="text-[11px] text-amber-400 font-bold mt-2">
                       재방문율: {trafficHistory?.summary?.retentionRate || '100%'} (Supabase 실시간 연동)
@@ -534,10 +534,10 @@ const AdminModal = ({ isOpen, onClose }) => {
                     <h3 className="text-base font-black text-white flex items-center justify-between">
                       <span className="flex items-center gap-2">
                         <BarChart3 className="text-blue-400" size={18} />
-                        {trafficPeriod === 'today' && '오늘 시간대별 방문자 추이 (Hourly Traffic)'}
-                        {trafficPeriod === 'weekly' && '지난 7일간 일별 방문자 추이 (Weekly)'}
-                        {trafficPeriod === 'monthly' && '지난 30일간 일별 트래픽 추이 (Monthly)'}
-                        {trafficPeriod === 'yearly' && '연도별 월간 MAU 성장 곡선 (Yearly IR)'}
+                        {trafficPeriod === 'today' && '오늘 시간대별 순방문자 추이 (Hourly UV Traffic)'}
+                        {trafficPeriod === 'weekly' && '지난 7일간 일별 순방문자 추이 (Weekly UV / DAU)'}
+                        {trafficPeriod === 'monthly' && '지난 30일간 일별 순방문자 추이 (Monthly UV / DAU)'}
+                        {trafficPeriod === 'yearly' && '연도별 월간 MAU(순방문자) 성장 곡선 (Yearly IR)'}
                       </span>
                       <span className="text-xs font-mono font-bold text-blue-400">⚡ Supabase 실시간 연동 중</span>
                     </h3>
@@ -560,29 +560,29 @@ const AdminModal = ({ isOpen, onClose }) => {
                         ? rawChartList
                         : (trafficPeriod === 'weekly' ? fallbackWeekly : fallbackMonthly);
 
-                      const maxPV = Math.max(1, ...chartList.map(d => d.pv || 0));
+                      const maxUV = Math.max(1, ...chartList.map(d => d.uv || d.dau || 0));
                       return (
                         <div className="h-64 flex items-end justify-between gap-3 pt-12 pb-3 px-3 border-b border-white/10">
                           {chartList.map((item, idx) => {
                             const pvVal = item.pv || 0;
                             const uvVal = item.uv || item.dau || (pvVal > 0 ? 1 : 0);
-                            // Square-root visual curve scaling so bars stand tall and clear
-                            const heightPct = pvVal > 0 ? Math.max(28, Math.round(Math.pow(pvVal / maxPV, 0.5) * 95)) : 3;
+                            // Square-root visual curve scaling based on UV so bars stand tall and clear
+                            const heightPct = uvVal > 0 ? Math.max(28, Math.round(Math.pow(uvVal / maxUV, 0.5) * 95)) : 3;
                             const isToday = item.date === `${new Date().getMonth() + 1}/${new Date().getDate()}`;
 
                             return (
                               <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative h-full justify-end">
-                                {pvVal > 0 && (
+                                {uvVal > 0 && (
                                   <div className="absolute -top-7 px-2 py-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-mono text-[11px] font-black rounded-md shadow-lg z-10 whitespace-nowrap border border-blue-400/40">
-                                    {pvVal} PV / {uvVal} UV
+                                    {uvVal} UV
                                   </div>
                                 )}
                                 <div className="opacity-0 group-hover:opacity-100 absolute -top-11 px-2.5 py-1 bg-slate-900 border border-blue-400 text-[11px] font-bold rounded-lg text-white font-mono whitespace-nowrap transition-opacity shadow-2xl z-20 pointer-events-none">
-                                  {item.date}: {pvVal} 조회(PV) / {uvVal} 순방문(UV)
+                                  {item.date}: {uvVal}명 순방문(UV) (총 {pvVal}회 페이지뷰)
                                 </div>
                                 <div
                                   className={`w-full rounded-t-md transition-all duration-500 ${
-                                    pvVal > 0
+                                    uvVal > 0
                                       ? 'bg-gradient-to-t from-blue-600 via-indigo-500 to-cyan-400 shadow-[0_0_15px_rgba(59,130,246,0.6)] border-t border-cyan-300'
                                       : 'bg-white/10'
                                   }`}
@@ -674,10 +674,10 @@ const AdminModal = ({ isOpen, onClose }) => {
                   <div className="p-6 bg-[#121722] border border-white/10 rounded-2xl shadow-2xl space-y-4">
                     <h3 className="text-base font-black text-white flex items-center gap-2">
                       <PieChart className="text-blue-400" size={18} />
-                      {trafficPeriod === 'today' && '오늘 채널별 유입 순위 (SNS 포함)'}
-                      {trafficPeriod === 'weekly' && '주간(7일) 채널별 유입 순위 (SNS 포함)'}
-                      {trafficPeriod === 'monthly' && '월간(30일) 채널별 유입 순위 (SNS 포함)'}
-                      {trafficPeriod === 'yearly' && '연도별/월별 채널 유입 순위 (SNS 포함)'}
+                      {trafficPeriod === 'today' && '오늘 채널별 순방문자(UV) 유입 순위 (SNS 포함)'}
+                      {trafficPeriod === 'weekly' && '주간(7일) 채널별 순방문자(UV) 유입 순위 (SNS 포함)'}
+                      {trafficPeriod === 'monthly' && '월간(30일) 채널별 순방문자(UV) 유입 순위 (SNS 포함)'}
+                      {trafficPeriod === 'yearly' && '연도별/월별 채널 순방문자(UV) 유입 순위 (SNS 포함)'}
                     </h3>
                     <div className="space-y-3">
                       {(() => {
@@ -704,7 +704,7 @@ const AdminModal = ({ isOpen, onClose }) => {
                                 {ref.source}
                               </span>
                               <span className="font-mono text-white/70">
-                                {ref.count}회 ({ref.percent}%)
+                                {ref.count}명 ({ref.percent}%)
                               </span>
                             </div>
                             <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
