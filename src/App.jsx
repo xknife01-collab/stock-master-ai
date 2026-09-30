@@ -145,25 +145,31 @@ const App = () => {
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     setIsIOSDevice(ios);
 
-    // Track Page Visit & Referrer (Deduplicate React StrictMode & rapid refreshes)
+    // Track Page Visit & Referrer (Deduplicate React StrictMode & rapid refreshes with UV UUID)
     try {
+      let visitorId = localStorage.getItem('stock_visitor_id');
+      if (!visitorId) {
+        visitorId = 'v_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now().toString(36);
+        localStorage.setItem('stock_visitor_id', visitorId);
+      }
+
       const lastTrackTime = parseInt(sessionStorage.getItem('stock_last_visit_track_time') || '0');
       const now = Date.now();
-        let utmSource = '';
-        try {
-          const searchParams = new URLSearchParams(window.location.search);
-          utmSource = searchParams.get('utm_source') || searchParams.get('ref') || searchParams.get('source') || '';
-          if (!utmSource && window.location.hash.includes('?')) {
-            const hashQuery = window.location.hash.split('?')[1];
-            const hashParams = new URLSearchParams(hashQuery);
-            utmSource = hashParams.get('utm_source') || hashParams.get('ref') || hashParams.get('source') || '';
-          }
-        } catch (e) {}
+      let utmSource = '';
+      try {
+        const searchParams = new URLSearchParams(window.location.search);
+        utmSource = searchParams.get('utm_source') || searchParams.get('ref') || searchParams.get('source') || '';
+        if (!utmSource && window.location.hash.includes('?')) {
+          const hashQuery = window.location.hash.split('?')[1];
+          const hashParams = new URLSearchParams(hashQuery);
+          utmSource = hashParams.get('utm_source') || hashParams.get('ref') || hashParams.get('source') || '';
+        }
+      } catch (e) {}
 
-        const lastUtm = sessionStorage.getItem('stock_last_utm_source') || '';
-        if (now - lastTrackTime > 3000 || (utmSource && utmSource !== lastUtm)) {
-          sessionStorage.setItem('stock_last_visit_track_time', String(now));
-          if (utmSource) sessionStorage.setItem('stock_last_utm_source', utmSource);
+      const lastUtm = sessionStorage.getItem('stock_last_utm_source') || '';
+      if (now - lastTrackTime > 3000 || (utmSource && utmSource !== lastUtm)) {
+        sessionStorage.setItem('stock_last_visit_track_time', String(now));
+        if (utmSource) sessionStorage.setItem('stock_last_utm_source', utmSource);
 
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         fetch(`${API_URL}/api/admin/track-visit`, {
@@ -174,6 +180,7 @@ const App = () => {
             utmSource,
             userAgent: navigator.userAgent,
             isMobile,
+            visitorId,
             isAdView: false
           })
         }).catch(e => console.warn('Traffic tracking skipped', e));

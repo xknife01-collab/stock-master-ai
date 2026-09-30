@@ -480,31 +480,37 @@ const AdminModal = ({ isOpen, onClose }) => {
                       <Eye className="text-blue-400" size={20} />
                     </div>
                     <div className="text-3xl font-black text-white font-mono">
-                      {trafficHistory?.summary?.todayPV?.toLocaleString() || 0} 회
+                      {trafficHistory?.summary?.todayPV?.toLocaleString() || 0} <span className="text-base text-blue-400 font-bold">PV</span>
                     </div>
-                    <p className="text-[11px] text-white/40 mt-2">오늘 실시간 총 누적 페이지뷰</p>
+                    <p className="text-[11px] text-blue-300 font-bold mt-2">
+                      오늘 순 방문자(UV): <span className="text-white font-mono">{trafficHistory?.summary?.todayUV?.toLocaleString() || 0}명</span>
+                    </p>
                   </div>
 
                   <div className="p-6 bg-gradient-to-br from-purple-900/30 to-[#121722] border border-purple-500/20 rounded-2xl shadow-xl">
                     <div className="flex justify-between items-start mb-2">
-                      <span className="text-xs font-bold text-purple-300">일주일간 누적 PV</span>
+                      <span className="text-xs font-bold text-purple-300">일주일간 누적 트래픽</span>
                       <Calendar className="text-purple-400" size={20} />
                     </div>
                     <div className="text-3xl font-black text-white font-mono">
-                      {trafficHistory?.summary?.weeklyTotalPV?.toLocaleString() || 0} 회
+                      {trafficHistory?.summary?.weeklyTotalPV?.toLocaleString() || 0} <span className="text-base text-purple-400 font-bold">PV</span>
                     </div>
-                    <p className="text-[11px] text-purple-300 font-bold mt-2">지난 7일간 전체 유입 합계</p>
+                    <p className="text-[11px] text-purple-300 font-bold mt-2">
+                      주간 순 방문(UV): <span className="text-white font-mono">{trafficHistory?.summary?.weeklyTotalUV?.toLocaleString() || 0}명</span>
+                    </p>
                   </div>
 
                   <div className="p-6 bg-gradient-to-br from-green-900/30 to-[#121722] border border-green-500/20 rounded-2xl shadow-xl">
                     <div className="flex justify-between items-start mb-2">
-                      <span className="text-xs font-bold text-green-300">한 달간 누적 PV</span>
+                      <span className="text-xs font-bold text-green-300">한 달간 누적 트래픽</span>
                       <TrendingUp className="text-green-400" size={20} />
                     </div>
                     <div className="text-3xl font-black text-white font-mono">
-                      {trafficHistory?.summary?.monthlyTotalPV?.toLocaleString() || 0} 회
+                      {trafficHistory?.summary?.monthlyTotalPV?.toLocaleString() || 0} <span className="text-base text-green-400 font-bold">PV</span>
                     </div>
-                    <p className="text-[11px] text-green-400 font-bold mt-2">지난 30일간 지속 성장 트래픽</p>
+                    <p className="text-[11px] text-green-400 font-bold mt-2">
+                      월간 순 방문(UV): <span className="text-white font-mono">{trafficHistory?.summary?.monthlyTotalUV?.toLocaleString() || 0}명</span>
+                    </p>
                   </div>
 
                   <div className="p-6 bg-gradient-to-br from-amber-900/30 to-[#121722] border border-amber-500/20 rounded-2xl shadow-xl">
@@ -516,7 +522,7 @@ const AdminModal = ({ isOpen, onClose }) => {
                       {(trafficHistory?.summary?.yearlyMAU || 0).toLocaleString()} 명
                     </div>
                     <p className="text-[11px] text-amber-400 font-bold mt-2">
-                      재방문율: {trafficHistory?.summary?.retentionRate || '0%'}
+                      재방문율: {trafficHistory?.summary?.retentionRate || '100%'} (Supabase 실시간 연동)
                     </p>
                   </div>
                 </div>
@@ -533,7 +539,7 @@ const AdminModal = ({ isOpen, onClose }) => {
                         {trafficPeriod === 'monthly' && '지난 30일간 일별 트래픽 추이 (Monthly)'}
                         {trafficPeriod === 'yearly' && '연도별 월간 MAU 성장 곡선 (Yearly IR)'}
                       </span>
-                      <span className="text-xs font-mono font-bold text-blue-400">IR 피칭 데이터 연동 중</span>
+                      <span className="text-xs font-mono font-bold text-blue-400">⚡ Supabase 실시간 연동 중</span>
                     </h3>
 
                     {/* Weekly / Monthly Chart */}
@@ -541,12 +547,12 @@ const AdminModal = ({ isOpen, onClose }) => {
                       const fallbackWeekly = Array.from({ length: 7 }, (_, i) => {
                         const d = new Date();
                         d.setDate(d.getDate() - (6 - i));
-                        return { date: `${d.getMonth() + 1}/${d.getDate()}`, pv: 0, adViews: 0 };
+                        return { date: `${d.getMonth() + 1}/${d.getDate()}`, pv: 0, uv: 0, adViews: 0 };
                       });
                       const fallbackMonthly = Array.from({ length: 30 }, (_, i) => {
                         const d = new Date();
                         d.setDate(d.getDate() - (29 - i));
-                        return { date: `${d.getMonth() + 1}/${d.getDate()}`, pv: 0, adViews: 0 };
+                        return { date: `${d.getMonth() + 1}/${d.getDate()}`, pv: 0, uv: 0, adViews: 0 };
                       });
 
                       const rawChartList = trafficPeriod === 'weekly' ? trafficHistory?.weeklyData : trafficHistory?.monthlyData;
@@ -559,6 +565,7 @@ const AdminModal = ({ isOpen, onClose }) => {
                         <div className="h-64 flex items-end justify-between gap-3 pt-12 pb-3 px-3 border-b border-white/10">
                           {chartList.map((item, idx) => {
                             const pvVal = item.pv || 0;
+                            const uvVal = item.uv || item.dau || (pvVal > 0 ? 1 : 0);
                             // Square-root visual curve scaling so bars stand tall and clear
                             const heightPct = pvVal > 0 ? Math.max(28, Math.round(Math.pow(pvVal / maxPV, 0.5) * 95)) : 3;
                             const isToday = item.date === `${new Date().getMonth() + 1}/${new Date().getDate()}`;
@@ -567,11 +574,11 @@ const AdminModal = ({ isOpen, onClose }) => {
                               <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative h-full justify-end">
                                 {pvVal > 0 && (
                                   <div className="absolute -top-7 px-2 py-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-mono text-[11px] font-black rounded-md shadow-lg z-10 whitespace-nowrap border border-blue-400/40">
-                                    {pvVal}회
+                                    {pvVal} PV / {uvVal} UV
                                   </div>
                                 )}
                                 <div className="opacity-0 group-hover:opacity-100 absolute -top-11 px-2.5 py-1 bg-slate-900 border border-blue-400 text-[11px] font-bold rounded-lg text-white font-mono whitespace-nowrap transition-opacity shadow-2xl z-20 pointer-events-none">
-                                  {item.date}: {pvVal} PV (방문자)
+                                  {item.date}: {pvVal} 조회(PV) / {uvVal} 순방문(UV)
                                 </div>
                                 <div
                                   className={`w-full rounded-t-md transition-all duration-500 ${

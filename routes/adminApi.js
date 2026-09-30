@@ -4,315 +4,40 @@ import path from 'path';
 import supabase from '../lib/supabaseClient.js';
 import { getAllPortfoliosForMonitoring } from '../lib/db.js';
 import { sendStopLossAlert } from '../lib/notifier.js';
+import { trafficManager } from '../lib/trafficManager.js';
 
 const router = express.Router();
 
-// --- Persistent Realtime Traffic & Ad View Store ---
-const TRAFFIC_FILE = path.join(process.cwd(), 'traffic_history.json');
-
-const loadTrafficHistoryStore = () => {
-    try {
-        if (fs.existsSync(TRAFFIC_FILE)) {
-            const data = fs.readFileSync(TRAFFIC_FILE, 'utf8');
-            return JSON.parse(data);
-        }
-    } catch (e) {
-        console.warn('⚠️ [Traffic Tracker] Could not load traffic_history.json:', e.message);
-    }
-    return {};
-};
-
-const saveTrafficHistoryStore = (data) => {
-    try {
-        fs.writeFileSync(TRAFFIC_FILE, JSON.stringify(data, null, 2), 'utf8');
-    } catch (e) {
-        console.error('❌ [Traffic Tracker] Failed to save traffic_history.json:', e.message);
-    }
-};
-
-const trafficHistoryStore = loadTrafficHistoryStore();
-
-// --- KST (UTC+9) Helper Functions ---
-const getKSTDateString = (dateObj = new Date()) => {
-    const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
-    const kstDate = new Date(utc + (9 * 60 * 60 * 1000));
-    const yyyy = kstDate.getFullYear();
-    const mm = String(kstDate.getMonth() + 1).padStart(2, '0');
-    const dd = String(kstDate.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-};
-
-const getKSTHour = (dateObj = new Date()) => {
-    const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
-    const kstDate = new Date(utc + (9 * 60 * 60 * 1000));
-    return kstDate.getHours();
-};
-
-const todayKey = getKSTDateString();
-const todayHist = trafficHistoryStore[todayKey] || {};
-
-const defaultReferrers = () => ({
-    '유튜브 (Shorts/채널)': 0,
-    '인스타그램 (Instagram)': 0,
-    '티스토리 (Tstory)': 0,
-    '페이스북 (Facebook)': 0,
-    '틱톡 (TikTok)': 0,
-    '네이버 (검색/블로그)': 0,
-    '구글 (Google Search)': 0,
-    '카카오톡 / 오픈채팅': 0,
-    '직접 방문 (Direct / 북마크)': 0,
-    '기타 타사이트': 0
-});
-
-const defaultDevices = () => ({
-    '모바일 PWA (Mobile)': 0,
-    '데스크톱 PC (Desktop)': 0
-});
-
-const trafficStore = {
-    date: todayKey,
-    todayPV: todayHist.pv || 0,
-    todayAdViews: todayHist.adViews || 0,
-    referrers: todayHist.referrers ? { ...defaultReferrers(), ...todayHist.referrers } : defaultReferrers(),
-    devices: todayHist.devices ? { ...defaultDevices(), ...todayHist.devices } : defaultDevices(),
-    hourly: todayHist.hourly || Array(24).fill(0)
-};
-
-// Supabase 클라우드 DB에서 누적 트래픽 데이터 복원 (Vercel 재배포 시 데이터 리셋 방지)
-if (supabase) {
-    supabase.from('stock_master_map')
-        .select('code')
-        .eq('name', '__traffic_history__')
-        .maybeSingle()
-        .then(({ data }) => {
-            if (data && data.code) {
-                try {
-                    const cloudStore = JSON.parse(data.code);
-                    Object.assign(trafficHistoryStore, cloudStore);
-                    const currentToday = trafficHistoryStore[todayKey];
-                    if (currentToday) {
-                        trafficStore.todayPV = currentToday.pv || trafficStore.todayPV;
-                        trafficStore.todayAdViews = currentToday.adViews || trafficStore.todayAdViews;
-                        if (currentToday.referrers) {
-                            trafficStore.referrers = { ...defaultReferrers(), ...currentToday.referrers };
-                        }
-                        if (currentToday.devices) {
-                            trafficStore.devices = { ...defaultDevices(), ...currentToday.devices };
-                        }
-                        if (currentToday.hourly) {
-                            trafficStore.hourly = [...currentToday.hourly];
-                        }
-                    }
-                    console.log('⚡ [Supabase] traffic_history 클라우드 DB 복원 완료');
-                } catch (e) {
-                    console.error('❌ Failed parsing Supabase traffic history:', e.message);
-                }
-            }
-        }).catch(err => console.error('❌ Error fetching Supabase traffic history:', err.message));
-}
-
-// 📺 실시간 15초 광고 시청자 로그 저장소
-const adViewLogs = [];
-
-const syncTodayHistory = () => {
-    try {
-        const today = trafficStore.date || getKSTDateString();
-        const devices = trafficStore.devices || defaultDevices();
-        const referrers = trafficStore.referrers || defaultReferrers();
-        const hourly = Array.isArray(trafficStore.hourly) ? trafficStore.hourly : Array(24).fill(0);
-        const todayPV = trafficStore.todayPV || 0;
-        const todayAdViews = trafficStore.todayAdViews || 0;
-
-        trafficHistoryStore[today] = {
-            date: today,
-            pv: todayPV,
-            adViews: todayAdViews,
-            dau: Math.min(todayPV, Object.keys(devices).length || 1),
-            referrers: { ...referrers },
-            devices: { ...devices },
-            hourly: [...hourly]
-        };
-        saveTrafficHistoryStore(trafficHistoryStore);
-        if (supabase) {
-            supabase.from('stock_master_map')
-                .upsert({ name: '__traffic_history__', code: JSON.stringify(trafficHistoryStore) }, { onConflict: 'name' })
-                .then(({ error }) => {
-                    if (error) console.error('❌ Supabase traffic sync error:', error.message);
-                })
-                .catch(err => console.error('❌ Supabase traffic sync catch:', err.message));
-        }
-    } catch (err) {
-        console.error('❌ Error in syncTodayHistory:', err.message);
-    }
-};
-
-// 날짜 변경 시 트래픽 카운터 초기화 리셋 (KST 기준 자정 리셋)
-const resetTrafficIfNeeded = () => {
-    const today = getKSTDateString();
-    if (trafficStore.date !== today) {
-        syncTodayHistory();
-        trafficStore.date = today;
-        const existing = trafficHistoryStore[today] || {};
-        trafficStore.todayPV = existing.pv || 0;
-        trafficStore.todayAdViews = existing.adViews || 0;
-        trafficStore.referrers = existing.referrers ? { ...existing.referrers } : defaultReferrers();
-        trafficStore.devices = existing.devices ? { ...existing.devices } : defaultDevices();
-        trafficStore.hourly = existing.hourly ? [...existing.hourly] : Array(24).fill(0);
-    }
-    syncTodayHistory();
-};
-
-// 0. 방문 / 광고 시청 트래킹 API
+// 0. 방문 / 광고 시청 트래킹 API (UV & PV 분리 집계 및 Supabase 실시간 동기화)
 router.post('/track-visit', (req, res) => {
-    resetTrafficIfNeeded();
-
-    const { referrer, utmSource, userAgent, isMobile, isAdView } = req.body;
-    const currentHour = getKSTHour();
-
-    if (isAdView) {
-        trafficStore.todayAdViews++;
-    } else {
-        trafficStore.todayPV++;
-        trafficStore.hourly[currentHour]++;
-
-        // 기기 구분
-        if (isMobile) {
-            trafficStore.devices['모바일 PWA (Mobile)']++;
-        } else {
-            trafficStore.devices['데스크톱 PC (Desktop)']++;
-        }
-
-        // 유입 경로 판별 (Referrer Parsing for SNS & Search Engines)
-        const ref = (referrer || '').toLowerCase();
-        const utm = (utmSource || '').toLowerCase();
-        const ua = (userAgent || '').toLowerCase();
-
-        if (
-            utm.includes('youtube') || utm.includes('shorts') ||
-            ref.includes('youtube.com') || ref.includes('youtu.be')
-        ) {
-            trafficStore.referrers['유튜브 (Shorts/채널)']++;
-        } else if (
-            utm.includes('instagram') || utm.includes('insta') || utm.includes('ig') ||
-            ref.includes('instagram.com') || ref.includes('ig.me') ||
-            ua.includes('instagram')
-        ) {
-            trafficStore.referrers['인스타그램 (Instagram)']++;
-        } else if (
-            utm.includes('facebook') || utm.includes('fb') ||
-            ref.includes('facebook.com') || ref.includes('fb.com') || ref.includes('m.facebook.com') ||
-            ua.includes('fb_iab') || ua.includes('fban') || ua.includes('fbav')
-        ) {
-            trafficStore.referrers['페이스북 (Facebook)']++;
-        } else if (
-            utm.includes('tiktok') ||
-            ref.includes('tiktok.com') ||
-            ua.includes('tiktok')
-        ) {
-            trafficStore.referrers['틱톡 (TikTok)']++;
-        } else if (
-            utm.includes('tstory') || utm.includes('tistory') ||
-            ref.includes('tistory.com') || ref.includes('tstory.com') ||
-            ref.includes('daum.net') || utm.includes('daum')
-        ) {
-            trafficStore.referrers['티스토리 (Tstory)']++;
-        } else if (
-            utm.includes('naver') || utm.includes('blog.naver') ||
-            ref.includes('naver.com') || ref.includes('blog.naver.com') ||
-            ref.includes('m.blog.naver.com') ||
-            ua.includes('naver')
-        ) {
-            trafficStore.referrers['네이버 (검색/블로그)']++;
-        } else if (
-            utm.includes('google') ||
-            ref.includes('google.com') || ref.includes('google.co.kr')
-        ) {
-            trafficStore.referrers['구글 (Google Search)']++;
-        } else if (
-            utm.includes('kakao') || utm.includes('kakaotalk') ||
-            ref.includes('kakao.com') || ref.includes('kakaotalk') ||
-            ua.includes('kakaotalk')
-        ) {
-            trafficStore.referrers['카카오톡 / 오픈채팅']++;
-        } else if (!ref || ref === 'direct' || ref.includes('stockmaster-ai.vercel.app') || ref.includes('localhost')) {
-            trafficStore.referrers['직접 방문 (Direct / 북마크)']++;
-        } else {
-            trafficStore.referrers['기타 타사이트']++;
-        }
-    }
-
-    syncTodayHistory();
+    const { referrer, utmSource, userAgent, isMobile, visitorId, isAdView } = req.body;
+    trafficManager.recordVisit({ referrer, utmSource, userAgent, isMobile, visitorId, isAdView });
     res.json({ success: true });
 });
 
 // 📺 0-1. 15초 동영상 광고 시청 완수 기록 API
 router.post('/track-ad-view', (req, res) => {
-    resetTrafficIfNeeded();
-    trafficStore.todayAdViews++;
-
     const { userEmail, unlockedItems, device } = req.body;
-
-    const logEntry = {
-        id: `ad_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-        createdAt: new Date().toISOString(),
-        userEmail: userEmail || '손님 (Guest/비회원)',
-        unlockedItems: unlockedItems || 'AI 1위, 2위 TOP PICK 종목 (30분 해금)',
-        adDuration: '15초 완료',
-        status: '✅ 시청 완수',
-        device: device || 'Mobile PWA'
-    };
-
-    adViewLogs.unshift(logEntry);
-    if (adViewLogs.length > 100) adViewLogs.pop(); // 최근 100개 유지
-
-    syncTodayHistory();
-    console.log(`📺 [Ad View Tracker] 15초 광고 시청 완수: ${logEntry.userEmail} -> ${logEntry.unlockedItems}`);
-
-    res.json({ success: true, log: logEntry });
+    const log = trafficManager.recordAdView({ userEmail, unlockedItems, device });
+    res.json({ success: true, log });
 });
 
 // 📺 0-2. 실시간 광고 시청자 로그 목록 조회 API
 router.get('/ad-view-logs', (req, res) => {
     res.json({
         success: true,
-        todayAdViews: trafficStore.todayAdViews,
-        logs: adViewLogs
+        todayAdViews: trafficManager.trafficStore.todayAdViews,
+        logs: trafficManager.adViewLogs
     });
 });
 
-// 1. 유입 분석 데이터 조회 API (오늘 기준)
-router.get('/traffic', (req, res) => {
+// 1. 유입 분석 데이터 조회 API (오늘 기준 실시간 Supabase 동기화)
+router.get('/traffic', async (req, res) => {
     try {
-        resetTrafficIfNeeded();
-
-        const todayPV = trafficStore.todayPV || 0;
-        const totalPV = Math.max(1, todayPV);
-        const devices = trafficStore.devices || defaultDevices();
-        const referrers = trafficStore.referrers || defaultReferrers();
-        const totalDev = Math.max(1, Object.values(devices).reduce((a, b) => a + b, 0));
-
-        const referrerBreakdown = Object.entries(referrers).map(([source, count]) => ({
-            source,
-            count: count || 0,
-            percent: Math.round(((count || 0) / totalPV) * 100)
-        })).sort((a, b) => b.count - a.count);
-
-        const deviceBreakdown = Object.entries(devices).map(([device, count]) => ({
-            device,
-            count: count || 0,
-            percent: Math.round(((count || 0) / totalDev) * 100)
-        }));
-
+        const traffic = await trafficManager.getTrafficSnapshot();
         res.json({
             success: true,
-            traffic: {
-                date: trafficStore.date || getKSTDateString(),
-                todayPV: todayPV,
-                todayAdViews: trafficStore.todayAdViews || 0,
-                referrerBreakdown,
-                deviceBreakdown,
-                hourlyHits: trafficStore.hourly || Array(24).fill(0)
-            }
+            traffic
         });
     } catch (err) {
         console.error('❌ Error in /traffic endpoint:', err.message);
@@ -320,151 +45,15 @@ router.get('/traffic', (req, res) => {
     }
 });
 
-// 📊 IR 피칭용 기간별 정밀 분석 API (실제 트래킹 데이터 연동)
-router.get('/traffic-history', (req, res) => {
+// 📊 IR 피칭용 기간별 정밀 분석 API (실제 트래킹 데이터 및 Supabase 실시간 연동)
+router.get('/traffic-history', async (req, res) => {
     try {
-        const period = req.query.period || 'weekly'; // today, weekly, monthly, yearly
-        resetTrafficIfNeeded();
-
-    // current KST date
-    const kstNowString = getKSTDateString();
-    const [currY, currM, currD] = kstNowString.split('-').map(Number);
-    const now = new Date(currY, currM - 1, currD);
-    
-    // 지난 7일 (Weekly)
-    const weeklyData = [];
-    const weeklyReferrers = defaultReferrers();
-    for (let i = 6; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(now.getDate() - i);
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        const dateKey = `${yyyy}-${mm}-${dd}`;
-        const dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
-
-        const rec = (dateKey === trafficStore.date)
-            ? { pv: trafficStore.todayPV, adViews: trafficStore.todayAdViews, referrers: trafficStore.referrers }
-            : (trafficHistoryStore[dateKey] || { pv: 0, adViews: 0, referrers: {} });
-
-        if (rec.referrers) {
-            Object.entries(rec.referrers).forEach(([k, v]) => {
-                if (weeklyReferrers[k] !== undefined) weeklyReferrers[k] += (v || 0);
-            });
-        }
-
-        weeklyData.push({
-            date: dateStr,
-            pv: rec.pv || 0,
-            adViews: rec.adViews || 0,
-            dau: rec.dau || (rec.pv > 0 ? 1 : 0)
+        const period = req.query.period || 'weekly';
+        const data = await trafficManager.getTrafficHistory(period);
+        res.json({
+            success: true,
+            ...data
         });
-    }
-
-    // 지난 30일 (Monthly)
-    const monthlyData = [];
-    const monthlyReferrers = defaultReferrers();
-    for (let i = 29; i >= 0; i--) {
-        const d = new Date(now);
-        d.setDate(now.getDate() - i);
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        const dateKey = `${yyyy}-${mm}-${dd}`;
-        const dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
-
-        const rec = (dateKey === trafficStore.date)
-            ? { pv: trafficStore.todayPV, adViews: trafficStore.todayAdViews, referrers: trafficStore.referrers }
-            : (trafficHistoryStore[dateKey] || { pv: 0, adViews: 0, referrers: {} });
-
-        if (rec.referrers) {
-            Object.entries(rec.referrers).forEach(([k, v]) => {
-                if (monthlyReferrers[k] !== undefined) monthlyReferrers[k] += (v || 0);
-            });
-        }
-
-        monthlyData.push({
-            date: dateStr,
-            pv: rec.pv || 0,
-            adViews: rec.adViews || 0,
-            dau: rec.dau || (rec.pv > 0 ? 1 : 0)
-        });
-    }
-
-    // 연도별/월별 (1월~12월 전체 12개 월별 데이터)
-    const yearlyData = [];
-    const yearlyReferrers = defaultReferrers();
-    const currentYear = currY;
-
-    for (let m = 1; m <= 12; m++) {
-        const monthPrefix = `${currentYear}-${String(m).padStart(2, '0')}`;
-        let monthPV = 0;
-        let monthAdViews = 0;
-
-        // Sum across trafficHistoryStore
-        Object.entries(trafficHistoryStore).forEach(([dKey, item]) => {
-            if (dKey.startsWith(monthPrefix)) {
-                monthPV += (item.pv || 0);
-                monthAdViews += (item.adViews || 0);
-                if (item.referrers) {
-                    Object.entries(item.referrers).forEach(([rk, rv]) => {
-                        if (yearlyReferrers[rk] !== undefined) yearlyReferrers[rk] += (rv || 0);
-                    });
-                }
-            }
-        });
-
-        // Add today if in this month
-        if (trafficStore.date.startsWith(monthPrefix) && !trafficHistoryStore[trafficStore.date]) {
-            monthPV += trafficStore.todayPV;
-            monthAdViews += trafficStore.todayAdViews;
-            Object.entries(trafficStore.referrers).forEach(([rk, rv]) => {
-                if (yearlyReferrers[rk] !== undefined) yearlyReferrers[rk] += (rv || 0);
-            });
-        }
-
-        const isCurrentMonth = m === currM;
-        yearlyData.push({
-            month: `${m}월${isCurrentMonth ? ' (현재)' : ''}`,
-            mau: monthPV > 0 ? Math.max(1, Math.floor(monthPV * 0.7)) : 0,
-            pv: monthPV,
-            adViews: monthAdViews,
-            revenue: `$${(monthAdViews * 0.045).toFixed(2)}`
-        });
-    }
-
-    const monthlySumPV = monthlyData.reduce((sum, item) => sum + item.pv, 0);
-    const weeklySumPV = weeklyData.reduce((sum, item) => sum + item.pv, 0);
-
-    // Period specific Referrer breakdown selection
-    let activeReferrers = trafficStore.referrers;
-    if (period === 'weekly') activeReferrers = weeklyReferrers;
-    else if (period === 'monthly') activeReferrers = monthlyReferrers;
-    else if (period === 'yearly') activeReferrers = yearlyReferrers;
-
-    const totalPeriodPV = Math.max(1, Object.values(activeReferrers).reduce((a, b) => a + b, 0));
-    const referrerBreakdown = Object.entries(activeReferrers).map(([source, count]) => ({
-        source,
-        count,
-        percent: Math.round((count / totalPeriodPV) * 100)
-    })).sort((a, b) => b.count - a.count);
-
-    res.json({
-        success: true,
-        period,
-        summary: {
-            todayPV: trafficStore.todayPV,
-            todayAdViews: trafficStore.todayAdViews,
-            weeklyTotalPV: weeklySumPV,
-            monthlyTotalPV: monthlySumPV,
-            yearlyMAU: Math.max(1, Math.floor(monthlySumPV * 0.7)),
-            retentionRate: '100%'
-        },
-        weeklyData,
-        monthlyData,
-        yearlyData,
-        referrerBreakdown
-    });
     } catch (err) {
         console.error('❌ Error in /traffic-history endpoint:', err.message);
         res.status(500).json({ success: false, error: err.message });
