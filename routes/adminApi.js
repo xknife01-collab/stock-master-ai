@@ -571,7 +571,7 @@ router.get('/stats', async (req, res) => {
 const AD_CONFIG_FILE = path.join(process.cwd(), 'ad_config.json');
 
 let inMemoryAdConfig = {
-    showAds: true,
+    showAds: false,
     previewDurationMinutes: 10,
     resetIntervalMinutes: 30,
     updatedAt: new Date().toISOString()

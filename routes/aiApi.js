@@ -3,7 +3,7 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { aiModel, vertexModel, callVertexAiRest } from '../lib/ai.js';
+import { aiModel, vertexModel, callVertexAiRest, executeGeminiRequest } from '../lib/ai.js';
 
 import { getAccessToken, KIS_BASE_URL, getKisHeaders, fetchStockPrice, fetchStockAnalytics, fetchStockInvestorTrend, fetchMarketRankings, fetchConditionResult, fetchMultipleStockQuantMetrics, fetchStockFinancialsForVeto, fetchIndexDailyHistory, initKisStockMaster, fetchStockIntradayInvestorEstimate, calculateTechnicalIndicators, setRealtimeTaskActive } from '../lib/kisCore.js';
 import { fetchMacroIndicators } from './macroApi.js';
@@ -3968,25 +3968,17 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
 };
 
 const fetchAiContentWithRetry = async (prompt, retries = 3, delay = 1500) => {
-    // 1차/2차/3차: 구글 AI 스튜디오 SDK (GEMINI_API_KEY 사용 - 100% 제미나이 3차까지 연속 재시도)
-    const runCall = async (model) => {
-        const result = await model.generateContent({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" }
-        });
-        const text = result.response.text ? result.response.text().trim() : result.response.candidates[0].content.parts[0].text.trim();
-        return JSON.parse(text);
-    };
-
     let attempt = 0;
     while (attempt < retries) {
         try {
-            const studioRes = await runCall(aiModel);
-            console.log(`✅ [AI Engine] Gemini API Studio 분석 성공. (시도 ${attempt + 1}/${retries})`);
-            return studioRes;
+            const studioRes = await executeGeminiRequest(prompt, { responseMimeType: "application/json" });
+            if (studioRes) {
+                console.log(`✅ [AI Engine] Gemini 멀티 키/모델 분석 최종 완료.`);
+                return studioRes;
+            }
         } catch (e) {
             attempt++;
-            console.warn(`⚠️ [Gemini AI Engine] 호출 오류 (시도 ${attempt}/${retries}): ${e.message}`);
+            console.warn(`⚠️ [Gemini AI Engine] 전체 키/모델 풀 호출 오류 (시도 ${attempt}/${retries}): ${e.message}`);
             if (attempt < retries) {
                 const waitTime = delay * Math.pow(1.5, attempt) + Math.random() * 500;
                 console.log(`🔄 [Gemini AI Retry] ${Math.round(waitTime)}ms 후 ${attempt + 1}차 연속 재시도를 집행합니다...`);
@@ -4034,47 +4026,26 @@ router.get('/history', async (req, res) => {
     try { res.json(await getRagDiary()); } catch (e) { res.status(500).json({ error: 'Failed' }); }
 });
 
-// --- 🔧 Gemini AI 진단 엔드포인트 (임시) ---
+// --- 🔧 Gemini AI 진단 엔드포인트 ---
 router.get('/test-gemini', async (req, res) => {
+    const rawKeys = [process.env.GEMINI_API_KEY_1, process.env.GEMINI_API_KEY_2, process.env.GEMINI_API_KEY].filter(Boolean);
     const diagnostics = {
         timestamp: new Date().toISOString(),
-        geminiApiKeySet: !!process.env.GEMINI_API_KEY,
-        geminiApiKeyPrefix: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.slice(0, 10) + '...' : 'NOT SET',
-        googleCloudProject: process.env.GOOGLE_CLOUD_PROJECT || 'NOT SET',
+        keysConfiguredCount: rawKeys.length,
+        keyPrefixes: rawKeys.map(k => k.slice(0, 10) + '...'),
         mockGemini: process.env.MOCK_GEMINI,
         tests: {}
     };
 
-    // Test 1: Simple text generation
+    // Test: JSON mode generation via Multi-Engine
     try {
-        const result = await aiModel.generateContent({
-            contents: [{ role: 'user', parts: [{ text: 'Say hello in Korean. One sentence only.' }] }]
-        });
-        const text = result.response.text ? result.response.text() : result.response.candidates[0].content.parts[0].text;
-        diagnostics.tests.simpleText = { status: 'SUCCESS', response: text.trim() };
+        const result = await executeGeminiRequest('Return JSON: {"test": "ok", "engine": "multi-key-cascade"}', { responseMimeType: "application/json" });
+        diagnostics.tests.multiEngineJson = { status: 'SUCCESS', response: result };
     } catch (e) {
-        diagnostics.tests.simpleText = { 
+        diagnostics.tests.multiEngineJson = { 
             status: 'FAILED', 
             error: e.message, 
-            errorCode: e.status || e.code || 'unknown',
-            errorDetails: JSON.stringify(e.errorDetails || e.cause || {}).slice(0, 500)
-        };
-    }
-
-    // Test 2: JSON mode generation (same as pulse uses)
-    try {
-        const result = await aiModel.generateContent({
-            contents: [{ role: 'user', parts: [{ text: 'Return JSON: {"test": "ok", "model": "gemini-2.5-flash"}' }] }],
-            generationConfig: { responseMimeType: "application/json" }
-        });
-        const text = result.response.text ? result.response.text() : result.response.candidates[0].content.parts[0].text;
-        diagnostics.tests.jsonMode = { status: 'SUCCESS', response: JSON.parse(text.trim()) };
-    } catch (e) {
-        diagnostics.tests.jsonMode = { 
-            status: 'FAILED', 
-            error: e.message, 
-            errorCode: e.status || e.code || 'unknown',
-            errorDetails: JSON.stringify(e.errorDetails || e.cause || {}).slice(0, 500)
+            errorCode: e.status || e.code || 'unknown'
         };
     }
 

@@ -5,6 +5,7 @@ import { API_URL } from './config.js';
 // Layout Components
 import Header from './components/Layout/Header';
 import FooterTicker from './components/Layout/FooterTicker';
+import FooterDisclaimer from './components/Layout/FooterDisclaimer';
 import FloatingAlerts from './components/Layout/FloatingAlerts';
 import MacroTicker from './components/Layout/MacroTicker';
 
@@ -52,7 +53,7 @@ const App = () => {
 
   // Global Session Video Ad Pop-up States
   const [isAdModalOpen, setIsAdModalOpen] = useState(false);
-  const [adConfig, setAdConfig] = useState({ showAds: true, previewDurationMinutes: 10, resetIntervalMinutes: 30 });
+  const [adConfig, setAdConfig] = useState({ showAds: false, previewDurationMinutes: 10, resetIntervalMinutes: 30 });
 
   // /admin URL 경로 감지 리스너
   useEffect(() => {
@@ -447,10 +448,11 @@ const App = () => {
         {/* 7. AI 트레이딩 일지 (성과 공개 대시보드) */}
         <TradingJournal user={user} />
 
-        {/* 8. Floating UI */}
+        {/* 8. Floating UI & Footer Legal Disclaimer */}
         <FloatingAlerts alerts={alerts} />
         <FooterTicker stocks={stocks} />
         <StickyStripBanner showAds={adConfig.showAds} />
+        <FooterDisclaimer />
 
         {/* 8. Modals */}
         <QuantResearchPage 
