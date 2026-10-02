@@ -997,16 +997,9 @@ export const executeHourlyPulse = async (force = false) => {
     // 09:15 이전 시간대인 경우에는 장 운영 시간 외로 간주하여 캐시 제공만 활성화
     const marketOpen = !isBeforeFirstPulse && isMarketOpen();
 
-    // 2. 장외 시간 및 캐시 확인
-    const todayDatePrefix = `${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-${now.getUTCDate()}`;
-    const isCacheDateToday = cache && (
-        (cache.pulseKey && cache.pulseKey.startsWith(todayDatePrefix)) ||
-        (cache.tenMinKey && cache.tenMinKey.startsWith(todayDatePrefix)) ||
-        (cache.halfHourKey && cache.halfHourKey.startsWith(todayDatePrefix))
-    );
-
-    // 오늘자 캐시가 이미 존재하고 장외 시간인 경우에만 이전 분석 결과를 고정 제공
-    if (!force && !marketOpen && isCacheDateToday) {
+    // 2. 🛡️ [장외 시간 Gemini 호출 100% 원천 차단 가드]
+    // 장외 시간(KST 15:35 ~ 익일 09:00, 주말/휴장일)에는 force가 아닐 경우, 날짜와 무관하게 마지막 정규장 분석 캐시를 즉시 반환
+    if (!force && !marketOpen) {
         let pulseData = null;
         let savedTime = null;
         if (cache && cache.pulse) {
@@ -1015,7 +1008,7 @@ export const executeHourlyPulse = async (force = false) => {
         }
 
         if (pulseData) {
-            console.log(`💤 [Pulse] 장 마감 상태 (오늘자 이전 분석 결과 캐시 고정 제공: ${savedTime || timeStr})`);
+            console.log(`💤 [Pulse] 장외/새벽 시간대 감지 - Gemini API 호출 원천 차단 및 마지막 정규장 분석 캐시 즉시 제공 (${savedTime || timeStr})`);
             await refreshRecommendedPrices(pulseData);
             cleanSignal(pulseData);
             
@@ -1039,8 +1032,15 @@ export const executeHourlyPulse = async (force = false) => {
         }
     }
 
-    // 3. 캐시 확인 및 즉시 제공 (신규 펄스는 백그라운드에서 비동기 갱신)
-    if (!force && cache && cache.pulse && isCacheDateToday) {
+    // 3. 캐시 확인 및 즉시 제공 (장중 신규 펄스는 백그라운드에서 비동기 갱신)
+    const todayDatePrefix = `${now.getUTCFullYear()}-${now.getUTCMonth() + 1}-${now.getUTCDate()}`;
+    const isCacheDateToday = cache && (
+        (cache.pulseKey && cache.pulseKey.startsWith(todayDatePrefix)) ||
+        (cache.tenMinKey && cache.tenMinKey.startsWith(todayDatePrefix)) ||
+        (cache.halfHourKey && cache.halfHourKey.startsWith(todayDatePrefix))
+    );
+
+    if (!force && cache && cache.pulse && (isCacheDateToday || !marketOpen)) {
         let pulseData = cache.pulse.data || cache.pulse;
 
         if (marketOpen && cache.pulseKey !== pulseKey && cache.tenMinKey !== pulseKey && !fetchingAiSignalPromise) {
@@ -3218,11 +3218,11 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
         finalSortedScored.sort((a, b) => b.totalScore - a.totalScore);
 
         // 30분 단위 AI 리포트 캐시가 유효한지 검사 (force가 아닐 때)
-        // [버그 수정] halfHourKey 일치만으로 판단하면 Render 재시작 후 Supabase 낡은 캐시를
-        // 계속 재사용하는 문제 발생 → savedTime 기준 30분 만료 여부를 이중으로 검사
-        const isCacheKeyMatch = !force && cache && cache.halfHourKey === currentHalfHourKey && cache.pulse && cache.pulse.theme && cache.pulse.theme !== "시장 급락 및 패닉 관망 (Safe Mode)";
+        // [버그 수정] 장중(isMarketOpen)일 때만 savedTime 기준 30분 만료 여부를 검사
+        // 장외 시간대에는 시장이 멈춰 있으므로 절대 캐시를 만료시키지 않고 마지막 분석 리포트를 보존함
+        const isCacheKeyMatch = !force && cache && (cache.halfHourKey === currentHalfHourKey || !isMarketOpen()) && cache.pulse && cache.pulse.theme && cache.pulse.theme !== "시장 급락 및 패닉 관망 (Safe Mode)";
         let isCacheExpiredBySavedTime = false;
-        if (isCacheKeyMatch && cache.savedTime) {
+        if (isMarketOpen() && isCacheKeyMatch && cache.savedTime) {
             // savedTime 형식: "08.12 11:10" → KST 기준 파싱
             try {
                 const [datePart, timePart] = cache.savedTime.split(' ');
@@ -3233,14 +3233,14 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
                 const diffMs = (Date.now() + 9 * 60 * 60 * 1000) - savedKst.getTime();
                 if (diffMs > 35 * 60 * 1000) { // 35분 이상 경과 시 만료로 판단 (30분 + 여유 5분)
                     isCacheExpiredBySavedTime = true;
-                    console.log(`⏰ [Pulse] 캐시 savedTime(${cache.savedTime}) 기준 ${(diffMs/60000).toFixed(0)}분 경과 → 30분 유효기간 초과, Gemini 재호출 강제 실행`);
+                    console.log(`⏰ [Pulse] 캐시 savedTime(${cache.savedTime}) 기준 ${(diffMs/60000).toFixed(0)}분 경과 → 30분 유효기간 초과, 장중 Gemini 재호출 실행`);
                 }
             } catch (parseErr) {
                 console.warn('[Pulse] savedTime 파싱 실패, 안전하게 Gemini 재호출:', parseErr.message);
                 isCacheExpiredBySavedTime = true;
             }
         }
-        const isReportCacheValid = isCacheKeyMatch && !isCacheExpiredBySavedTime;
+        const isReportCacheValid = !isMarketOpen() || (isCacheKeyMatch && !isCacheExpiredBySavedTime);
         
         if (isReportCacheValid) {
             console.log(`♻️ [Pulse] 이번 30분 주기 리포트가 유효하여 Gemini API 호출을 생략하고 캐시된 보고서를 재사용합니다. (키: ${currentHalfHourKey})`);
@@ -3456,7 +3456,17 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
             console.warn('Failed to dump selectionPrompt:', e.message);
         }
 
-        const selectionRaw = await fetchAiContent(selectionPrompt);
+        let selectionRaw = null;
+        if (!isMarketOpen() && !force && cache && cache.pulse) {
+            console.log('💤 [Pulse Guard] 장외 시간: 1단계 Gemini 종목 선별 호출 생략 (기존 캐시 활용)');
+            const cachedData = cache.pulse.data || cache.pulse;
+            selectionRaw = {
+                theme: cachedData.theme || '전기전자',
+                candidates: (cachedData.candidates || []).map(c => c.name || c.n)
+            };
+        } else {
+            selectionRaw = await fetchAiContent(selectionPrompt, { force });
+        }
         console.log('Selection Raw Output:', JSON.stringify(selectionRaw, null, 2));
         const rawCandidates = selectionRaw?.candidates || [];
         
@@ -3858,13 +3868,18 @@ const _executeHourlyPulseInternal = async (currentHalfHourKey, currentTenMinKey,
         }
 
         let signalData = null;
-        try {
-            const finalRaw = await fetchAiContent(finalPrompt);
-            if (finalRaw) {
-                signalData = finalRaw.signal || finalRaw;
+        if (!isMarketOpen() && !force && cache && cache.pulse) {
+            console.log('💤 [Pulse Guard] 장외 시간: 2단계 Gemini 리포트 생성 호출 생략 (기존 캐시 유지)');
+            signalData = cache.pulse.data || cache.pulse;
+        } else {
+            try {
+                const finalRaw = await fetchAiContent(finalPrompt, { force });
+                if (finalRaw) {
+                    signalData = finalRaw.signal || finalRaw;
+                }
+            } catch (aiErr) {
+                console.warn("⚠️ [Pulse] Gemini AI 호출 실패/지연: 10분 실시간 KIS 퀀트 전광판은 100% 정상 수집 및 갱신됩니다:", aiErr.message);
             }
-        } catch (aiErr) {
-            console.warn("⚠️ [Pulse] Gemini AI 호출 실패/지연: 10분 실시간 KIS 퀀트 전광판은 100% 정상 수집 및 갱신됩니다:", aiErr.message);
         }
 
         if (!signalData) {
@@ -4008,7 +4023,14 @@ const fetchAiContentWithRetry = async (prompt, retries = 3, delay = 1500) => {
 
 
 // --- AI Helper (Used in passes) ---
-const fetchAiContent = async (p) => {
+const fetchAiContent = async (p, options = {}) => {
+    // 🛡️ [장외 시간 Gemini 호출 절대 금지 Guard]
+    // 정규장 운영 시간(KST 09:00 ~ 15:35, 평일 월~금)이 아닌 경우, Gemini 유료 API 호출을 100% 원천 차단
+    if (!options.force && !isMarketOpen()) {
+        console.log('🛑 [Gemini Hard Block] 장외/야간/새벽 시간대 감지: Gemini 유료 API 호출이 100% 원천 차단되었습니다.');
+        return null;
+    }
+
     if (process.env.MOCK_GEMINI === 'true') {
         console.log('🤖 [Mock AI] MOCK_GEMINI=true detected. Returning mock analysis response immediately.');
         return {

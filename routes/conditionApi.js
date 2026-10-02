@@ -163,6 +163,11 @@ router.get('/condition-search/:seq', ensureToken, async (req, res) => {
 // 3. 신규 포착 종목 AI 분석 알림
 export const setupConditionApi = (aiModel) => {
     router.get('/condition-alerts', ensureToken, async (req, res) => {
+        // 🛡️ 장외 시간대에는 KIS 및 Gemini AI 호출을 원천 차단
+        if (!isMarketOpen()) {
+            return res.json([]);
+        }
+
         const targetSeq = req.query.seq || '0'; 
         
         try {
